@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4226,6 +4333,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-homologous-recombination-repair-deficiency" data-dismech-node="Homologous Recombination Repair Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Homologous Recombination Repair Deficiency</div>
 
+
                 <div class="item-desc">Loss of functional BRCA1 or BRCA2 impairs homologous recombination repair (HRR), the high-fidelity pathway for repairing DNA double-strand breaks. This leads to accumulation of genomic instability and reliance on error-prone repair pathways.</div>
 
 
@@ -4368,6 +4476,7 @@ This pathophysiological event occurs in prostate gland (UBERON:0002367). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genomic-instability" data-dismech-node="Genomic Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Genomic Instability</div>
 
+
                 <div class="item-desc">HRR deficiency leads to genomic instability characterized by chromosomal rearrangements, copy number alterations, and mutational signatures typical of BRCA deficiency. This drives aggressive tumor behavior but also creates therapeutic vulnerabilities.</div>
 
 
@@ -4471,6 +4580,7 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-synthetic-lethality-with-parp-inhibition" data-dismech-node="Synthetic Lethality with PARP Inhibition" data-dismech-type="pathophysiology">
                 <div class="item-name">Synthetic Lethality with PARP Inhibition</div>
 
+
                 <div class="item-desc">PARP enzymes are essential for single-strand break repair. In HRR-deficient cells, PARP inhibition causes accumulation of double-strand breaks that cannot be repaired, leading to synthetic lethality and selective tumor cell death.</div>
 
 
@@ -4549,6 +4659,7 @@ This pathophysiological event involves decreased single-strand break repair (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-parp-androgen-receptor-co-dependency" data-dismech-node="PARP-Androgen Receptor Co-Dependency" data-dismech-type="pathophysiology">
                 <div class="item-name">PARP-Androgen Receptor Co-Dependency</div>
+
 
                 <div class="item-desc">BRCA-mutant metastatic castration-resistant prostate cancer remains driven by androgen receptor biology while also depending on PARP-mediated DNA damage response. This provides the mechanistic rationale for combining PARP inhibition with androgen receptor pathway inhibition in HRR-deficient disease.</div>
 
@@ -4667,6 +4778,8 @@ This pathophysiological event involves increased androgen receptor signaling pat
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4689,6 +4802,7 @@ This pathophysiological event involves increased androgen receptor signaling pat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-brca-reversion-mediated-parp-resistance" data-dismech-node="BRCA Reversion-Mediated PARP Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">BRCA Reversion-Mediated PARP Resistance</div>
+
 
                 <div class="item-desc">Acquired BRCA1 or BRCA2 reversion mutations can restore homologous recombination repair in resistant tumor subclones after PARP inhibitor or platinum exposure, reducing the synthetic-lethality vulnerability that defines BRCA-mutant prostate cancer treatment sensitivity.</div>
 
@@ -4846,6 +4960,8 @@ This pathophysiological event involves increased double-strand break repair via 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4867,6 +4983,8 @@ This pathophysiological event involves increased double-strand break repair via 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4927,6 +5045,8 @@ This pathophysiological event involves increased double-strand break repair via 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5034,6 +5154,9 @@ This clinical feature is Prostate cancer (HP:0012125). HP:0012125 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5050,7 +5173,9 @@ This clinical feature is Prostate cancer (HP:0012125). HP:0012125 is a phenotype
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -5105,6 +5230,9 @@ This clinical feature is Abnormality of the urinary system (HP:0000079). HP:0000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5119,6 +5247,8 @@ This clinical feature is Abnormality of the urinary system (HP:0000079). HP:0000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5183,6 +5313,9 @@ This clinical feature is Bone pain (HP:0002653). HP:0002653 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5197,6 +5330,8 @@ This clinical feature is Bone pain (HP:0002653). HP:0002653 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5252,6 +5387,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5266,6 +5404,8 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5361,6 +5501,9 @@ This disease-associated gene is BRCA2 (hgnc:1101). hgnc:1101 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
@@ -5375,14 +5518,16 @@ This disease-associated gene is BRCA2 (hgnc:1101). hgnc:1101 is a gene from the 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36434163" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36434163" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36434163" target="_blank">PMID:36434163</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5433,6 +5578,9 @@ This disease-associated gene is BRCA1 (hgnc:1100). hgnc:1100 is a gene from the 
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -5528,6 +5676,20 @@ This treatment uses olaparib (CHEBI:83766). CHEBI:83766 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">PARP inhibitor approved for mCRPC with BRCA1/2 mutations (or other HRR gene alterations) after progression on enzalutamide or abiraterone. Exploits synthetic lethality in HRR-deficient tumors.</div>
 
 
@@ -5598,6 +5760,20 @@ This treatment uses rucaparib (CHEBI:134689). CHEBI:134689 is a therapeutic agen
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5725,6 +5901,20 @@ This treatment uses abiraterone (CHEBI:68642). CHEBI:68642 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">First-line combinations pair a PARP inhibitor with an androgen receptor pathway inhibitor, such as talazoparib plus enzalutamide or niraparib plus abiraterone acetate, to exploit both HRR deficiency and AR-PARP crosstalk in HRR-mutated or BRCA-mutated mCRPC.</div>
 
 
@@ -5755,6 +5945,8 @@ This treatment uses abiraterone (CHEBI:68642). CHEBI:68642 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5799,6 +5991,8 @@ This treatment uses abiraterone (CHEBI:68642). CHEBI:68642 is a therapeutic agen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5820,6 +6014,8 @@ This treatment uses abiraterone (CHEBI:68642). CHEBI:68642 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5883,6 +6079,20 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">HRR-deficient tumors show increased sensitivity to platinum agents due to inability to repair platinum-induced DNA crosslinks. Carboplatin-based regimens may be considered.</div>
 
 
@@ -5934,6 +6144,20 @@ This treatment is androgen deprivation therapy, annotated with Hormone Therapy (
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Standard treatment for advanced prostate cancer regardless of HRR status. May be combined with novel hormonal agents like enzalutamide or abiraterone.</div>
 
 
@@ -5973,6 +6197,33 @@ This treatment is androgen deprivation therapy, annotated with Hormone Therapy (
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6081,14 +6332,40 @@ pathophysiology:
     evidence:
     - reference: PMID:40063046
       reference_title: &#34;Prostate Cancer: A Review.&#34;
-      supports: SUPPORT
-      evidence_source: OTHER
+      supports: NO_EVIDENCE
+      evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         The most common type of prostate cancer is adenocarcinoma (≥99%), and
         the median age at diagnosis is 67 years.
       explanation: &gt;-
-        This review establishes prostate adenocarcinoma as the relevant prostate
-        cancer phenotype downstream of tumorigenesis.
+        This review establishes prostate adenocarcinoma as the identity of the
+        downstream node, but contains no evidence bearing on the BRCA-driven
+        causal route this edge claims; the causal claim is carried by the
+        founder-mutation case-control and Brca2-knockout items below.
+    - reference: PMID:19188187
+      reference_title: Associations of high-grade prostate cancer with BRCA1 and BRCA2 founder mutations.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Prostate cancer risk was increased (OR, 1.9; 95% CI 0.9-4.1) for BRCA2
+        mutation carriers but not for BRCA1 mutation carriers. BRCA2 mutation
+        carriers had an OR of 3.2 (95% CI, 1.4-7.3) for Gleason score of 7 to
+        10, but no association was observed for Gleason score of &lt; 7.
+      explanation: &gt;-
+        Case-control study in Ashkenazi Jewish men quantifies increased prostate
+        cancer risk, concentrated in high-grade disease, in BRCA2 founder
+        mutation carriers.
+    - reference: PMID:20585617
+      reference_title: Brca2 and Trp53 deficiency cooperate in the progression of mouse prostate tumourigenesis.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        This study provides evidence that Brca2 can act as a tumour suppressor
+        in the prostate
+      explanation: &gt;-
+        Prostate-specific Brca2 deletion in mice produces hyperplasia and
+        prostatic intraepithelial neoplasia, supporting the causal route from
+        Brca2 loss to prostate tumourigenesis.
   - target: Lower Urinary Tract Symptoms
     description: &gt;-
       Advanced prostate tumor burden can produce urinary symptoms through local
@@ -6268,7 +6545,7 @@ phenotypes:
   - reference: PMID:40063046
     reference_title: &#34;Prostate Cancer: A Review.&#34;
     supports: SUPPORT
-    evidence_source: OTHER
+    evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The most common type of prostate cancer is adenocarcinoma (≥99%), and the
       median age at diagnosis is 67 years.
@@ -6364,7 +6641,7 @@ genetic:
   evidence:
   - reference: PMID:36434163
     reference_title: &#34;Germline mutations in prostate cancer: a systematic review of the evidence for personalized medicine.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;Emerging data show that germline mutations in homologous recombination genes (BRCA1/2, ATM, CHECK2), in mismatch repair genes (MLH1, MLH2, MSH6), and other additional genes are associated with the development and aggressiveness of PCa.&#34;
     explanation: &#34;Supports BRCA1/2 mutations contributing to prostate cancer development and aggressiveness.&#34;
 - name: BRCA1
@@ -6598,7 +6875,7 @@ references:
     - reference: DOI:10.1158/2767-9764.crc-23-0554
       reference_title: LP-184, a Novel Acylfulvene Molecule, Exhibits Anticancer Activity against Diverse Solid Tumors with Homologous Recombination Deficiency
       supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
+      evidence_source: IN_VITRO
       snippet: Homologous recombination (HR)-related gene alterations are present in a significant subset of prostate, breast, ovarian, pancreatic, lung, and colon cancers rendering these tumors as potential responders to specific DNA damaging agents.
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: DOI:10.1200/jco.22.01649
@@ -6724,7 +7001,7 @@ references:
     - reference: DOI:10.3390/cells13080673
       reference_title: Development and Characterisation of a New Patient-Derived Xenograft Model of AR-Negative Metastatic Castration-Resistant Prostate Cancer
       supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
+      evidence_source: MODEL_ORGANISM
       snippet: As the treatment landscape for prostate cancer gradually evolves, the frequency of treatment-induced neuroendocrine prostate cancer (NEPC) and double-negative prostate cancer (DNPC) that is deficient for androgen receptor (AR) and neuroendocrine (NE) markers has increased.
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: DOI:10.3390/life14020198
@@ -6822,7 +7099,7 @@ references:
     - reference: PMID:20585617
       reference_title: Brca2 and Trp53 deficiency cooperate in the progression of mouse prostate tumourigenesis.
       supports: SUPPORT
-      evidence_source: OTHER
+      evidence_source: MODEL_ORGANISM
       snippet: &#39;Epidemiological studies have shown that one of the strongest risk factors for prostate cancer is a family history of the disease, suggesting that inherited factors play a major role in prostate cancer susceptibility.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:20840664
@@ -6906,7 +7183,7 @@ references:
     - reference: PMID:28835508
       reference_title: &#39;Thwarting endogenous stress: BRCA protects against aldehyde toxicity.&#39;
       supports: SUPPORT
-      evidence_source: COMPUTATIONAL
+      evidence_source: OTHER
       snippet: &#39;Homologous recombination (HR) and the Fanconi Anemia (FA) pathways constitute essential repair pathways for DNA damage, which includes DNA double‐stranded breaks (DSB) and inter‐strand cross‐links (ICL), respectively.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:29021619
@@ -7172,7 +7449,7 @@ references:
     - reference: PMID:38182487
       reference_title: Tumour-based Mutational Profiles Predict Visceral Metastasis Outcome and Early Death in Prostate Cancer Patients.
       supports: SUPPORT
-      evidence_source: COMPUTATIONAL
+      evidence_source: HUMAN_CLINICAL
       snippet: Visceral metastases are known to occur in advanced prostate cancer, usually when the tumour is resistant to androgen deprivation and, have worse outcomes regardless of therapies.
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:38355834
@@ -7545,6 +7822,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7613,6 +7892,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7722,6 +8003,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7790,6 +8073,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7862,6 +8147,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7932,7 +8219,9 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
 
@@ -8000,6 +8289,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8072,6 +8363,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8140,6 +8433,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8212,6 +8507,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8280,6 +8577,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8352,6 +8651,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8420,6 +8721,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8492,6 +8795,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8562,7 +8867,9 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
 
@@ -8630,6 +8937,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8702,6 +9011,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8770,6 +9081,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8842,6 +9155,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8910,6 +9225,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8982,6 +9299,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9052,7 +9371,9 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
 
@@ -9120,6 +9441,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9192,6 +9515,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9260,6 +9585,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9332,6 +9659,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9400,6 +9729,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9472,7 +9803,9 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -9540,6 +9873,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9612,6 +9947,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9680,6 +10017,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9752,6 +10091,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9820,6 +10161,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9892,6 +10235,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9960,6 +10305,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10032,6 +10379,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10100,6 +10449,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10172,6 +10523,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10240,6 +10593,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10312,6 +10667,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10380,6 +10737,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10452,6 +10811,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10520,6 +10881,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10592,6 +10955,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10660,6 +11025,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10732,6 +11099,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10802,7 +11171,9 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -10870,6 +11241,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10942,6 +11315,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11010,6 +11385,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -11082,6 +11459,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11150,6 +11529,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -11222,6 +11603,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11290,6 +11673,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -11362,6 +11747,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11430,6 +11817,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -11502,6 +11891,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11570,6 +11961,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11642,6 +12035,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11710,6 +12105,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11782,6 +12179,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11850,6 +12249,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -11922,6 +12323,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11990,6 +12393,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -12062,6 +12467,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12130,6 +12537,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -12202,6 +12611,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12270,6 +12681,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -12342,6 +12755,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12376,6 +12791,24 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Cross-provider assessment</strong> · <a href="../research/BRCA_Mutant_Prostate_Cancer-synthesis.html">Read assessment</a></p>
+
+                    </div>
+
+                    <div>
+                        <p><strong>Detailed evidence review: BRCA-Mutant Prostate Cancer</strong> · 2026-08-28T23:03:48Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/BRCA_Mutant_Prostate_Cancer/2026-08-28T230348Z-claude-code-be00e8.yaml">View source</a></p>
+                        <p class="research-review-text">Re-read all 85 pre-existing evidence items and all 74 unique cited references (57 PMIDs, 17 DOIs) against their references_cache entries. Every snippet was verified as an exact substring of the cached reference body: PMID-backed snippets via the mechanical snippet audit, and the 20 DOI-prefixed snippets (skipped by the auditor) checked manually with whitespace-normalized matching. Semantic support, supports grading, evidence_source classification, and disease/entity identity (Named Entity Confusion) were checked item by item. Defects found and fixed: (1) the Genomic Instability to Prostate Cancer causal edge cited only a PMID:40063046 epidemiology sentence (adenocarcinoma at least 99 percent, median age 67) that does not address BRCA-driven causation; regraded that item to NO_EVIDENCE under the narrowed supports enum (the quote establishes the downstream node&#39;s identity but carries no evidence bearing on the causal claim) with a clarified explanation and added two directly supporting items from already-cached references: PMID:19188187 (human case-control, increased prostate cancer risk and OR 3.2 for Gleason 7-10 in BRCA2 founder-mutation carriers, HUMAN_CLINICAL) and PMID:20585617 (prostate-specific Brca2 knockout mouse showing Brca2 acts as tumour suppressor in the prostate, MODEL_ORGANISM). (2) evidence_source corrections: PMID:40063046 OTHER to HUMAN_CLINICAL in both uses (JAMA review reporting human clinical and epidemiologic data); references-block PMID:20585617 OTHER to MODEL_ORGANISM (mouse genetic study); PMID:28835508 COMPUTATIONAL to OTHER (journal commentary with no computational content); PMID:38182487 COMPUTATIONAL to HUMAN_CLINICAL (genomic profiling of a 200-patient cohort with survival analysis); DOI:10.3390/cells13080673 HUMAN_CLINICAL to MODEL_ORGANISM (patient-derived xenograft mouse model paper); DOI:10.1158/2767-9764.crc-23-0554 HUMAN_CLINICAL to IN_VITRO (preclinical cell-line, organoid and PDX drug study with no treated patients). Observations recorded but deliberately not churned: many deep-research references-block items grade primary human cohort papers as OTHER (a conservative understatement rather than a misleading overstatement), and a few bibliography references are tangential to prostate cancer (PMID:19064968 pancreatic adenocarcinoma, PMID:40795806 breast cancer, PMID:41690056 spinal metastases); their finding statements accurately quote the papers, so they were flagged in the review report rather than removed. All other core-section claims (symptom-burden phenotypes from PMID:29111175, histopathology PMID:36081403, BRCA reversion resistance PMID:36243543 and PMID:39577422, PARP-AR co-dependency and combination-therapy treatments from TALAPRO-2, MAGNITUDE and the FDA approval summary) matched their cited sources. Post-edit validation: just validate passed and the snippet audit reports 67/87 verified with 20 DOI snippets skipped by prefix, all 20 additionally hand-verified as exact.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -14912,7 +15345,7 @@ Cheng et al. emphasize under-recognition and under-testing of male carriers, des
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "BRCA-Mutant Prostate Cancer", "mondoId": "MONDO:0008315", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "BRCA-Mutant_Prostate_Cancer", "yamlRevision": "8b40667108bd"};
+        const OS_CONFIG = {"diseaseName": "BRCA-Mutant Prostate Cancer", "mondoId": "MONDO:0008315", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "BRCA-Mutant_Prostate_Cancer", "yamlRevision": "f74f588336aa"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

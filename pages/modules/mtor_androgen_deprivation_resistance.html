@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -289,6 +290,16 @@
             border: 1px solid var(--teal-light);
         }
 
+        /* Study-area category pills. Colour comes from ModuleCategoryEnum via
+           the renderer, so only the shape is set here. */
+        .badge-study-area {
+            border: 1px solid;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 5px 13px;
+            cursor: help;
+        }
+
         .badge-module {
             background: #e0f2fe;
             color: #0369a1;
@@ -457,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -634,9 +657,7 @@
             font-weight: 600;
         }
         .support-SUPPORT { background: #d1fae5; color: #065f46; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
-        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
@@ -974,6 +995,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -982,7 +1017,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -1022,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1037,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1091,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1104,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1262,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1272,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1313,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1519,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1552,9 +1626,18 @@
         <header class="page-header">
             <h1>mTOR Adaptive Resistance to Androgen Deprivation Module</h1>
             <div class="header-meta">
+                
+                <span class="badge badge-study-area"
+                      title="Drug mechanism of action and therapeutic targeting: modules built around a molecular drug target, a therapeutic modality, or an acquired-resistance pathway that gates drug choice. Typically carries the target_mechanisms drug pattern."
+                      style="background: hsl(153, 68%, 96%); border-color: hsl(153, 52%, 78%); color: hsl(153, 62%, 26%);">Pharmacology</span>
+                
+                <span class="badge badge-study-area"
+                      title="Tumor biology and cancer therapeutics — the hallmark-of-cancer capability modules, tumor-microenvironment mechanisms, and cancer-specific therapeutic vulnerabilities and resistance patterns."
+                      style="background: hsl(290, 68%, 96%); border-color: hsl(290, 52%, 78%); color: hsl(290, 62%, 26%);">Oncology</span>
+                
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">mtor_androgen_deprivation_resistance</span>
-                <span class="badge badge-count">2 disorders</span>
+                <span class="badge badge-count">1 disorder</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
                 
@@ -1887,29 +1970,16 @@ This mechanism module involves increased Androgen-Independent Tumor Cell Prolife
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">1</span>
             </div>
             
             <div class="crosslink-list">
-                
-                <div class="crosslink-item">
-                    <a href="../disorders/Metastatic_Prostate_Cancer.html">Metastatic Prostate Cancer</a>
-                    
-                    <span class="crosslink-desc">
-                        via
-                        
-                        
-                        
-                        Castration Resistance → mTORC1 Hyperactivation
-                        
-                        
-                    </span>
-                    
-                </div>
                 
                 <div class="crosslink-item">
                     <a href="../disorders/Prostate_Adenocarcinoma.html">Prostate Adenocarcinoma</a>
@@ -1965,11 +2035,13 @@ This mechanism module involves increased Androgen-Independent Tumor Cell Prolife
             
             <div class="item-box anchor-target" id="module-pathophysiology-androgen-receptor-pathway-blockade" data-dismech-node="Androgen Receptor Pathway Blockade" data-dismech-type="pathophysiology">
                 <div class="item-name">Androgen Receptor Pathway Blockade</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Androgen deprivation therapy or an AR-signaling inhibitor (ARPI) suppresses androgen-receptor transcriptional output, the therapeutic starting point that imposes selective pressure on AR-dependent prostate cancer cells. AR cross-talk with oncogenic survival pathways is the substrate on which resistance is built; conforming disorder nodes substitute the specific agent (ADT, abiraterone, enzalutamide).</div>
                 
@@ -2031,11 +2103,13 @@ This pathophysiological event involves decreased Androgen Receptor Signaling Pat
             
             <div class="item-box anchor-target" id="module-pathophysiology-reciprocal-pi3k-akt-feedback-activation" data-dismech-node="Reciprocal PI3K/AKT Feedback Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reciprocal PI3K/AKT Feedback Activation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Because the AR and PI3K/AKT pathways cross-regulate each other by reciprocal feedback, suppression of AR signaling relieves feedback inhibition of the PI3K/AKT axis (for example, by reducing the AKT phosphatase PHLPP), so AR blockade paradoxically activates AKT signaling. PTEN loss, the most common PI3K-pathway lesion in prostate cancer, sensitizes the tumor to this compensatory activation. Conforming disorder nodes substitute the specific PI3K-pathway lesion (PTEN deletion, PIK3CA/AKT1 activation).</div>
                 
@@ -2097,11 +2171,13 @@ This pathophysiological event involves increased PI3K/AKT Signal Transduction, a
             
             <div class="item-box anchor-target" id="module-pathophysiology-mtorc1-hyperactivation" data-dismech-node="mTORC1 Hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">mTORC1 Hyperactivation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Compensatory PI3K/AKT activation converges on constitutive mTOR complex 1 (mTORC1) signaling, the rate-limiting, disorder-agnostic central node of the module and the pharmacologic target of rapalogs. Hyperactive mTORC1 is the conserved point through which every conforming tumor funnels its ADT-resistant survival signaling, and its activity distinguishes resistant (incomplete/non-responder) from sensitive tumors.</div>
                 
@@ -2208,13 +2284,6 @@ This pathophysiological event involves increased TOR Signaling (GO:0031929). GO:
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
-                            <a href="../disorders/Metastatic_Prostate_Cancer.html">Metastatic Prostate Cancer</a>
-                            
-                            <span class="crosslink-desc">as Castration Resistance</span>
-                            
-                        </div>
-                        
-                        <div class="crosslink-item">
                             <a href="../disorders/Prostate_Adenocarcinoma.html">Prostate Adenocarcinoma</a>
                             
                             <span class="crosslink-desc">as Signaling Bypass and Castration Resistance</span>
@@ -2242,11 +2311,13 @@ This pathophysiological event involves increased TOR Signaling (GO:0031929). GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-pro-survival-translational-and-metabolic-reprogramming" data-dismech-node="Pro-Survival Translational and Metabolic Reprogramming" data-dismech-type="pathophysiology">
                 <div class="item-name">Pro-Survival Translational and Metabolic Reprogramming</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Hyperactive mTORC1 drives cap-dependent protein translation and anabolic metabolism (via effectors such as S6K1/p70S6K and 4E-BP1), sustaining biosynthesis, growth, and survival programs that compensate for the loss of AR-driven survival signals under androgen blockade. p70S6K, a direct mTORC1 effector, is a robust functional readout of this node.</div>
                 
@@ -2308,11 +2379,13 @@ This pathophysiological event involves increased Positive Regulation of Translat
             
             <div class="item-box anchor-target" id="module-pathophysiology-adaptive-resistance-to-androgen-deprivation-therapy" data-dismech-node="Adaptive Resistance to Androgen-Deprivation Therapy" data-dismech-type="pathophysiology">
                 <div class="item-name">Adaptive Resistance to Androgen-Deprivation Therapy</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The net consequence: mTOR-sustained survival signaling renders tumor cells able to grow independently of androgen, producing adaptive (castration-resistant) growth and clinical failure of ADT/ARPI monotherapy. This is the resistant/incomplete-responder phenotype that co-targeting the mTOR node aims to reverse.</div>
                 
@@ -2357,6 +2430,145 @@ This pathophysiological event involves increased Androgen-Independent Tumor Cell
 
                 
 
+                
+            </div>
+            
+        </div>
+        
+
+        
+        
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box" data-dismech-node="mTOR Inhibition Combined with AR-Pathway Inhibition" data-dismech-type="treatment">
+                <div class="item-name">mTOR Inhibition Combined with AR-Pathway Inhibition</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        Pharmacotherapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-15">NCIT:C15986</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        everolimus
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CHEBI_68478" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-16">CHEBI:68478</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses everolimus (CHEBI:68478). CHEBI:68478 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        bicalutamide
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3090" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-17">CHEBI:3090</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bicalutamide (CHEBI:3090). CHEBI:3090 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+                    
+                </div>
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Small molecule</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">The module&#39;s drug-target design pattern: because AR blockade activates the PI3K/AKT/mTOR survival axis by reciprocal feedback, co-targeting mTORC1 alongside an AR-pathway inhibitor is expected to suppress the compensatory survival node and re-sensitize resistant tumors to androgen blockade. Combined pharmacologic inhibition of the PI3K and AR pathways produced near-complete tumor regressions preclinically. The named agents record the one combination actually taken into patients on this rationale — the rapalog everolimus co-administered with the AR antagonist bicalutamide in the phase II NCT00814788 trial — and are a statement of the design pattern, NOT a recommended regimen: everolimus monotherapy failed in mCRPC and rapalog-induced feedback is itself a documented limitation of the class (see the KNOWLEDGE_GAP discussion on mTORC1 Hyperactivation). Conforming treatments act upstream on the mTORC1 node rather than on the downstream resistant phenotype.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">INHIBITS</span>
+                        
+                        
+                        <a href="#module-pathophysiology-mtorc1-hyperactivation"><strong>mTORC1 Hyperactivation</strong></a>
+                        
+                        <span> — Rapalog inhibition of mTORC1 suppresses the compensatory central-effector node that sustains tumor survival under AR blockade, restoring sensitivity to AR-pathway inhibition when the two are combined.</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 3</span>
+                </div>
+                
                 
             </div>
             

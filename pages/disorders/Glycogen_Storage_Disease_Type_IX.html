@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4129,6 +4236,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4150,6 +4259,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4219,6 +4330,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4346,6 +4459,8 @@ This subtype is caused by variation in PHKA2 (hgnc:8926). hgnc:8926 is a gene fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4367,6 +4482,8 @@ This subtype is caused by variation in PHKA2 (hgnc:8926). hgnc:8926 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4455,6 +4572,8 @@ This subtype is caused by variation in PHKA2 (hgnc:8926). hgnc:8926 is a gene fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4476,6 +4595,8 @@ This subtype is caused by variation in PHKA2 (hgnc:8926). hgnc:8926 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4564,6 +4685,8 @@ This subtype is caused by variation in PHKB (hgnc:8927). hgnc:8927 is a gene fro
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4587,6 +4710,8 @@ This subtype is caused by variation in PHKB (hgnc:8927). hgnc:8927 is a gene fro
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4608,6 +4733,8 @@ This subtype is caused by variation in PHKB (hgnc:8927). hgnc:8927 is a gene fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4696,6 +4823,8 @@ This subtype is caused by variation in PHKG2 (hgnc:8931). hgnc:8931 is a gene fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4717,6 +4846,8 @@ This subtype is caused by variation in PHKG2 (hgnc:8931). hgnc:8931 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4805,6 +4936,8 @@ This subtype is caused by variation in PHKA1 (hgnc:8925). hgnc:8925 is a gene fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4826,6 +4959,8 @@ This subtype is caused by variation in PHKA1 (hgnc:8925). hgnc:8925 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4974,6 +5109,8 @@ This subtype is caused by variation in PHKA1 (hgnc:8925). hgnc:8925 is a gene fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4995,6 +5132,8 @@ This subtype is caused by variation in PHKA1 (hgnc:8925). hgnc:8925 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5117,6 +5256,8 @@ This subtype is caused by variation in PHKA1 (hgnc:8925). hgnc:8925 is a gene fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5130,14 +5271,16 @@ This subtype is caused by variation in PHKA1 (hgnc:8925). hgnc:8925 is a gene fr
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41732189" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41732189" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41732189" target="_blank">PMID:41732189</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5174,6 +5317,7 @@ This subtype is caused by variation in PHKA1 (hgnc:8925). hgnc:8925 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-phosphorylase-kinase-subunit-deficiency" data-dismech-node="Phosphorylase Kinase Subunit Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Phosphorylase Kinase Subunit Deficiency</div>
+
 
                 <div class="item-desc">Pathogenic variants in a gene encoding one of the phosphorylase kinase (PhK) subunits reduce or abolish holoenzyme activity. PhK is a heterotetramer of four copies each of an alpha, beta, gamma and delta subunit; the gamma subunit carries the catalytic site and the alpha, beta and delta (calmodulin) subunits regulate it. Tissue-specific isoforms mean the resulting deficiency is confined to liver, to muscle, or to both, depending on which subunit gene is affected.</div>
 
@@ -5432,6 +5576,8 @@ This pathophysiological event involves decreased phosphorylase kinase activity (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5453,6 +5599,8 @@ This pathophysiological event involves decreased phosphorylase kinase activity (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5478,6 +5626,8 @@ This pathophysiological event involves decreased phosphorylase kinase activity (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5500,6 +5650,7 @@ This pathophysiological event involves decreased phosphorylase kinase activity (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-to-activate-hepatic-glycogen-phosphorylase" data-dismech-node="Failure to Activate Hepatic Glycogen Phosphorylase" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure to Activate Hepatic Glycogen Phosphorylase</div>
+
 
                 <div class="item-desc">Without PhK-mediated phosphorylation, hepatic glycogen phosphorylase remains in the inactive b form. The defect is therefore regulatory rather than catalytic: the phosphorylase enzyme itself is intact but cannot be switched on, which is what makes GSD IX clinically almost indistinguishable from GSD VI, where phosphorylase itself is deficient.</div>
 
@@ -5624,6 +5775,8 @@ This pathophysiological event involves decreased glycogen phosphorylase activity
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5645,6 +5798,8 @@ This pathophysiological event involves decreased glycogen phosphorylase activity
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5669,6 +5824,7 @@ This pathophysiological event involves decreased glycogen phosphorylase activity
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hepatic-glycogenolysis" data-dismech-node="Impaired Hepatic Glycogenolysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Hepatic Glycogenolysis</div>
+
 
                 <div class="item-desc">The committed step of hepatic glycogen breakdown is blocked, so stored glycogen cannot be mobilised to glucose during fasting and accumulates within the hepatocyte.</div>
 
@@ -5801,6 +5957,8 @@ This pathophysiological event involves decreased glycogen catabolic process (GO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5822,6 +5980,8 @@ This pathophysiological event involves decreased glycogen catabolic process (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5846,6 +6006,7 @@ This pathophysiological event involves decreased glycogen catabolic process (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocellular-glycogen-accumulation" data-dismech-node="Hepatocellular Glycogen Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocellular Glycogen Accumulation</div>
+
 
                 <div class="item-desc">Undegraded glycogen accumulates within hepatocytes, expanding the liver and providing the substrate load behind hepatomegaly and, over time, hepatocellular stress.</div>
 
@@ -5940,6 +6101,8 @@ This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5961,6 +6124,8 @@ This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5985,6 +6150,7 @@ This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fasting-hepatic-glucose-output-deficit" data-dismech-node="Fasting Hepatic Glucose Output Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Fasting Hepatic Glucose Output Deficit</div>
+
 
                 <div class="item-desc">With glycogenolysis blocked, fasting blood glucose depends on gluconeogenesis alone. Gluconeogenesis is intact in GSD IX, which is the decisive physiological difference from GSD I: hypoglycaemia is usually milder and lactate and urate are typically normal rather than raised.</div>
 
@@ -6121,6 +6287,8 @@ This pathophysiological event involves gluconeogenesis (GO:0006094). GO:0006094 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6142,6 +6310,8 @@ This pathophysiological event involves gluconeogenesis (GO:0006094). GO:0006094 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6167,6 +6337,8 @@ This pathophysiological event involves gluconeogenesis (GO:0006094). GO:0006094 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6189,6 +6361,7 @@ This pathophysiological event involves gluconeogenesis (GO:0006094). GO:0006094 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-compensatory-fatty-acid-oxidation-and-ketogenesis" data-dismech-node="Compensatory Fatty Acid Oxidation and Ketogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Compensatory Fatty Acid Oxidation and Ketogenesis</div>
+
 
                 <div class="item-desc">Reduced glucose availability shifts fuel use toward fat, raising ketone bodies and circulating lipids. Ketosis can be present even when blood glucose is near normal, so it is monitored as a treatment target in its own right.</div>
 
@@ -6257,6 +6430,8 @@ This pathophysiological event involves gluconeogenesis (GO:0006094). GO:0006094 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6278,6 +6453,8 @@ This pathophysiological event involves gluconeogenesis (GO:0006094). GO:0006094 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6302,6 +6479,7 @@ This pathophysiological event involves gluconeogenesis (GO:0006094). GO:0006094 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocellular-injury-and-progressive-liver-fibrosis" data-dismech-node="Hepatocellular Injury and Progressive Liver Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocellular Injury and Progressive Liver Fibrosis</div>
+
 
                 <div class="item-desc">Chronic hepatocellular stress raises transaminases and, in a substantial minority, progresses through steatosis and fibrosis to cirrhosis. The risk is not uniform across the subtypes: it is concentrated in PHKG2-related disease, where cirrhosis may appear in the first years of life.</div>
 
@@ -6412,6 +6590,8 @@ This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6433,6 +6613,8 @@ This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6457,6 +6639,7 @@ This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-skeletal-muscle-glycogenolysis" data-dismech-node="Impaired Skeletal Muscle Glycogenolysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Skeletal Muscle Glycogenolysis</div>
+
 
                 <div class="item-desc">In the muscle arm of the disease, PhK deficiency in skeletal muscle blocks activation of muscle glycogen phosphorylase, so muscle cannot mobilise its own glycogen during exertion. This arm is much rarer than the hepatic forms and is caused chiefly by PHKA1 variants. Note that PHKB variants also reduce muscle PhK activity, yet muscle symptoms in PHKB-related disease are typically mild or absent, so reduced muscle enzyme activity and clinical myopathy are not equivalent here.</div>
 
@@ -6597,6 +6780,8 @@ This pathophysiological event involves decreased glycogen catabolic process (GO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6610,14 +6795,16 @@ This pathophysiological event involves decreased glycogen catabolic process (GO:
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30659246" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30659246" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30659246" target="_blank">PMID:30659246</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6688,7 +6875,7 @@ This pathophysiological event involves decreased glycogen catabolic process (GO:
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(2)</span></button>
 
@@ -6697,8 +6884,6 @@ This pathophysiological event involves decreased glycogen catabolic process (GO:
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Constitutional<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6741,6 +6926,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6755,6 +6943,8 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6808,6 +6998,9 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6822,6 +7015,8 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6875,6 +7070,9 @@ This clinical feature is Hepatic fibrosis (HP:0001395). HP:0001395 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6889,6 +7087,8 @@ This clinical feature is Hepatic fibrosis (HP:0001395). HP:0001395 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6942,6 +7142,9 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6956,6 +7159,8 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7018,6 +7223,9 @@ This clinical feature is Myoglobinuria (HP:0002913). HP:0002913 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7032,6 +7240,8 @@ This clinical feature is Myoglobinuria (HP:0002913). HP:0002913 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7063,7 +7273,7 @@ This clinical feature is Myoglobinuria (HP:0002913). HP:0002913 is a phenotype f
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-hepatic-transaminases" data-dismech-node="Elevated hepatic transaminases" data-dismech-type="phenotype">
@@ -7098,6 +7308,9 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7112,6 +7325,8 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7167,6 +7382,9 @@ This clinical feature is Hypertriglyceridemia (HP:0002155). HP:0002155 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7181,6 +7399,8 @@ This clinical feature is Hypertriglyceridemia (HP:0002155). HP:0002155 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7236,6 +7456,9 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7252,6 +7475,8 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7260,6 +7485,278 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
 
 
                 <div class="evidence-explanation">Reports hypercholesterolaemia in 67% of 52 patients, the FREQUENT band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ketotic-hypoglycemia" data-dismech-node="Ketotic hypoglycemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Ketotic hypoglycemia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012734" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0012734</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ketotic hypoglycemia (HP:0012734). HP:0012734 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41732189" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41732189" target="_blank">PMID:41732189</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Predominant manifestations included hepatomegaly (82%), elevated aminotransferases (81%), hypertriglyceridemia (71%), hypercholesterolemia (67%), hypoglycemia (46%), hyperlactatemia (38%), and short stature (30%)."</div>
+
+
+                <div class="evidence-explanation">Reports hypoglycaemia in 46% of 52 patients, the FREQUENT band.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30659246" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30659246" target="_blank">PMID:30659246</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ketotic hypoglycemia, if present, varies from occasional (only occurring after long fasts or during times of reduced intake when ill) to recurrent in some cases."</div>
+
+
+                <div class="evidence-explanation">Establishes that the hypoglycaemia of GSD IX is specifically ketotic.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ketosis" data-dismech-node="Ketosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Ketosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001946" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001946</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ketosis (HP:0001946). HP:0001946 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30659246" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30659246" target="_blank">PMID:30659246</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ketosis is usually a prominent metabolic feature in both GSD VI and GSD IX"</div>
+
+
+                <div class="evidence-explanation">Names ketosis as a prominent metabolic feature of GSD IX.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-circulating-lactate" data-dismech-node="Increased circulating lactate" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Increased circulating lactate
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased circulating lactate concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002151" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002151</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased circulating lactate concentration (HP:0002151). HP:0002151 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41732189" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41732189" target="_blank">PMID:41732189</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Predominant manifestations included hepatomegaly (82%), elevated aminotransferases (81%), hypertriglyceridemia (71%), hypercholesterolemia (67%), hypoglycemia (46%), hyperlactatemia (38%), and short stature (30%)."</div>
+
+
+                <div class="evidence-explanation">Reports hyperlactataemia in 38% of 52 patients, the FREQUENT band.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30659246" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30659246" target="_blank">PMID:30659246</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Unlike GSD I, lactic acid and uric acid concentrations are usually normal"</div>
+
+
+                <div class="evidence-explanation">Retained as a limit on the claim: the guideline states lactate is usually normal, so raised lactate is not a dependable feature of GSD IX.</div>
 
 
 
@@ -7298,15 +7795,18 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7326,6 +7826,8 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7367,15 +7869,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0003394</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0003394</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Muscle cramps, annotated with Muscle spasm (HP:0003394). HP:0003394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7395,6 +7900,8 @@ This clinical feature is Muscle cramps, annotated with Muscle spasm (HP:0003394)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7443,15 +7950,18 @@ This clinical feature is Muscle cramps, annotated with Muscle spasm (HP:0003394)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001270</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001270</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7471,6 +7981,8 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7519,15 +8031,18 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0003546</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0003546</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7547,6 +8062,8 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7597,15 +8114,18 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7625,6 +8145,8 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7664,10 +8186,10 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001510</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001510</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7678,6 +8200,9 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7692,6 +8217,8 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7702,268 +8229,6 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
                 <div class="evidence-explanation">Reports growth delay as a typical presenting feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ketotic-hypoglycemia" data-dismech-node="Ketotic hypoglycemia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ketotic hypoglycemia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012734" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0012734</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ketotic hypoglycemia (HP:0012734). HP:0012734 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41732189" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41732189" target="_blank">PMID:41732189</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Predominant manifestations included hepatomegaly (82%), elevated aminotransferases (81%), hypertriglyceridemia (71%), hypercholesterolemia (67%), hypoglycemia (46%), hyperlactatemia (38%), and short stature (30%)."</div>
-
-
-                <div class="evidence-explanation">Reports hypoglycaemia in 46% of 52 patients, the FREQUENT band.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30659246" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30659246" target="_blank">PMID:30659246</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Ketotic hypoglycemia, if present, varies from occasional (only occurring after long fasts or during times of reduced intake when ill) to recurrent in some cases."</div>
-
-
-                <div class="evidence-explanation">Establishes that the hypoglycaemia of GSD IX is specifically ketotic.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ketosis" data-dismech-node="Ketosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ketosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001946" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001946</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ketosis (HP:0001946). HP:0001946 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30659246" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30659246" target="_blank">PMID:30659246</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Ketosis is usually a prominent metabolic feature in both GSD VI and GSD IX"</div>
-
-
-                <div class="evidence-explanation">Names ketosis as a prominent metabolic feature of GSD IX.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-circulating-lactate" data-dismech-node="Increased circulating lactate" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Increased circulating lactate
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Increased circulating lactate concentration</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002151" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002151</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Increased circulating lactate concentration (HP:0002151). HP:0002151 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41732189" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41732189" target="_blank">PMID:41732189</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Predominant manifestations included hepatomegaly (82%), elevated aminotransferases (81%), hypertriglyceridemia (71%), hypercholesterolemia (67%), hypoglycemia (46%), hyperlactatemia (38%), and short stature (30%)."</div>
-
-
-                <div class="evidence-explanation">Reports hyperlactataemia in 38% of 52 patients, the FREQUENT band.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30659246" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30659246" target="_blank">PMID:30659246</a>
-                    </span>
-
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Unlike GSD I, lactic acid and uric acid concentrations are usually normal"</div>
-
-
-                <div class="evidence-explanation">Retained as a limit on the claim: the guideline states lactate is usually normal, so raised lactate is not a dependable feature of GSD IX.</div>
 
 
 
@@ -8047,6 +8312,9 @@ This disease-associated gene is PHKA2 (hgnc:8926). hgnc:8926 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked recessive</span>
@@ -8071,6 +8339,8 @@ This disease-associated gene is PHKA2 (hgnc:8926). hgnc:8926 is a gene from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8092,6 +8362,8 @@ This disease-associated gene is PHKA2 (hgnc:8926). hgnc:8926 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8144,6 +8416,9 @@ This disease-associated gene is PHKB (hgnc:8927). hgnc:8927 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -8166,6 +8441,8 @@ This disease-associated gene is PHKB (hgnc:8927). hgnc:8927 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8218,6 +8495,9 @@ This disease-associated gene is PHKG2 (hgnc:8931). hgnc:8931 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -8242,6 +8522,8 @@ This disease-associated gene is PHKG2 (hgnc:8931). hgnc:8931 is a gene from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8263,6 +8545,8 @@ This disease-associated gene is PHKG2 (hgnc:8931). hgnc:8931 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8315,6 +8599,9 @@ This disease-associated gene is PHKA1 (hgnc:8925). hgnc:8925 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked recessive</span>
@@ -8337,6 +8624,8 @@ This disease-associated gene is PHKA1 (hgnc:8925). hgnc:8925 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8441,6 +8730,31 @@ This treatment uses cornstarch, annotated with starch (CHEBI:28017). CHEBI:28017
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Slowly digested cornstarch provides a sustained exogenous glucose supply that substitutes for the glucose the liver cannot release from glycogen. It is dosed against both blood glucose and blood ketones, because ketosis can persist at near-normal glucose concentrations.</div>
 
 
@@ -8471,6 +8785,8 @@ This treatment uses cornstarch, annotated with starch (CHEBI:28017). CHEBI:28017
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8537,6 +8853,8 @@ This treatment targets Ketotic hypoglycemia (HP:0012734). HP:0012734 is a phenot
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8558,6 +8876,8 @@ This treatment targets Ketotic hypoglycemia (HP:0012734). HP:0012734 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8621,6 +8941,31 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Dietary protein of 2-3 g/kg/day supplies gluconeogenic amino acids. Because gluconeogenesis is intact in GSD IX, this arm of glucose production can be driven harder — the reason a high-protein diet works here but not in GSD I.</div>
 
 
@@ -8651,6 +8996,8 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8734,6 +9081,8 @@ This treatment targets Growth delay (HP:0001510). HP:0001510 is a phenotype from
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8795,6 +9144,31 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Two opposite dietary hazards are avoided: prolonged fasting, which exposes the glycogenolytic block, and large boluses of simple sugar, which add to the hepatic glycogen load already being stored.</div>
 
 
@@ -8825,6 +9199,8 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8867,6 +9243,8 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8930,6 +9308,31 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Reserved for advanced liver disease. Curated explicitly as a rarely indicated option, because the same source states that conservative treatment usually suffices.</div>
 
 
@@ -8965,14 +9368,16 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30659246" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30659246" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30659246" target="_blank">PMID:30659246</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9036,6 +9441,31 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Periodic liver ultrasound and biochemistry, escalating to cross-sectional imaging with age, to detect fibrosis, cirrhosis and adenomas. This is the practical consequence of the shift away from treating GSD IX as benign.</div>
 
 
@@ -9059,6 +9489,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9080,6 +9512,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9147,6 +9581,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9160,14 +9596,16 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41732189" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41732189" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41732189" target="_blank">PMID:41732189</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9191,6 +9629,719 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-testing-of-the-phk-subunit-genes">
+                <div class="item-name">
+                    Molecular genetic testing of the PhK subunit genes
+
+                </div>
+
+                <div class="item-desc">Sequencing of PHKA2, PHKB, PHKG2 and PHKA1 (typically as a panel) is the definitive test. It resolves cases in which enzymology is uninformative and, unlike enzyme assay, establishes the mode of inheritance for counselling.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-52">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> A hemizygous PHKA1 or PHKA2 variant, or biallelic PHKB or PHKG2 variants.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17689125" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17689125" target="_blank">PMID:17689125</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Molecular analysis allows accurate diagnosis where enzymology is uninformative and identifies the pattern of inheritance permitting counselling and family studies."</div>
+
+
+                <div class="evidence-explanation">States the two advantages of molecular over enzymatic diagnosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21634085" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21634085" target="_blank">PMID:21634085</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of PhK deficiency is established in a proband with the characteristic clinical findings, a family history of suspected storage disease, and/or a hemizygous pathogenic variant in PHKA1 or PHKA2 or biallelic pathogenic variants in PHKB or PHKG2 identified by molecular genetic testing."</div>
+
+
+                <div class="evidence-explanation">Gives the formal molecular diagnostic criterion.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-phosphorylase-kinase-enzyme-activity-assay">
+                <div class="item-name">
+                    Phosphorylase kinase enzyme activity assay
+
+                </div>
+
+                <div class="item-desc">PhK activity can be measured in erythrocytes, leukocytes, liver or muscle. It is unreliable as a sole test: activity varies by tissue and subtype, and in the IXa2 pattern erythrocyte activity is normal while liver activity is deficient, so a normal blood assay does not exclude the diagnosis.</div>
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Reduced PhK activity in the affected tissue; may be normal in blood cells in IXa2.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17689125" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17689125" target="_blank">PMID:17689125</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Accurate diagnosis had been hampered by enzymology not being diagnostic in five cases."</div>
+
+
+                <div class="evidence-explanation">Quantifies the failure rate of enzymology in a 15-patient series, which is why this test is curated with its limitation stated.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9326319" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9326319" target="_blank">PMID:9326319</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The proband had a severe deficiency of phosphorylase kinase in liver, while the phosphorylase kinase activity in erythrocytes was only slightly diminished. She had no symptoms of muscle involvement."</div>
+
+
+                <div class="evidence-explanation">Shows the tissue discordance that makes a blood assay an unreliable screen.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-liver-biopsy-with-histology">
+                <div class="item-name">
+                    Liver biopsy with histology
+
+                </div>
+
+                <div class="item-desc">Liver biopsy documents glycogen storage and, importantly for prognosis, the presence of steatosis, fibrosis or cirrhosis.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        liver biopsy
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C51677" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-53">NCIT:C51677</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Glycogen storage with steatosis, fibrosis, and/or chronic hepatitis in about half of biopsied patients.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41732189" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41732189" target="_blank">PMID:41732189</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Liver biopsies showed steatosis, fibrosis, and/or chronic hepatitis in 52% of examined cases."</div>
+
+
+                <div class="evidence-explanation">Reports the histological yield of liver biopsy in this cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-early-childhood-hepatic-presentation">
+                <div class="item-name">Early-childhood hepatic presentation</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: First one to two years of life</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Affected children typically come to attention in infancy or early childhood with hepatomegaly, growth deceleration, raised transaminases and hyperlipidaemia.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41732189" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41732189" target="_blank">PMID:41732189</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The median age at symptom onset was 1.6 years, and the mean age at diagnosis was 2.0 years."</div>
+
+
+                <div class="evidence-explanation">Dates symptom onset and diagnosis in a 52-patient multicentre cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12930917" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12930917" target="_blank">PMID:12930917</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Phosphorylase kinase-deficient liver glycogenosis manifests in infancy with hepatomegaly, growth retardation, and elevated plasma aminotransferases and lipids."</div>
+
+
+                <div class="evidence-explanation">Describes the infantile presenting picture.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-attenuation-of-biochemical-abnormalities-through-adolescence">
+                <div class="item-name">Attenuation of biochemical abnormalities through adolescence</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood to puberty</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Symptoms and laboratory abnormalities of the liver forms tend to improve with age, and were historically described as resolving at puberty. This is the basis of the older &#34;benign&#34; framing that later hepatic follow-up qualified.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30659246" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30659246" target="_blank">PMID:30659246</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The clinical symptoms and laboratory abnormalities tend to improve with age."</div>
+
+
+                <div class="evidence-explanation">States the age-related attenuation of the hepatic phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12930917" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12930917" target="_blank">PMID:12930917</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It is usually a benign condition, often with complete resolution of symptoms during puberty."</div>
+
+
+                <div class="evidence-explanation">Records the classical benign course with resolution at puberty.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-long-term-hepatic-complications">
+                <div class="item-name">Long-term hepatic complications</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood through adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Improvement in symptoms does not guarantee hepatic safety: fibrosis and cirrhosis are now recognised long-term outcomes requiring surveillance, and cirrhosis may appear in the first years of life in PHKG2-related disease.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21634085" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21634085" target="_blank">PMID:21634085</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"While symptoms and biochemical abnormalities of liver PhK deficiency were thought to improve with age, it is becoming evident that affected individuals need to be monitored for long-term complications such as liver fibrosis and cirrhosis."</div>
+
+
+                <div class="evidence-explanation">States the revision of the benign framing and the need for hepatic surveillance.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30659246" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30659246" target="_blank">PMID:30659246</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"GSD IX has been diagnosed in adults who were being evaluated for hepatic cirrhosis."</div>
+
+
+                <div class="evidence-explanation">Documents adult ascertainment of GSD IX through cirrhosis workup.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        1.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000</span>
+
+                </div>
+
+                <div class="item-notes">Estimated frequency of the liver form of phosphorylase kinase deficiency. The ACMG practice resource records this figure while noting that recent studies suggest PhK deficiency may be one of the most identifiable causes of hypoglycaemia in males, so the true rate is probably higher.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30659246" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30659246" target="_blank">PMID:30659246</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The frequency of liver PhK deficiency was estimated to be 1 in 100,000"</div>
+
+
+                <div class="evidence-explanation">Gives the published frequency estimate for liver phosphorylase kinase deficiency in an expert-consensus practice resource.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30659246" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30659246" target="_blank">PMID:30659246</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Due to the protean and nonspecific symptoms in GSDs VI and IX, they are almost certainly underdiagnosed."</div>
+
+
+                <div class="evidence-explanation">Qualifies the prevalence estimate: the same source states the condition is almost certainly underdiagnosed, so the rate above is a lower bound.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-patients-with-glycogen-storage-disease">
+                <div class="item-name">Patients with glycogen storage disease</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Unknown</span>
+
+
+
+                    <span class="tag">Unknown</span>
+
+                </div>
+
+                <div class="item-notes">Share of all glycogen storage disease cases attributable to GSD IX. This is a case fraction within the GSD population, not a population rate, so no rate_per_100000 is given.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30659246" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30659246" target="_blank">PMID:30659246</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"GSD IX is one of the most common forms of glycogen storage disease, accounting for about 25% of cases."</div>
+
+
+                <div class="evidence-explanation">Quantifies GSD IX as roughly a quarter of all glycogen storage disease cases.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -9289,7 +10440,7 @@ prevalence:
       deficiency in an expert-consensus practice resource.
   - reference: PMID:30659246
     reference_title: &#34;Diagnosis and management of glycogen storage diseases type VI and IX: a clinical practice resource of the American College of Medical Genetics and Genomics (ACMG).&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       Due to the protean and nonspecific symptoms in GSDs VI and IX, they are
@@ -9928,7 +11079,7 @@ pathophysiology:
       explanation: Records the early-childhood timing of cirrhosis in the severe subtype.
     - reference: PMID:9384616
       reference_title: &#34;Liver glycogenosis due to phosphorylase kinase deficiency: PHKG2 gene structure and mutations associated with cirrhosis.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         As liver Phk deficiency is generally a benign condition and progression to
@@ -9972,7 +11123,7 @@ pathophysiology:
       phosphorylase kinase deficiency.
   - reference: PMID:30659246
     reference_title: &#34;Diagnosis and management of glycogen storage diseases type VI and IX: a clinical practice resource of the American College of Medical Genetics and Genomics (ACMG).&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       PHKB-related GSD IX is characterized by deficiency of PhK activity in muscle
@@ -10171,7 +11322,7 @@ phenotypes:
     explanation: Reports hyperlactataemia in 38% of 52 patients, the FREQUENT band.
   - reference: PMID:30659246
     reference_title: &#34;Diagnosis and management of glycogen storage diseases type VI and IX: a clinical practice resource of the American College of Medical Genetics and Genomics (ACMG).&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: Unlike GSD I, lactic acid and uric acid concentrations are usually normal
     explanation: &gt;-
@@ -10604,7 +11755,7 @@ biochemical:
       the subtype and sex of the patients it was measured in.
   - reference: PMID:41732189
     reference_title: &#34;Glycogen storage disease type IX: Long-term follow-up of 52 patients from three European countries.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       We previously hypothesized that ApoC-III hypoglycosylation in GSD IX may
@@ -10752,7 +11903,7 @@ diagnosis:
   evidence:
   - reference: PMID:17689125
     reference_title: &#34;Glycogen storage disease type IX: High variability in clinical phenotype.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Accurate diagnosis had been hampered by enzymology not being diagnostic in five cases.
     explanation: &gt;-
@@ -10941,7 +12092,7 @@ treatments:
   evidence:
   - reference: PMID:30659246
     reference_title: &#34;Diagnosis and management of glycogen storage diseases type VI and IX: a clinical practice resource of the American College of Medical Genetics and Genomics (ACMG).&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       As liver manifestations usually improve with conservative treatment, liver
@@ -11056,7 +12207,7 @@ discussions:
     explanation: The authors state this gap directly.
   - reference: PMID:41732189
     reference_title: &#34;Glycogen storage disease type IX: Long-term follow-up of 52 patients from three European countries.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       fewer documented fasting hypoglycemia episodes (20/44 vs 9/44; p = 0.012),
@@ -11217,7 +12368,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Glycogen Storage Disease Type IX", "mondoId": "MONDO:0700291", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Glycogen_Storage_Disease_Type_IX", "yamlRevision": "c0a38bc0f9da"};
+        const OS_CONFIG = {"diseaseName": "Glycogen Storage Disease Type IX", "mondoId": "MONDO:0700291", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Glycogen_Storage_Disease_Type_IX", "yamlRevision": "72c88e6730eb"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

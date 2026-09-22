@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3726,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3803,7 +3910,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                Neuropsychiatric systemic lupus erythematosus is the nervous-system manifestation spectrum of systemic lupus erythematosus. It includes central and peripheral nervous-system syndromes such as seizure, psychosis, cognitive dysfunction, cerebrovascular disease, acute confusional state, chorea, demyelinating syndromes, and peripheral neuropathy. Attribution is difficult: presentations may reflect lupus-driven inflammation, antiphospholipid-related thrombosis, both mechanisms, or non-SLE mimics such as infection, metabolic disease, medication effects, or primary psychiatric and neurologic disorders. MONDO has no standalone NPSLE term, so this entry is grounded to MONDO:0043985 central nervous system lupus, the closest available match, while preserving the NPSLE preferred term. That grounding is narrower than the entry: MONDO:0043985 is CNS-scoped, whereas the ACR framework and this entry also cover peripheral nervous system syndromes such as peripheral neuropathy. The mapping is therefore recorded as closeMatch rather than exactMatch.
+                Neuropsychiatric systemic lupus erythematosus is the nervous-system manifestation spectrum of systemic lupus erythematosus. It includes central and peripheral nervous-system syndromes such as seizure, psychosis, cognitive dysfunction, cerebrovascular disease, acute confusional state, chorea, demyelinating syndromes, and peripheral neuropathy. Attribution is difficult: presentations may reflect lupus-driven inflammation, antiphospholipid-related thrombosis, both mechanisms, or non-SLE mimics such as infection, metabolic disease, medication effects, or primary psychiatric and neurologic disorders.
             </p>
 
         </header>
@@ -4258,6 +4365,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4298,6 +4407,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4319,6 +4430,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4423,6 +4536,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4461,6 +4576,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4555,6 +4672,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4576,6 +4695,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4639,6 +4760,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4660,6 +4783,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4848,6 +4973,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4882,6 +5009,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoimmune-neuroinflammation" data-dismech-node="Autoimmune Neuroinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoimmune Neuroinflammation</div>
+
 
                 <div class="item-desc">Systemic lupus autoimmunity can extend to the nervous system through autoantibody production, immune-complex and complement activation, type I interferon signaling, neutrophil extracellular trap (NET) formation and release, cytokine-mediated inflammation, and intrathecal immune activation, producing diffuse or focal neuropsychiatric syndromes.</div>
 
@@ -5270,6 +5398,8 @@ This pathophysiological event occurs in abnormal choroid plexus (UBERON:0001886)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5293,6 +5423,8 @@ This pathophysiological event occurs in abnormal choroid plexus (UBERON:0001886)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5314,6 +5446,8 @@ This pathophysiological event occurs in abnormal choroid plexus (UBERON:0001886)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5340,6 +5474,7 @@ This pathophysiological event occurs in abnormal choroid plexus (UBERON:0001886)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-blood-brain-barrier-disruption" data-dismech-node="Blood-Brain Barrier Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Blood-Brain Barrier Disruption</div>
+
 
                 <div class="item-desc">Disruption of the blood-brain barrier permits circulating neuropathic autoantibodies, complement components, cytokines, and chemokines to enter CNS tissue and interact with neurons, glia, and endothelial cells.</div>
 
@@ -5549,6 +5684,8 @@ This pathophysiological event occurs in abnormal blood brain barrier (UBERON:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5570,6 +5707,8 @@ This pathophysiological event occurs in abnormal blood brain barrier (UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5595,6 +5734,8 @@ This pathophysiological event occurs in abnormal blood brain barrier (UBERON:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5617,6 +5758,7 @@ This pathophysiological event occurs in abnormal blood brain barrier (UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anti-nmda-nr2a-b-neuronal-excitotoxicity" data-dismech-node="Anti-NMDA-NR2A/B Neuronal Excitotoxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">Anti-NMDA-NR2A/B Neuronal Excitotoxicity</div>
+
 
                 <div class="item-desc">A subset of SLE patients have anti-NMDA-NR2A/B glutamate-receptor antibodies. When these antibodies reach CNS targets, they can alter NMDA receptor signaling, injure neurons, and contribute to cognitive, behavioral, mood, seizure, or psychiatric manifestations.</div>
 
@@ -5815,6 +5957,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5836,6 +5980,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5860,6 +6006,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-antiphospholipid-associated-neurovascular-thrombosis" data-dismech-node="Antiphospholipid-Associated Neurovascular Thrombosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Antiphospholipid-Associated Neurovascular Thrombosis</div>
+
 
                 <div class="item-desc">Antiphospholipid antibodies promote neurovascular risk through endothelial, platelet, coagulation, and complement-related prothrombotic mechanisms, producing ischemic or focal NPSLE manifestations such as cerebrovascular disease, seizures, and chorea.</div>
 
@@ -6082,6 +6229,8 @@ This pathophysiological event involves increased complement activation (GO:00069
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6103,6 +6252,8 @@ This pathophysiological event involves increased complement activation (GO:00069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6226,6 +6377,9 @@ This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6240,6 +6394,8 @@ This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6263,6 +6419,8 @@ This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6327,6 +6485,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6341,6 +6502,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6366,6 +6529,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6387,6 +6552,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6442,6 +6609,9 @@ This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6456,6 +6626,8 @@ This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6479,6 +6651,8 @@ This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6532,6 +6706,9 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6546,6 +6723,8 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6569,6 +6748,8 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6624,6 +6805,9 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6638,6 +6822,8 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6661,6 +6847,8 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6714,6 +6902,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6728,6 +6919,8 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6751,6 +6944,8 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6804,6 +6999,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6818,6 +7016,8 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6873,6 +7073,9 @@ This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6887,6 +7090,8 @@ This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6910,6 +7115,8 @@ This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6967,6 +7174,9 @@ This clinical feature is Delirium (HP:0031258). HP:0031258 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6981,6 +7191,8 @@ This clinical feature is Delirium (HP:0031258). HP:0031258 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7034,6 +7246,9 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7048,6 +7263,8 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7103,6 +7320,9 @@ This clinical feature is CNS demyelination (HP:0007305). HP:0007305 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7117,6 +7337,8 @@ This clinical feature is CNS demyelination (HP:0007305). HP:0007305 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7218,6 +7440,9 @@ This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7232,6 +7457,8 @@ This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7276,6 +7503,9 @@ This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7290,6 +7520,8 @@ This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7334,6 +7566,9 @@ This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7348,6 +7583,8 @@ This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7392,20 +7629,25 @@ This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42123548" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42123548" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42123548" target="_blank">PMID:42123548</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7509,6 +7751,20 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Hydroxychloroquine is recommended as background therapy for lupus patients when not contraindicated and cohort data suggest antimalarial exposure may reduce seizure risk, a key neuropsychiatric lupus manifestation.</div>
 
 
@@ -7554,6 +7810,8 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7575,6 +7833,8 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7676,6 +7936,20 @@ This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic a
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">High-dose glucocorticoids, often with intravenous cyclophosphamide for severe or refractory inflammatory/autoimmune presentations, are used when NPSLE is attributed to lupus inflammation rather than thrombotic disease.</div>
 
 
@@ -7706,6 +7980,8 @@ This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7750,6 +8026,8 @@ This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic a
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7773,6 +8051,8 @@ This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic a
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7794,6 +8074,8 @@ This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7912,6 +8194,20 @@ This treatment uses heparin (CHEBI:28304). CHEBI:28304 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Antiplatelet or anticoagulant therapy is used when neuropsychiatric manifestations are attributed to antiphospholipid-antibody-associated thrombosis, especially thrombotic cerebrovascular disease.</div>
 
 
@@ -7942,6 +8238,8 @@ This treatment uses heparin (CHEBI:28304). CHEBI:28304 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8008,6 +8306,8 @@ This treatment targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8029,6 +8329,8 @@ This treatment targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8130,6 +8432,20 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Azathioprine or mycophenolate may be considered for mild to moderate inflammatory presentations or maintenance therapy after acute control, depending on the syndrome and overall SLE activity.</div>
 
 
@@ -8160,6 +8476,8 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8202,6 +8520,8 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8303,6 +8623,20 @@ This treatment uses human immunoglobulin G (NCIT:C80829). NCIT:C80829 is a thera
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Rituximab, intravenous immunoglobulin, or plasmapheresis may be used in severe inflammatory NPSLE when response to initial glucocorticoid and cyclophosphamide-based treatment is inadequate.</div>
 
 
@@ -8333,6 +8667,8 @@ This treatment uses human immunoglobulin G (NCIT:C80829). NCIT:C80829 is a thera
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8377,6 +8713,8 @@ This treatment uses human immunoglobulin G (NCIT:C80829). NCIT:C80829 is a thera
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8390,14 +8728,16 @@ This treatment uses human immunoglobulin G (NCIT:C80829). NCIT:C80829 is a thera
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:18537650" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:18537650" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18537650" target="_blank">PMID:18537650</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8421,6 +8761,8 @@ This treatment uses human immunoglobulin G (NCIT:C80829). NCIT:C80829 is a thera
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8479,6 +8821,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8563,6 +8919,8 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8584,6 +8942,8 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8651,6 +9011,8 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8672,6 +9034,8 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8724,6 +9088,8 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8745,6 +9111,8 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8797,6 +9165,8 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8818,6 +9188,8 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8870,6 +9242,8 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8891,6 +9265,8 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8943,6 +9319,8 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8964,6 +9342,8 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9016,6 +9396,8 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9066,6 +9448,8 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9087,6 +9471,659 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-syndrome-specific-exclusion-workup">
+                <div class="item-name">
+                    Syndrome-specific exclusion workup
+
+                </div>
+
+                <div class="item-desc">NPSLE diagnosis requires a syndrome-specific workup similar to that used in non-SLE patients, with exclusion of infection, metabolic disease, drug effects, primary psychiatric disease, and other neurologic mimics before lupus attribution.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-60">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Workup supports a neurologic or psychiatric syndrome and excludes non-SLE causes before attribution to inflammatory, thrombotic, or mixed NPSLE.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20724309" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20724309" target="_blank">PMID:20724309</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnostic work-up of suspected NPSLE is comparable to that in patients without SLE who present with the same manifestations, and aims to exclude causes unrelated to SLE."</div>
+
+
+                <div class="evidence-explanation">This is the core EULAR diagnostic principle for suspected NPSLE.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-neurodiagnostic-testing">
+                <div class="item-name">
+                    Neurodiagnostic testing
+
+                </div>
+
+                <div class="item-desc">CSF analysis, EEG, neuropsychological testing, nerve-conduction studies, and MRI are selected according to the presenting manifestation.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-61">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> CSF excludes infection or supports inflammation; EEG evaluates seizure disorder; neuropsychological tests characterize cognitive dysfunction; nerve conduction supports peripheral neuropathy; MRI evaluates vascular, inflammatory, demyelinating, or structural mimics.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20724309" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20724309" target="_blank">PMID:20724309</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Investigations include cerebrospinal fluid analysis (to exclude central nervous system infection), EEG (to diagnose seizure disorder), neuropsychological tests (to assess cognitive dysfunction), nerve conduction studies (for peripheral neuropathy) and MRI"</div>
+
+
+                <div class="evidence-explanation">EULAR lists the major neurodiagnostic tests and their syndrome-specific roles.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-autoantibody-and-inflammatory-biomarker-assessment">
+                <div class="item-name">
+                    Autoantibody and inflammatory biomarker assessment
+
+                </div>
+
+                <div class="item-desc">Serologic and CSF testing may include antiphospholipid antibodies, anti-ribosomal P antibodies, anti-NMDA-NR2 antibodies, complement and SLE activity markers, and emerging neuroinflammatory or injury biomarkers.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        serology testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C25294" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-62">NCIT:C25294</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Antiphospholipid antibodies support thrombotic attribution; anti-ribosomal P or anti-NMDA-NR2 antibodies may support selected psychiatric or cognitive endophenotypes but are not standalone diagnostic tests.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30375754" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30375754" target="_blank">PMID:30375754</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Plasma lupus anticoagulant, serum IgG anticardiolipin, anti–β2‐glycoprotein I, anti–ribosomal P (anti‐P), and anti–NR2 glutamate receptor antibodies were measured at the Oklahoma Medical Research Foundation"</div>
+
+
+                <div class="evidence-explanation">The SLICC psychosis cohort demonstrates the relevant autoantibody panel used in NPSLE attribution research.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-early-lupus-psychosis-timing">
+                <div class="item-name">Early lupus psychosis timing</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Lupus psychosis tends to occur early around SLE diagnosis in the SLICC inception cohort, although it remains uncommon.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30375754" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30375754" target="_blank">PMID:30375754</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"there was a tendency for psychosis to occur early in the disease course, usually within the first 3 years following the diagnosis of SLE."</div>
+
+
+                <div class="evidence-explanation">The cohort supports early timing of SLE-attributed psychosis relative to SLE diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-treatment-associated-resolution-of-lupus-psychosis">
+                <div class="item-name">Treatment-associated resolution of lupus psychosis</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Most lupus psychosis events resolved or improved over follow-up in the SLICC cohort, supporting reversibility for many patients after recognition and treatment.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30375754" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30375754" target="_blank">PMID:30375754</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"More than 80% of the psychotic events had resolved by the second annual assessment following onset of the event"</div>
+
+
+                <div class="evidence-explanation">This supports favorable resolution of most lupus psychosis events over two annual assessments.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-twelve-month-treatment-response-after-first-np-event">
+                <div class="item-name">Twelve-month treatment response after first NP event</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">In a 2024 international multicenter cohort of first neuropsychiatric events, SLE attribution by clinical judgment combined with immunosuppressant treatment was associated with better 12-month outcomes.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1093/rheumatology/keae119" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/rheumatology/keae119" target="_blank">DOI:10.1093/rheumatology/keae119</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"NP manifestations attributed to SLE by clinical judgment and treated with immunosuppressants demonstrated improved 12-month outcomes."</div>
+
+
+                <div class="evidence-explanation">This multicenter retrospective cohort supports timely attribution and immunosuppressive therapy for SLE-attributed NPSLE events.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-syndrome-dependent-course-and-attribution-uncertainty">
+                <div class="item-name">Syndrome-dependent course and attribution uncertainty</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">NPSLE course and prognosis depend strongly on syndrome, mechanism, and attribution confidence; neuropsychiatric events may be inflammatory, thrombotic, mixed, or unrelated to SLE.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26809245" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26809245" target="_blank">PMID:26809245</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A strict differential diagnosis and individualization of treatment, depending on the neuropsychiatric presentation and severity of symptoms, are crucial in neuropsychiatric systemic lupus erythematosus (NPSLE)."</div>
+
+
+                <div class="evidence-explanation">This supports prognosis and management being syndrome- and mechanism-dependent rather than uniform across all NPSLE.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+        <div class="card" id="epidemiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">🌍</div>
+                <h2 class="card-title">Epidemiology</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-neuropsychiatric-event-burden-in-an-international-sle-inception-cohort">
+                <div class="item-name">Neuropsychiatric event burden in an international SLE inception cohort</div>
+
+                <div class="item-desc">In the SLICC inception cohort, any neuropsychiatric event was common, but only a subset of events were attributed to SLE depending on attribution model stringency.</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30375754" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30375754" target="_blank">PMID:30375754</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"NP events (≥1) occurred in 951 of 1,826 patients (52.1%), and 488 of 1,826 patients (26.7%) had ≥2 events during the study period."</div>
+
+
+                <div class="evidence-explanation">The inception cohort quantifies neuropsychiatric events among SLE patients, emphasizing the event burden that enters NPSLE attribution.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30375754" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30375754" target="_blank">PMID:30375754</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The proportion of NP events attributed to SLE varied from 17.8% (attribution model A) to 31.1% (attribution model B) and occurred in 13.3% of patients (model A) to 21.1% of patients (model B)."</div>
+
+
+                <div class="evidence-explanation">These data support the distinction between all NP events in SLE and events attributed to SLE.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-eular-frequency-categories-for-major-npsle-manifestations">
+                <div class="item-name">EULAR frequency categories for major NPSLE manifestations</div>
+
+                <div class="item-desc">EULAR summarizes cerebrovascular disease and seizures as common cumulative manifestations, while severe cognitive dysfunction, major depression, acute confusional state, peripheral nervous disorders, and psychosis are less common.</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20724309" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20724309" target="_blank">PMID:20724309</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Common (cumulative incidence &gt; 5%) manifestations include cerebrovascular disease (CVD) and seizures; relatively uncommon (1-5%) are severe cognitive dysfunction, major depression, acute confusional state (ACS), peripheral nervous disorders psychosis."</div>
+
+
+                <div class="evidence-explanation">This provides frequency bands for the major NPSLE manifestations encoded below.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -9163,6 +10200,8 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9184,6 +10223,8 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9277,12 +10318,6 @@ description: &gt;-
   presentations may reflect lupus-driven inflammation, antiphospholipid-related
   thrombosis, both mechanisms, or non-SLE mimics such as infection, metabolic
   disease, medication effects, or primary psychiatric and neurologic disorders.
-  MONDO has no standalone NPSLE term, so this entry is grounded to
-  MONDO:0043985 central nervous system lupus, the closest available match, while
-  preserving the NPSLE preferred term. That grounding is narrower than the entry:
-  MONDO:0043985 is CNS-scoped, whereas the ACR framework and this entry also
-  cover peripheral nervous system syndromes such as peripheral neuropathy. The
-  mapping is therefore recorded as closeMatch rather than exactMatch.
 definitions:
 - name: ACR 1999 neuropsychiatric lupus syndrome framework
   definition_type: CASE_DEFINITION
@@ -9449,7 +10484,7 @@ has_subtypes:
       EULAR identifies antiphospholipid antibodies as strong risk factors for
       vascular and selected neurologic NPSLE manifestations.
   - reference: PMID:18537650
-    reference_title: Therapeutic approach to neuropsychiatric systemic lupus erythematosus.
+    reference_title: &#34;Neuropsychiatric involvement in systemic lupus erythematosus: current therapeutic approach.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9763,7 +10798,7 @@ pathophysiology:
       label: positive regulation of calcium ion transport
   evidence:
   - reference: PMID:25081016
-    reference_title: &#34;Glutamate receptor antibodies in neurological diseases: anti-AMPA-GluR3 antibodies, anti-NMDA-NR1 antibodies, anti-NMDA-NR2A/B antibodies, anti-mGluR1 antibodies or anti-mGluR5 antibodies are present in subpopulations of patients with either: epilepsy, encephalitis, cerebellar ataxia, systemic lupus erythematosus (SLE) and neuropsychiatric SLE, Sjogren&#39;s syndrome, schizophrenia, mania or stroke.&#34;
+    reference_title: &#34;Glutamate receptor antibodies in neurological diseases: anti-AMPA-GluR3 antibodies, anti-NMDA-NR1 antibodies, anti-NMDA-NR2A/B antibodies, anti-mGluR1 antibodies or anti-mGluR5 antibodies are present in subpopulations of patients with either: epilepsy, encephalitis, cerebellar ataxia, systemic lupus erythematosus (SLE) and neuropsychiatric SLE, Sjogren&#39;s syndrome, schizophrenia, mania or stroke. These autoimmune anti-glutamate receptor antibodies can bind neurons in few brain regions, activate glutamate receptors, decrease glutamate receptor&#39;s expression, impair glutamate-induced signaling and function, activate blood brain barrier endothelial cells, kill neurons, damage the brain, induce behavioral/psychiatric/cognitive abnormalities and ataxia in animal models, and can be removed or silenced in some patients by immunotherapy.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9774,7 +10809,7 @@ pathophysiology:
       The review supports anti-NMDA-NR2A/B antibodies as a heterogeneous but
       relevant autoantibody class in NPSLE.
   - reference: PMID:25081016
-    reference_title: &#34;Glutamate receptor antibodies in neurological diseases: anti-AMPA-GluR3 antibodies, anti-NMDA-NR1 antibodies, anti-NMDA-NR2A/B antibodies, anti-mGluR1 antibodies or anti-mGluR5 antibodies are present in subpopulations of patients with either: epilepsy, encephalitis, cerebellar ataxia, systemic lupus erythematosus (SLE) and neuropsychiatric SLE, Sjogren&#39;s syndrome, schizophrenia, mania or stroke.&#34;
+    reference_title: &#34;Glutamate receptor antibodies in neurological diseases: anti-AMPA-GluR3 antibodies, anti-NMDA-NR1 antibodies, anti-NMDA-NR2A/B antibodies, anti-mGluR1 antibodies or anti-mGluR5 antibodies are present in subpopulations of patients with either: epilepsy, encephalitis, cerebellar ataxia, systemic lupus erythematosus (SLE) and neuropsychiatric SLE, Sjogren&#39;s syndrome, schizophrenia, mania or stroke. These autoimmune anti-glutamate receptor antibodies can bind neurons in few brain regions, activate glutamate receptors, decrease glutamate receptor&#39;s expression, impair glutamate-induced signaling and function, activate blood brain barrier endothelial cells, kill neurons, damage the brain, induce behavioral/psychiatric/cognitive abnormalities and ataxia in animal models, and can be removed or silenced in some patients by immunotherapy.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9920,7 +10955,7 @@ phenotypes:
     explanation: &gt;-
       The scoping review provides an SLE-level seizure prevalence range.
   - reference: ORPHA:536
-    reference_title: &#34;Systemic lupus erythematosus (Orphanet structured-database record)&#34;
+    reference_title: &#34;Systemic lupus erythematosus&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001250 | Seizure | Occasional (29-5%)&#34;
@@ -10016,7 +11051,7 @@ phenotypes:
       EULAR lists major depression among relatively uncommon NPSLE
       manifestations.
   - reference: ORPHA:536
-    reference_title: &#34;Systemic lupus erythematosus (Orphanet structured-database record)&#34;
+    reference_title: &#34;Systemic lupus erythematosus&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000716 | Depression | Occasional (29-5%)&#34;
@@ -10088,7 +11123,7 @@ phenotypes:
       label: Chorea
   evidence:
   - reference: ORPHA:536
-    reference_title: &#34;Systemic lupus erythematosus (Orphanet structured-database record)&#34;
+    reference_title: &#34;Systemic lupus erythematosus&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002072 | Chorea | Very rare (&lt;4-1%)&#34;
@@ -10205,7 +11240,7 @@ biochemical:
   context: Serum and/or cerebrospinal fluid.
   evidence:
   - reference: PMID:25081016
-    reference_title: &#34;Glutamate receptor antibodies in neurological diseases: anti-AMPA-GluR3 antibodies, anti-NMDA-NR1 antibodies, anti-NMDA-NR2A/B antibodies, anti-mGluR1 antibodies or anti-mGluR5 antibodies are present in subpopulations of patients with either: epilepsy, encephalitis, cerebellar ataxia, systemic lupus erythematosus (SLE) and neuropsychiatric SLE, Sjogren&#39;s syndrome, schizophrenia, mania or stroke.&#34;
+    reference_title: &#34;Glutamate receptor antibodies in neurological diseases: anti-AMPA-GluR3 antibodies, anti-NMDA-NR1 antibodies, anti-NMDA-NR2A/B antibodies, anti-mGluR1 antibodies or anti-mGluR5 antibodies are present in subpopulations of patients with either: epilepsy, encephalitis, cerebellar ataxia, systemic lupus erythematosus (SLE) and neuropsychiatric SLE, Sjogren&#39;s syndrome, schizophrenia, mania or stroke. These autoimmune anti-glutamate receptor antibodies can bind neurons in few brain regions, activate glutamate receptors, decrease glutamate receptor&#39;s expression, impair glutamate-induced signaling and function, activate blood brain barrier endothelial cells, kill neurons, damage the brain, induce behavioral/psychiatric/cognitive abnormalities and ataxia in animal models, and can be removed or silenced in some patients by immunotherapy.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -10217,7 +11252,7 @@ biochemical:
       The review supports anti-NMDA-NR2A/B antibodies as a subset biomarker in
       SLE and NPSLE.
   - reference: PMID:25081016
-    reference_title: &#34;Glutamate receptor antibodies in neurological diseases: anti-AMPA-GluR3 antibodies, anti-NMDA-NR1 antibodies, anti-NMDA-NR2A/B antibodies, anti-mGluR1 antibodies or anti-mGluR5 antibodies are present in subpopulations of patients with either: epilepsy, encephalitis, cerebellar ataxia, systemic lupus erythematosus (SLE) and neuropsychiatric SLE, Sjogren&#39;s syndrome, schizophrenia, mania or stroke.&#34;
+    reference_title: &#34;Glutamate receptor antibodies in neurological diseases: anti-AMPA-GluR3 antibodies, anti-NMDA-NR1 antibodies, anti-NMDA-NR2A/B antibodies, anti-mGluR1 antibodies or anti-mGluR5 antibodies are present in subpopulations of patients with either: epilepsy, encephalitis, cerebellar ataxia, systemic lupus erythematosus (SLE) and neuropsychiatric SLE, Sjogren&#39;s syndrome, schizophrenia, mania or stroke. These autoimmune anti-glutamate receptor antibodies can bind neurons in few brain regions, activate glutamate receptors, decrease glutamate receptor&#39;s expression, impair glutamate-induced signaling and function, activate blood brain barrier endothelial cells, kill neurons, damage the brain, induce behavioral/psychiatric/cognitive abnormalities and ataxia in animal models, and can be removed or silenced in some patients by immunotherapy.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -10404,7 +11439,7 @@ genetic:
   evidence:
   - reference: PMID:42123548
     reference_title: &#34;Genetic Polymorphisms in Systemic Lupus Erythematosus and Their Clinical Implications: A Narrative Review.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       Genetic variants in STAT4 and IRF5 exacerbate disease progression by
@@ -10588,7 +11623,7 @@ treatments:
       The review supports glucocorticoids plus cyclophosphamide for severe
       inflammatory NPSLE.
   - reference: PMID:18537650
-    reference_title: Therapeutic approach to neuropsychiatric systemic lupus erythematosus.
+    reference_title: &#34;Neuropsychiatric involvement in systemic lupus erythematosus: current therapeutic approach.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -10599,7 +11634,7 @@ treatments:
       This review supports corticosteroids for severe diffuse CNS
       manifestations.
   - reference: PMID:18537650
-    reference_title: Therapeutic approach to neuropsychiatric systemic lupus erythematosus.
+    reference_title: &#34;Neuropsychiatric involvement in systemic lupus erythematosus: current therapeutic approach.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -10771,8 +11806,8 @@ treatments:
       The review supports rituximab, IVIG, or plasmapheresis as escalation
       options when response is inadequate.
   - reference: PMID:18537650
-    reference_title: Therapeutic approach to neuropsychiatric systemic lupus erythematosus.
-    supports: PARTIAL
+    reference_title: &#34;Neuropsychiatric involvement in systemic lupus erythematosus: current therapeutic approach.&#34;
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       Intravenous immunoglobulins, mycophenolate mofetil, rituximab, intratecal
@@ -12554,6 +13589,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -13823,7 +14860,7 @@ Antiphospholipid antibodies (aPL) → Endothelial activation
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Neuropsychiatric Systemic Lupus Erythematosus", "mondoId": "MONDO:0043985", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neuropsychiatric_Systemic_Lupus_Erythematosus", "yamlRevision": "93ec56cc8d0e"};
+        const OS_CONFIG = {"diseaseName": "Neuropsychiatric Systemic Lupus Erythematosus", "mondoId": "MONDO:0043985", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neuropsychiatric_Systemic_Lupus_Erythematosus", "yamlRevision": "ce4a0fe8004a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

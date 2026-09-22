@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3726,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4009,6 +4116,127 @@
         <!-- Classifications -->
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="An inborn error of carbohydrate metabolism presenting with fasting hypoglycemia, lactic acidosis, hyperlipidemia and hyperuricemia.">ENDOCRINOLOGY METABOLISM</span>
+
+
+                    <span class="tag tag-classification" title="A Mendelian autosomal recessive disorder of the glucose-6-phosphatase system (G6PC1 in type Ia, SLC37A4 in type Ib).">GENETICS ENVIRONMENT DISEASE</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970), Table 5 &#34;Congenital defects of phagocyte number or function&#34;, section 1 (Congenital Neutropenias): row &#34;Glycogen storage disease type 1b G6PT1 AR 602671&#34;, affected cells N + M, affected function myeloid differentiation, chemotaxis and O2- production, associated features fasting hypoglycemia, lactic acidosis, hyperlipidemia and hepatomegaly.
+SCOPE — this classification applies to the GSD Ib subtype ONLY. This entry is a combined Ia+Ib entry, and IUIS lists only type 1b: the neutropenia, neutrophil dysfunction and inflammatory bowel disease that earn the Table 5 row come from loss of the SLC37A4 glucose-6-phosphate transporter, and this entry&#39;s GSD Ia subtype states explicitly that neutropenia is not a feature of type Ia. Because iuis_category is single-valued and cannot be scoped to a has_subtypes member, the restriction is recorded here in prose rather than structurally. The supporting content sits on the &#34;Neutropenia and neutrophil dysfunction in GSD Ib&#34; pathophysiology node.
+The paper prints the legacy gene symbol G6PT1; the current HGNC symbol is SLC37A4 (hgnc:4061), which is what this entry binds — the same gene, not a mismatch.">phagocyte defect</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
         <!-- Mappings -->
 
 
@@ -4072,6 +4300,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4203,6 +4433,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-glucose-6-phosphate-hydrolysis-and-fasting-hypoglycemia" data-dismech-node="Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia</div>
+
 
                 <div class="item-desc">Deficiency of the glucose-6-phosphatase system blocks the final step of both glycogenolysis and gluconeogenesis, preventing the liver and kidneys from releasing free glucose into the bloodstream during fasting. Glucose-6-phosphate accumulates in the cytoplasm of hepatocytes and renal tubular cells, driving excessive glycogen and fat synthesis. The inability to maintain blood glucose between meals causes severe fasting hypoglycemia, which is the hallmark metabolic derangement of GSD I.
 </div>
@@ -4630,6 +4861,8 @@ This pathophysiological event involves decreased glucose-6-phosphate transmembra
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4651,6 +4884,8 @@ This pathophysiological event involves decreased glucose-6-phosphate transmembra
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4675,6 +4910,7 @@ This pathophysiological event involves decreased glucose-6-phosphate transmembra
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-metabolic-derangements" data-dismech-node="Secondary metabolic derangements" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary metabolic derangements</div>
+
 
                 <div class="item-desc">The block in glucose-6-phosphate hydrolysis leads to accumulation of metabolic intermediates, resulting in several secondary biochemical abnormalities. Excess glucose-6-phosphate is shunted into glycolysis, producing excess pyruvate and lactate (lactic acidosis). Increased acetyl-CoA flux drives de novo lipogenesis, causing hypertriglyceridemia and hypercholesterolemia. Accelerated purine degradation from excess glucose-6-phosphate metabolism, combined with decreased renal urate clearance due to competitive inhibition by lactate, leads to hyperuricemia.
 </div>
@@ -4960,6 +5196,8 @@ This pathophysiological event involves decreased Gluconeogenesis (GO:0006094). G
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4981,6 +5219,8 @@ This pathophysiological event involves decreased Gluconeogenesis (GO:0006094). G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5005,6 +5245,7 @@ This pathophysiological event involves decreased Gluconeogenesis (GO:0006094). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neutropenia-and-neutrophil-dysfunction-in-gsd-ib" data-dismech-node="Neutropenia and neutrophil dysfunction in GSD Ib" data-dismech-type="pathophysiology">
                 <div class="item-name">Neutropenia and neutrophil dysfunction in GSD Ib</div>
+
 
                 <div class="item-desc">In GSD Ib, deficiency of the ubiquitously expressed glucose-6-phosphate transporter (G6PT) impairs neutrophil energy homeostasis. Neutrophils express the G6PT/G6Pase-beta complex, which produces endogenous glucose for neutrophil function. Loss of G6PT activity leads to enhanced endoplasmic reticulum stress, oxidative stress, and apoptosis, underlying the neutropenia and neutrophil dysfunction characteristic of GSD Ib. This manifests as recurrent bacterial infections, oral and intestinal ulcers, and inflammatory bowel disease.
 </div>
@@ -5229,6 +5470,8 @@ This pathophysiological event involves decreased glucose-6-phosphate transmembra
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5250,6 +5493,8 @@ This pathophysiological event involves decreased glucose-6-phosphate transmembra
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5274,6 +5519,7 @@ This pathophysiological event involves decreased glucose-6-phosphate transmembra
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocellular-adenoma-development" data-dismech-node="Hepatocellular adenoma development" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocellular adenoma development</div>
+
 
                 <div class="item-desc">Hepatocellular adenomas are a major long-term complication of GSD I, occurring in 22-75% of affected adults. The adenomas develop typically in post-pubertal patients and carry an approximately 10% risk of malignant transformation to hepatocellular carcinoma. The pathogenesis is multifactorial and may involve chronic metabolic stress, altered hepatocyte growth signaling, and hormonal influences. Better dietary management and metabolic control appear to reduce adenoma incidence.
 </div>
@@ -5361,6 +5607,8 @@ This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5382,6 +5630,8 @@ This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5406,6 +5656,7 @@ This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-platelet-and-von-willebrand-factor-dysfunction" data-dismech-node="Platelet and von Willebrand factor dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Platelet and von Willebrand factor dysfunction</div>
+
 
                 <div class="item-desc">GSD I can include impaired platelet function and reduced or dysfunctional von Willebrand factor, producing a bleeding tendency that manifests as epistaxis and menorrhagia.
 </div>
@@ -5573,6 +5824,8 @@ This pathophysiological event involves decreased blood coagulation (GO:0007596).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5699,6 +5952,9 @@ This clinical feature is Epistaxis (HP:0000421). HP:0000421 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Due to impaired platelet function and reduced or dysfunctional von Willebrand factor.</div>
 
 
@@ -5718,6 +5974,8 @@ This clinical feature is Epistaxis (HP:0000421). HP:0000421 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5772,6 +6030,9 @@ This clinical feature is Neutropenia, annotated with Decreased total neutrophil 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Characteristic of GSD Ib; not typically present in GSD Ia. Chronic neutropenia predisposes to recurrent bacterial infections.</div>
 
 
@@ -5791,6 +6052,8 @@ This clinical feature is Neutropenia, annotated with Decreased total neutrophil 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5814,6 +6077,8 @@ This clinical feature is Neutropenia, annotated with Decreased total neutrophil 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5866,6 +6131,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
                     </div>
 
 
+
+
+
                     <div class="item-desc">Iron-deficiency anemia is common. May be associated with suboptimal metabolic control.</div>
 
 
@@ -5885,6 +6153,8 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5937,6 +6207,9 @@ This clinical feature is Menorrhagia (HP:0000132). HP:0000132 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">Due to impaired platelet function and reduced or dysfunctional von Willebrand factor; affects females.</div>
 
 
@@ -5956,6 +6229,8 @@ This clinical feature is Menorrhagia (HP:0000132). HP:0000132 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6017,6 +6292,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Long-term complication requiring management with avoidance of beta-blockers.</div>
 
 
@@ -6036,6 +6314,8 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6090,6 +6370,9 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
                     </div>
 
 
+
+
+
                     <div class="item-desc">Long-term complication of untreated GSD I.</div>
 
 
@@ -6109,6 +6392,8 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6170,6 +6455,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Often massive; protuberant abdomen is characteristic. Due to glycogen and fat accumulation in hepatocytes.</div>
 
 
@@ -6189,6 +6477,8 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6241,6 +6531,9 @@ This clinical feature is Hepatocellular adenoma (HP:0012028). HP:0012028 is a ph
                     </div>
 
 
+
+
+
                     <div class="item-desc">Develops in post-pubertal patients; risk of malignant transformation to hepatocellular carcinoma. Requires ongoing surveillance.</div>
 
 
@@ -6260,6 +6553,8 @@ This clinical feature is Hepatocellular adenoma (HP:0012028). HP:0012028 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6283,6 +6578,8 @@ This clinical feature is Hepatocellular adenoma (HP:0012028). HP:0012028 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6335,6 +6632,9 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
                     </div>
 
 
+
+
+
                     <div class="item-desc">Fat accumulation in the liver alongside glycogen deposition.</div>
 
 
@@ -6354,6 +6654,8 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6406,6 +6708,9 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
                     </div>
 
 
+
+
+
                     <div class="item-desc">Diarrhea is a feature of GSD I in general. The IBD-like colitis is specific to GSD Ib, but diarrhea per se is not subtype-restricted.</div>
 
 
@@ -6425,6 +6730,8 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6477,6 +6784,9 @@ This clinical feature is Pancreatitis (HP:0001733). HP:0001733 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">May result from severe hypertriglyceridemia.</div>
 
 
@@ -6496,6 +6806,8 @@ This clinical feature is Pancreatitis (HP:0001733). HP:0001733 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6557,6 +6869,9 @@ This clinical feature is Delayed puberty (HP:0000823). HP:0000823 is a phenotype
                     </div>
 
 
+
+
+
                     <div class="item-desc">Long-term complication of untreated GSD I. Normal puberty expected with adequate dietary management.</div>
 
 
@@ -6576,6 +6891,8 @@ This clinical feature is Delayed puberty (HP:0000823). HP:0000823 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6639,6 +6956,9 @@ This clinical feature is Nephromegaly, annotated with Enlarged kidney (HP:000010
                     </div>
 
 
+
+
+
                     <div class="item-desc">Enlarged kidneys due to glycogen accumulation in renal tubular cells.</div>
 
 
@@ -6658,6 +6978,8 @@ This clinical feature is Nephromegaly, annotated with Enlarged kidney (HP:000010
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6710,6 +7032,9 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">Early sign of renal involvement; may progress to renal insufficiency if metabolic control is poor.</div>
 
 
@@ -6729,6 +7054,8 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6781,6 +7108,9 @@ This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a pheno
                     </div>
 
 
+
+
+
                     <div class="item-desc">Progressive renal disease including proximal and distal renal tubular acidosis, renal stones, and potentially kidney failure in poorly controlled disease.</div>
 
 
@@ -6800,6 +7130,8 @@ This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6861,6 +7193,9 @@ This clinical feature is Oral ulcer (HP:0000155). HP:0000155 is a phenotype from
                     </div>
 
 
+
+
+
                     <div class="item-desc">Mucosal ulceration due to neutrophil dysfunction in GSD Ib.</div>
 
 
@@ -6880,6 +7215,8 @@ This clinical feature is Oral ulcer (HP:0000155). HP:0000155 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6941,6 +7278,9 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
                     </div>
 
 
+
+
+
                     <div class="item-desc">Due to neutropenia and neutrophil dysfunction in GSD Ib. Includes gingivitis, periodontitis, and skin infections.</div>
 
 
@@ -6960,6 +7300,8 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7023,6 +7365,9 @@ This clinical feature is Xanthomatosis (HP:0000991). HP:0000991 is a phenotype f
                     </div>
 
 
+
+
+
                     <div class="item-desc">Cutaneous xanthomas associated with severe hyperlipidemia.</div>
 
 
@@ -7042,6 +7387,8 @@ This clinical feature is Xanthomatosis (HP:0000991). HP:0000991 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7103,6 +7450,9 @@ This clinical feature is Fasting hypoglycemia (HP:0003162). HP:0003162 is a phen
                     </div>
 
 
+
+
+
                     <div class="item-desc">Severe hypoglycemia due to inability to release free glucose from hepatic glycogenolysis and gluconeogenesis. Can cause seizures if untreated.</div>
 
 
@@ -7122,6 +7472,8 @@ This clinical feature is Fasting hypoglycemia (HP:0003162). HP:0003162 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7174,6 +7526,9 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
                     </div>
 
 
+
+
+
                     <div class="item-desc">Due to shunting of glucose-6-phosphate through glycolysis with excess pyruvate and lactate production.</div>
 
 
@@ -7193,6 +7548,8 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7245,6 +7602,9 @@ This clinical feature is Hypertriglyceridemia (HP:0002155). HP:0002155 is a phen
                     </div>
 
 
+
+
+
                     <div class="item-desc">Due to increased de novo lipogenesis from excess glucose-6-phosphate metabolism.</div>
 
 
@@ -7264,6 +7624,8 @@ This clinical feature is Hypertriglyceridemia (HP:0002155). HP:0002155 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7316,6 +7678,9 @@ This clinical feature is Hyperuricemia (HP:0002149). HP:0002149 is a phenotype f
                     </div>
 
 
+
+
+
                     <div class="item-desc">Due to accelerated purine degradation and decreased renal urate clearance from lactate competition.</div>
 
 
@@ -7335,6 +7700,8 @@ This clinical feature is Hyperuricemia (HP:0002149). HP:0002149 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7387,6 +7754,9 @@ This clinical feature is Hyperlipidemia (HP:0003077). HP:0003077 is a phenotype 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Both hypertriglyceridemia and hypercholesterolemia.</div>
 
 
@@ -7406,6 +7776,8 @@ This clinical feature is Hyperlipidemia (HP:0003077). HP:0003077 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7467,6 +7839,9 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Long-term complication associated with poor metabolic control.</div>
 
 
@@ -7486,6 +7861,8 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7538,6 +7915,9 @@ This clinical feature is Gout (HP:0001997). HP:0001997 is a phenotype from the H
                     </div>
 
 
+
+
+
                     <div class="item-desc">Secondary to chronic hyperuricemia.</div>
 
 
@@ -7557,6 +7937,8 @@ This clinical feature is Gout (HP:0001997). HP:0001997 is a phenotype from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7618,6 +8000,9 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
                     </div>
 
 
+
+
+
                     <div class="item-desc">May occur with severe or prolonged hypoglycemia. Cognitive impairment may also result from prolonged hypoglycemic episodes.</div>
 
 
@@ -7637,6 +8022,8 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7698,6 +8085,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </div>
 
 
+
+
+
                     <div class="item-desc">Growth retardation in untreated patients; normal growth expected with adequate dietary management.</div>
 
 
@@ -7717,6 +8107,8 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7740,6 +8132,8 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7837,6 +8231,9 @@ This disease-associated gene is G6PC1 (hgnc:4056). hgnc:4056 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7851,6 +8248,8 @@ This disease-associated gene is G6PC1 (hgnc:4056). hgnc:4056 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7874,6 +8273,8 @@ This disease-associated gene is G6PC1 (hgnc:4056). hgnc:4056 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7930,6 +8331,9 @@ This disease-associated gene is SLC37A4 (hgnc:4061). hgnc:4061 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7944,6 +8348,8 @@ This disease-associated gene is SLC37A4 (hgnc:4061). hgnc:4061 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7967,6 +8373,8 @@ This disease-associated gene is SLC37A4 (hgnc:4061). hgnc:4061 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8049,6 +8457,31 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Dietary management with frequent meals of uncooked cornstarch (a slow-release glucose polymer) is the cornerstone of GSD I treatment. Cornstarch provides a sustained source of glucose to prevent fasting hypoglycemia. Patients require multiple doses per day including overnight. Combined with avoidance of fructose, galactose, and sucrose. Optimal metabolic control reduces long-term complications.
 </div>
 
@@ -8080,6 +8513,8 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8122,6 +8557,8 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8185,6 +8622,20 @@ This treatment is hematopoietic growth factor therapy, annotated with Immunother
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Recombinant human G-CSF is used to treat neutropenia, recurrent infections, enterocolitis, and bowel ulcers in GSD Ib. G-CSF stimulates neutrophil production and improves neutrophil function.
 </div>
 
@@ -8216,6 +8667,8 @@ This treatment is hematopoietic growth factor therapy, annotated with Immunother
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8258,6 +8711,8 @@ This treatment is hematopoietic growth factor therapy, annotated with Immunother
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8342,6 +8797,20 @@ This treatment uses empagliflozin (CHEBI:82720). CHEBI:82720 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The SGLT2 inhibitor empagliflozin has emerged as a mechanism-based treatment for symptoms caused by neutropenia and neutrophil dysfunction in GSD Ib, including mucosal lesions and inflammatory bowel disease. International consensus recommends a starting dose of 0.3-0.4 mg/kg/day.
 </div>
 
@@ -8373,6 +8842,8 @@ This treatment uses empagliflozin (CHEBI:82720). CHEBI:82720 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8417,6 +8888,8 @@ This treatment uses empagliflozin (CHEBI:82720). CHEBI:82720 is a therapeutic ag
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8438,6 +8911,8 @@ This treatment uses empagliflozin (CHEBI:82720). CHEBI:82720 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8522,6 +8997,20 @@ This treatment uses allopurinol (CHEBI:40279). CHEBI:40279 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Xanthine oxidase inhibitor used to prevent and treat hyperuricemia and gout.
 </div>
 
@@ -8553,6 +9042,8 @@ This treatment uses allopurinol (CHEBI:40279). CHEBI:40279 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8595,6 +9086,8 @@ This treatment uses allopurinol (CHEBI:40279). CHEBI:40279 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8657,6 +9150,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Statins or fibrates for management of persistent hyperlipidemia.
 </div>
 
@@ -8688,6 +9195,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8730,6 +9239,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8792,6 +9303,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Angiotensin-converting enzyme inhibitors to treat microalbuminuria and slow renal disease progression.
 </div>
 
@@ -8814,6 +9339,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8877,6 +9404,20 @@ This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Definitive therapy for patients with multiple or progressive hepatic adenomas refractory to medical management, or with evidence of malignant transformation. Liver transplantation corrects the hepatic metabolic defect.
 </div>
 
@@ -8899,6 +9440,8 @@ This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8962,6 +9505,31 @@ This treatment is citrate supplementation, annotated with Dietary Intervention (
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Citrate supplementation to prevent urinary calculi or ameliorate nephrocalcinosis in patients with renal involvement.
 </div>
 
@@ -8984,6 +9552,8 @@ This treatment is citrate supplementation, annotated with Dietary Intervention (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9047,6 +9617,31 @@ This treatment is kidney transplantation, annotated with Organ Transplantation (
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Kidney transplantation for patients who progress to end-stage kidney disease despite medical management. May be combined with liver transplant when needed.
 </div>
 
@@ -9069,6 +9664,8 @@ This treatment is kidney transplantation, annotated with Organ Transplantation (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9132,6 +9729,31 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Adeno-associated virus (AAV)-based gene therapy is under investigation for both GSD Ia and GSD Ib. Preclinical studies in mouse models demonstrate that liver-directed gene transfer corrects metabolic abnormalities and prevents hepatocellular adenoma development.
 </div>
 
@@ -9163,6 +9785,8 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9211,6 +9835,8 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9251,6 +9877,8 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9313,6 +9941,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Carrier testing for at-risk family members, prenatal testing for pregnancies at increased risk, and preimplantation genetic testing are possible when pathogenic variants have been identified.
 </div>
 
@@ -9335,6 +9977,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9424,6 +10068,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9502,6 +10148,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9584,6 +10232,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9662,6 +10312,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9744,6 +10396,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9824,6 +10478,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9853,6 +10509,101 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-live-births">
+                <div class="item-name">Live births</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        1.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Exact prevalence is not well established, but Orphanet&#39;s review reports an annual incidence around 1 in 100,000 births and notes that GSD Ia accounts for most cases.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21599942" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21599942" target="_blank">PMID:21599942</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Glucose-6-phosphatase deficiency (G6P deficiency), or glycogen storage disease type I (GSDI), is a group of inherited metabolic diseases, including types Ia and Ib, characterized by poor tolerance to fasting, growth retardation and hepatomegaly resulting from accumulation of glycogen and fat in..."</div>
+
+
+                <div class="evidence-explanation">Orphanet review abstract provides the clearest concise epidemiologic summary for overall GSD I.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -9974,6 +10725,8 @@ This experimental model concerns SLC37A4.</span>
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10033,6 +10786,50 @@ disease_term:
 parents:
 - Glycogen Storage Disease
 - Inborn Error of Carbohydrate Metabolism
+classifications:
+  harrisons_chapter:
+  - classification_value: ENDOCRINOLOGY_METABOLISM
+    notes: &gt;-
+      An inborn error of carbohydrate metabolism presenting with fasting
+      hypoglycemia, lactic acidosis, hyperlipidemia and hyperuricemia.
+  - classification_value: GENETICS_ENVIRONMENT_DISEASE
+    notes: &gt;-
+      A Mendelian autosomal recessive disorder of the glucose-6-phosphatase
+      system (G6PC1 in type Ia, SLC37A4 in type Ib).
+  iuis_category:
+    classification_value: phagocyte defect
+    notes: &gt;-
+      IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970),
+      Table 5 &#34;Congenital defects of phagocyte number or function&#34;, section 1
+      (Congenital Neutropenias): row &#34;Glycogen storage disease type 1b G6PT1
+      AR 602671&#34;, affected cells N + M, affected function myeloid
+      differentiation, chemotaxis and O2- production, associated features
+      fasting hypoglycemia, lactic acidosis, hyperlipidemia and hepatomegaly.
+
+      SCOPE — this classification applies to the GSD Ib subtype ONLY. This
+      entry is a combined Ia+Ib entry, and IUIS lists only type 1b: the
+      neutropenia, neutrophil dysfunction and inflammatory bowel disease that
+      earn the Table 5 row come from loss of the SLC37A4 glucose-6-phosphate
+      transporter, and this entry&#39;s GSD Ia subtype states explicitly that
+      neutropenia is not a feature of type Ia. Because iuis_category is
+      single-valued and cannot be scoped to a has_subtypes member, the
+      restriction is recorded here in prose rather than structurally. The
+      supporting content sits on the &#34;Neutropenia and neutrophil dysfunction
+      in GSD Ib&#34; pathophysiology node.
+
+      The paper prints the legacy gene symbol G6PT1; the current HGNC symbol
+      is SLC37A4 (hgnc:4061), which is what this entry binds — the same gene,
+      not a mismatch.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Glycogen storage disease type 1b G6PT1 AR 602671&#34;
+      explanation: &gt;-
+        The IUIS Table 5 row, quoted verbatim. It names type 1b specifically,
+        which is what bounds this classification to the GSD Ib subtype of this
+        combined entry.
 inheritance:
 - name: Autosomal recessive
   inheritance_term:
@@ -11873,6 +12670,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11941,6 +12740,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -12050,6 +12851,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12118,6 +12921,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -12190,6 +12995,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12258,6 +13065,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -12330,6 +13139,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12398,6 +13209,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -12470,6 +13283,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12538,6 +13353,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -12610,6 +13427,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12680,6 +13499,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12714,6 +13535,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -13764,7 +14587,7 @@ These models are used to test gene therapy/genome editing and to study liver dis
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Glycogen Storage Disease Type I", "mondoId": "MONDO:0002413", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Glycogen_Storage_Disease_Type_I", "yamlRevision": "e4d20284d8f4"};
+        const OS_CONFIG = {"diseaseName": "Glycogen Storage Disease Type I", "mondoId": "MONDO:0002413", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Glycogen_Storage_Disease_Type_I", "yamlRevision": "8e01c904f740"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

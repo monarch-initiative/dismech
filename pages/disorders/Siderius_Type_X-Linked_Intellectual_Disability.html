@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4208,6 +4315,8 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4231,6 +4340,8 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4252,6 +4363,8 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4339,6 +4452,8 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4375,7 +4490,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-PARTIAL">1 partial</span>
+                    <span class="evidence-support support-SUPPORT">1 support</span>
 
                 </div>
 
@@ -4394,14 +4509,16 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:19843542" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:19843542" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19843542" target="_blank">PMID:19843542</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5347,6 +5464,8 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5381,6 +5500,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pathogenic-phf8-loss-of-function-variant" data-dismech-node="Pathogenic PHF8 Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Pathogenic PHF8 Loss-of-Function Variant</div>
+
 
                 <div class="item-desc">The shared upstream lesion is a hemizygous loss-of-function variant in PHF8 at Xp11.22. The reported allele spectrum is small but mechanistically coherent: nonsense and frameshift alleles that truncate the protein before or within the JmjC domain and remove the nuclear localisation signals, splice alleles, missense alleles clustered in the JmjC-encoding exons, and whole-gene microdeletions. All reported mechanisms converge on loss of function; no dominant-negative or gain-of-function mechanism has been demonstrated for the germline neurodevelopmental phenotype. Two consequences fan out from this node in parallel rather than in series - loss of JmjC catalysis, and, for the truncating alleles, loss of the PHD-finger/nuclear-targeting module - because the F279S missense allele abolishes catalysis while leaving the N-terminal PHD finger intact, and the K177X nonsense allele removes both.
 </div>
@@ -5479,6 +5599,8 @@ This pathophysiological event involves PHF8 (hgnc:20672). hgnc:20672 is a gene f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5501,6 +5623,8 @@ This pathophysiological event involves PHF8 (hgnc:20672). hgnc:20672 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5526,6 +5650,8 @@ This pathophysiological event involves PHF8 (hgnc:20672). hgnc:20672 is a gene f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5549,6 +5675,7 @@ This pathophysiological event involves PHF8 (hgnc:20672). hgnc:20672 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-jmjc-domain-histone-demethylase-activity" data-dismech-node="Loss of JmjC-Domain Histone Demethylase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of JmjC-Domain Histone Demethylase Activity</div>
+
 
                 <div class="item-desc">PHF8 is an Fe(II)- and 2-oxoglutarate-dependent oxygenase of the double-stranded beta-helix class. Its JmjC domain removes mono- and dimethyl marks from lysine but not trimethyl marks. Patient alleles clustered in the JmjC-encoding exons abolish this catalysis: the F279S missense variant, which substitutes a residue in a conserved hydrophobic region of the JmjC domain, is catalytically inactive against both peptide and intact-histone substrates, and truncating alleles remove the domain outright. Because the reaction requires molecular oxygen, PHF8 activity is oxygen-dependent, a property that has been proposed - though not demonstrated in patients - to link the catalytic arm to the known association between maternal hypoxia and cleft lip in mouse studies.
 </div>
@@ -5678,6 +5805,8 @@ This pathophysiological event involves decreased histone H3K9 demethylase activi
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5701,6 +5830,8 @@ This pathophysiological event involves decreased histone H3K9 demethylase activi
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5722,6 +5853,8 @@ This pathophysiological event involves decreased histone H3K9 demethylase activi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5748,6 +5881,7 @@ This pathophysiological event involves decreased histone H3K9 demethylase activi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-phd-finger-h3k4me3-reading-and-nuclear-targeting" data-dismech-node="Loss of PHD-Finger H3K4me3 Reading and Nuclear Targeting" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of PHD-Finger H3K4me3 Reading and Nuclear Targeting</div>
+
 
                 <div class="item-desc">The N-terminal PHD finger of PHF8 binds H3K4me3/me2, the mark that decorates active transcription start sites, and this reader function is what recruits the enzyme to the promoters it acts on. Truncating patient alleles remove not only the JmjC domain but also the nuclear localisation signals, so the residual protein cannot reach chromatin at all. This is modelled as a sibling of the catalytic arm rather than a downstream consequence, because the F279S catalytic-dead allele leaves the PHD finger intact while the K177X nonsense allele removes both modules - the two arms are separable in the patient allele series.
 </div>
@@ -5837,6 +5971,8 @@ This pathophysiological event involves decreased histone H3K4me3 reader activity
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5860,6 +5996,8 @@ This pathophysiological event involves decreased histone H3K4me3 reader activity
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5881,6 +6019,8 @@ This pathophysiological event involves decreased histone H3K4me3 reader activity
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5908,6 +6048,7 @@ This pathophysiological event involves decreased histone H3K4me3 reader activity
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistence-of-repressive-h4k20me1-at-target-promoters" data-dismech-node="Persistence of Repressive H4K20me1 at Target Promoters" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistence of Repressive H4K20me1 at Target Promoters</div>
+
 
                 <div class="item-desc">PHF8 is the founding H4K20me1 demethylase. When catalysis is lost, H4K20me1 accumulates at the transcription start sites of PHF8 target genes and the genes stay repressed. Two H4K20me1-dependent target sets have been mapped directly: cytoskeletal and cell-adhesion regulators (RHOA, RAC1, GSK3B) whose promoters PHF8 demethylates, and RSK1, whose derepression is the entry point into the mTOR arm. In astrocytes the related H4K20me3 mark accumulates at synaptogenic genes when PHF8 is depleted, extending the same heterochromatinisation logic to glia.
 </div>
@@ -6003,6 +6144,8 @@ This pathophysiological event involves abnormal Chromatin organization (GO:00063
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6024,6 +6167,8 @@ This pathophysiological event involves abnormal Chromatin organization (GO:00063
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6049,6 +6194,8 @@ This pathophysiological event involves abnormal Chromatin organization (GO:00063
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6071,6 +6218,7 @@ This pathophysiological event involves abnormal Chromatin organization (GO:00063
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistence-of-repressive-h3k9me1-me2-marks" data-dismech-node="Persistence of Repressive H3K9me1/me2 Marks" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistence of Repressive H3K9me1/me2 Marks</div>
+
 
                 <div class="item-desc">PHF8 also erases mono- and dimethylated H3K9, a repressive mark associated with facultative heterochromatin. Recombinant PHF8 is selective for H3K9me2 and H3K9me1 and does not accept H3K9me3, so the enzyme trims the repressive mark toward the unmethylated state rather than resolving constitutive heterochromatin. In cells, PHF8 depletion raises H3K9me1 at transcription start sites and H3K9me2 at non-TSS sites. Loss of this activity is one of the two routes by which target promoters fail to be activated.
 </div>
@@ -6160,6 +6308,8 @@ This pathophysiological event involves decreased histone H3K9me/H3K9me2 demethyl
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6181,6 +6331,8 @@ This pathophysiological event involves decreased histone H3K9me/H3K9me2 demethyl
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6206,6 +6358,8 @@ This pathophysiological event involves decreased histone H3K9me/H3K9me2 demethyl
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6228,6 +6382,7 @@ This pathophysiological event involves decreased histone H3K9me/H3K9me2 demethyl
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-rna-polymerase-ii-coupled-transcriptional-coactivation" data-dismech-node="Failure of RNA Polymerase II-Coupled Transcriptional Coactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of RNA Polymerase II-Coupled Transcriptional Coactivation</div>
+
 
                 <div class="item-desc">The convergence point of the chromatin arms. PHF8 occupies the transcription start sites of thousands of active or poised genes, mirroring the distribution of RNA polymerase II and H3K4me3-marked nucleosomes, and contacts the RNAPII C-terminal domain directly; it therefore acts as a promoter-resident transcriptional coactivator whose activation function depends on PHD binding to H3K4me3. Patient alleles are defective in coactivation as well as in demethylation. PHF8 additionally partners with the XLID transcription factor ZNF711 at a shared target set, and co-occupies promoters with the REST/NRSF repressor, so the net transcriptional output at any locus can be activating or repressive; the dominant documented effect is loss of activation. Downstream of this node the disease diversifies into distinct neural and craniofacial cell-type programmes.
 </div>
@@ -6379,6 +6534,8 @@ This pathophysiological event involves decreased transcription coactivator activ
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6402,6 +6559,8 @@ This pathophysiological event involves decreased transcription coactivator activ
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6423,6 +6582,8 @@ This pathophysiological event involves decreased transcription coactivator activ
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6449,6 +6610,7 @@ This pathophysiological event involves decreased transcription coactivator activ
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rsk1-derepression-and-mtor-pathway-hyperactivation" data-dismech-node="RSK1 Derepression and mTOR Pathway Hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">RSK1 Derepression and mTOR Pathway Hyperactivation</div>
+
 
                 <div class="item-desc">A specific, pharmacologically actionable branch of the H4K20me1 arm. In Phf8 knockout mice, failure to demethylate H4K20me1 at the RSK1 locus derepresses RSK1, and the mTOR signalling pathway becomes hyperactive in hippocampus. This is the one node in the entry with a demonstrated rescue: rapamycin normalises both long-term potentiation and cognitive performance in the knockout. The evidence is entirely from the mouse; no patient has been treated on this rationale.
 </div>
@@ -6538,6 +6700,8 @@ This pathophysiological event involves increased TOR signaling (GO:0031929). GO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6559,6 +6723,8 @@ This pathophysiological event involves increased TOR signaling (GO:0031929). GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6583,6 +6749,7 @@ This pathophysiological event involves increased TOR signaling (GO:0031929). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neuronal-differentiation-and-neurite-outgrowth" data-dismech-node="Impaired Neuronal Differentiation and Neurite Outgrowth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neuronal Differentiation and Neurite Outgrowth</div>
+
 
                 <div class="item-desc">PHF8 is required for neuronal differentiation and for the cytoskeletal programme that builds neurites. Knockdown in P19 embryonal carcinoma cells impairs retinoic-acid-induced neuronal differentiation, and overexpression of wild-type but not the catalytically dead F279S variant pushes the cells toward a neuronal fate - a clean genotype-to-cell-phenotype link through a patient allele. In differentiated neurons, PHF8 depletion downregulates cytoskeletal genes and produces deficient neurite outgrowth, which the authors propose is the cellular substrate of the cognitive phenotype.
 </div>
@@ -6740,6 +6907,8 @@ This pathophysiological event involves decreased Neuron projection development (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6762,6 +6931,8 @@ This pathophysiological event involves decreased Neuron projection development (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6787,6 +6958,8 @@ This pathophysiological event involves decreased Neuron projection development (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6809,6 +6982,7 @@ This pathophysiological event involves decreased Neuron projection development (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-astrocyte-differentiation-and-synaptic-gene-silencing" data-dismech-node="Impaired Astrocyte Differentiation and Synaptic Gene Silencing" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Astrocyte Differentiation and Synaptic Gene Silencing</div>
+
 
                 <div class="item-desc">A non-cell-autonomous arm. PHF8 acts in astrocytes through a regulatory crosstalk with Notch signalling that balances expression of the master astrocytic transcription factor Nfia, and it keeps synaptogenic genes accessible by holding H4K20me3 low. Depleting PHF8 in astrocytes alone is sufficient to disrupt neuronal synapse formation and maturation in vitro, so part of the synaptic phenotype originates outside the neuron. Evidence is from mouse astrocytic culture.
 </div>
@@ -6932,6 +7106,8 @@ This pathophysiological event involves abnormal Astrocyte differentiation (GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6953,6 +7129,8 @@ This pathophysiological event involves abnormal Astrocyte differentiation (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6978,6 +7156,8 @@ This pathophysiological event involves abnormal Astrocyte differentiation (GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7000,6 +7180,13 @@ This pathophysiological event involves abnormal Astrocyte differentiation (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-perturbed-oligodendroglial-development" data-dismech-node="Perturbed Oligodendroglial Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Perturbed Oligodendroglial Development</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">A third glial arm, and the least clinically anchored of the three. Phf8 promotes proliferation of oligodendrocyte progenitor cells and restrains their differentiation into oligodendrocytes, acting largely through Olig2, whose regulatory regions it occupies; ectopic Olig2 rescues the proliferation defect in Phf8-deficient cells. Notably, human iPSC-derived oligodendrocyte generation did not require PHF8 when Olig2 was force-expressed, so the human requirement is conditional. No white-matter abnormality has been documented in patients with this syndrome, so this node is marked provisional.
 </div>
@@ -7123,6 +7310,8 @@ This pathophysiological event involves abnormal Oligodendrocyte differentiation 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7146,6 +7335,8 @@ This pathophysiological event involves abnormal Oligodendrocyte differentiation 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7159,14 +7350,16 @@ This pathophysiological event involves abnormal Oligodendrocyte differentiation 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38613395" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38613395" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38613395" target="_blank">PMID:38613395</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7192,6 +7385,7 @@ This pathophysiological event involves abnormal Oligodendrocyte differentiation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-serine-biosynthesis-in-neural-progenitors" data-dismech-node="Impaired Serine Biosynthesis in Neural Progenitors" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Serine Biosynthesis in Neural Progenitors</div>
+
 
                 <div class="item-desc">The most recently described arm, and the one that connects chromatin regulation to metabolism. In neural stem cells PHF8 drives the serine biosynthesis pathway by tuning chromatin accessibility at the promoters of metabolic genes, safeguarding the intracellular serine pool that progenitor proliferation depends on. Loss of PHF8 disrupts amino-acid metabolism, blocks autophagy and impairs vesicle formation, and culminates in replication defects, DNA damage and proliferation arrest; in mouse embryos PHF8 deficiency halts progenitor expansion and neuron generation in the developing brain. Evidence is from neural stem cells and mouse embryos, not from patients.
 </div>
@@ -7315,6 +7509,8 @@ This pathophysiological event involves decreased L-serine biosynthetic process (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7336,6 +7532,8 @@ This pathophysiological event involves decreased L-serine biosynthetic process (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7361,6 +7559,8 @@ This pathophysiological event involves decreased L-serine biosynthetic process (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7383,6 +7583,7 @@ This pathophysiological event involves decreased L-serine biosynthetic process (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neural-crest-and-craniofacial-midline-development" data-dismech-node="Impaired Neural Crest and Craniofacial Midline Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neural Crest and Craniofacial Midline Development</div>
+
 
                 <div class="item-desc">The craniofacial arm. PHF8 is required for jaw development in zebrafish, where it acts in part by directly regulating the homeodomain transcription factor MSX1/MSXB, an integrator of several craniofacial signalling pathways; Phf8 is independently implicated in neural crest defects in mice and humans. The clinical inference of a midline-formation role predates the molecular work and was drawn directly from the co-segregation of intellectual disability with cleft lip/palate in the original families. Because PHF8 catalysis consumes molecular oxygen, an oxygen-sensing link to the known maternal-hypoxia effect on murine cleft lip has been proposed, but this remains a hypothesis.
 </div>
@@ -7540,6 +7741,8 @@ This pathophysiological event involves abnormal Roof of mouth development (GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7563,6 +7766,8 @@ This pathophysiological event involves abnormal Roof of mouth development (GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7584,6 +7789,8 @@ This pathophysiological event involves abnormal Roof of mouth development (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7610,6 +7817,7 @@ This pathophysiological event involves abnormal Roof of mouth development (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-synaptic-plasticity-and-hippocampal-long-term-potentiation" data-dismech-node="Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation</div>
+
 
                 <div class="item-desc">The convergence point of the neuronal, astrocytic and mTOR arms. Phf8 knockout mice show impaired hippocampal long-term potentiation together with impaired learning and memory, and - importantly for interpreting the human phenotype - without gross morphological brain defects, matching the absence of a consistent structural brain abnormality in patients. The synaptic deficit is reversible in the mouse: rapamycin restores the weakened LTP.
 </div>
@@ -7733,6 +7941,8 @@ This pathophysiological event involves decreased Long-term synaptic potentiation
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7754,6 +7964,8 @@ This pathophysiological event involves decreased Long-term synaptic potentiation
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7778,6 +7990,7 @@ This pathophysiological event involves decreased Long-term synaptic potentiation
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cognitive-development" data-dismech-node="Impaired Cognitive Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cognitive Development</div>
+
 
                 <div class="item-desc">The terminal neurodevelopmental output: developmental delay in essentially all affected individuals and borderline to severe intellectual disability in the large majority, with a behavioural profile that includes autism spectrum disorder and attention deficit hyperactivity disorder. The severity range is wide enough that two individuals in the largest cohort had no intellectual disability at all, one with dyscalculia and one with mild learning difficulties.
 </div>
@@ -7854,6 +8067,8 @@ This pathophysiological event involves decreased Learning or memory (GO:0007611)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7875,6 +8090,8 @@ This pathophysiological event involves decreased Learning or memory (GO:0007611)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7899,6 +8116,7 @@ This pathophysiological event involves decreased Learning or memory (GO:0007611)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-orofacial-clefting-and-craniofacial-dysmorphology" data-dismech-node="Orofacial Clefting and Craniofacial Dysmorphology" data-dismech-type="pathophysiology">
                 <div class="item-name">Orofacial Clefting and Craniofacial Dysmorphology</div>
+
 
                 <div class="item-desc">The terminal craniofacial output: cleft lip and/or cleft palate, unilateral or bilateral, together with a mild dysmorphic gestalt that has been described as a long face with broad nasal tip, and in the contemporary series as hypertelorism, microcephaly, elongated face, ptosis and mild facial asymmetry. Clefting was near-universal in the cleft-clinic-ascertained founding families and is present in a minority of exome-ascertained cases, so the apparent frequency of this node is strongly ascertainment-dependent.
 </div>
@@ -7975,6 +8193,8 @@ This pathophysiological event involves abnormal Roof of mouth development (GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7996,6 +8216,8 @@ This pathophysiological event involves abnormal Roof of mouth development (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8043,7 +8265,7 @@ This pathophysiological event involves abnormal Roof of mouth development (GO:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence point of the chromatin arms. PHF8 occupies the transcription start sites of thousands of active or poised genes, mirroring the distribution of RNA polymerase II and H3K4me3-marked nucleosomes, and contacts the RNAPII C-terminal domain directly; it therefore acts as a promoter-resident transcriptional coactivator whose activation function depends on PHD binding to H3K4me3. Patient alleles are defective in coactivation as well as in demethylation. PHF8 additionally partners with the XLID transcription factor ZNF711 at a shared target set, and co-occupies promoters with the REST/NRSF repressor, so the net transcriptional output at any locus can be activating or repressive; the dominant documented effect is loss of activation. Downstream of this node the disease diversifies into distinct neural and craniofacial cell-type programmes.\\n\", \"meta\": {\"evidence_count\": 7, \"biological_processes\": [\"Regulation of transcription by RNA polymerase II\"], \"molecular_functions\": [\"transcription coactivator activity\"]}}, {\"id\": \"Impaired Astrocyte Differentiation and Synaptic Gene Silencing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A non-cell-autonomous arm. PHF8 acts in astrocytes through a regulatory crosstalk with Notch signalling that balances expression of the master astrocytic transcription factor Nfia, and it keeps synaptogenic genes accessible by holding H4K20me3 low. Depleting PHF8 in astrocytes alone is sufficient to disrupt neuronal synapse formation and maturation in vitro, so part of the synaptic phenotype originates outside the neuron. Evidence is from mouse astrocytic culture.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"Astrocyte differentiation\"]}}, {\"id\": \"Impaired Cognitive Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The terminal neurodevelopmental output: developmental delay in essentially all affected individuals and borderline to severe intellectual disability in the large majority, with a behavioural profile that includes autism spectrum disorder and attention deficit hyperactivity disorder. The severity range is wide enough that two individuals in the largest cohort had no intellectual disability at all, one with dyscalculia and one with mild learning difficulties.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Learning or memory\"]}}, {\"id\": \"Impaired Neural Crest and Craniofacial Midline Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The craniofacial arm. PHF8 is required for jaw development in zebrafish, where it acts in part by directly regulating the homeodomain transcription factor MSX1/MSXB, an integrator of several craniofacial signalling pathways; Phf8 is independently implicated in neural crest defects in mice and humans. The clinical inference of a midline-formation role predates the molecular work and was drawn directly from the co-segregation of intellectual disability with cleft lip/palate in the original families. Because PHF8 catalysis consumes molecular oxygen, an oxygen-sensing link to the known maternal-hypoxia effect on murine cleft lip has been proposed, but this remains a hypothesis.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"migratory neural crest cell\"], \"biological_processes\": [\"Embryonic cranial skeleton morphogenesis\", \"Roof of mouth development\"]}}, {\"id\": \"Impaired Neuronal Differentiation and Neurite Outgrowth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHF8 is required for neuronal differentiation and for the cytoskeletal programme that builds neurites. Knockdown in P19 embryonal carcinoma cells impairs retinoic-acid-induced neuronal differentiation, and overexpression of wild-type but not the catalytically dead F279S variant pushes the cells toward a neuronal fate - a clean genotype-to-cell-phenotype link through a patient allele. In differentiated neurons, PHF8 depletion downregulates cytoskeletal genes and produces deficient neurite outgrowth, which the authors propose is the cellular substrate of the cognitive phenotype.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"Neuron differentiation\", \"Neuron projection development\"]}}, {\"id\": \"Impaired Serine Biosynthesis in Neural Progenitors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The most recently described arm, and the one that connects chromatin regulation to metabolism. In neural stem cells PHF8 drives the serine biosynthesis pathway by tuning chromatin accessibility at the promoters of metabolic genes, safeguarding the intracellular serine pool that progenitor proliferation depends on. Loss of PHF8 disrupts amino-acid metabolism, blocks autophagy and impairs vesicle formation, and culminates in replication defects, DNA damage and proliferation arrest; in mouse embryos PHF8 deficiency halts progenitor expansion and neuron generation in the developing brain. Evidence is from neural stem cells and mouse embryos, not from patients.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"L-serine biosynthetic process\"]}}, {\"id\": \"Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence point of the neuronal, astrocytic and mTOR arms. Phf8 knockout mice show impaired hippocampal long-term potentiation together with impaired learning and memory, and - importantly for interpreting the human phenotype - without gross morphological brain defects, matching the absence of a consistent structural brain abnormality in patients. The synaptic deficit is reversible in the mouse: rapamycin restores the weakened LTP.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"Long-term synaptic potentiation\"]}}, {\"id\": \"Loss of JmjC-Domain Histone Demethylase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHF8 is an Fe(II)- and 2-oxoglutarate-dependent oxygenase of the double-stranded beta-helix class. Its JmjC domain removes mono- and dimethyl marks from lysine but not trimethyl marks. Patient alleles clustered in the JmjC-encoding exons abolish this catalysis: the F279S missense variant, which substitutes a residue in a conserved hydrophobic region of the JmjC domain, is catalytically inactive against both peptide and intact-histone substrates, and truncating alleles remove the domain outright. Because the reaction requires molecular oxygen, PHF8 activity is oxygen-dependent, a property that has been proposed - though not demonstrated in patients - to link the catalytic arm to the known association between maternal hypoxia and cleft lip in mouse studies.\\n\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"histone H4K20 demethylase activity\", \"histone H3K9 demethylase activity\"]}}, {\"id\": \"Loss of PHD-Finger H3K4me3 Reading and Nuclear Targeting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The N-terminal PHD finger of PHF8 binds H3K4me3/me2, the mark that decorates active transcription start sites, and this reader function is what recruits the enzyme to the promoters it acts on. Truncating patient alleles remove not only the JmjC domain but also the nuclear localisation signals, so the residual protein cannot reach chromatin at all. This is modelled as a sibling of the catalytic arm rather than a downstream consequence, because the F279S catalytic-dead allele leaves the PHD finger intact while the K177X nonsense allele removes both modules - the two arms are separable in the patient allele series.\\n\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"histone H3K4me3 reader activity\"]}}, {\"id\": \"Orofacial Clefting and Craniofacial Dysmorphology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The terminal craniofacial output: cleft lip and/or cleft palate, unilateral or bilateral, together with a mild dysmorphic gestalt that has been described as a long face with broad nasal tip, and in the contemporary series as hypertelorism, microcephaly, elongated face, ptosis and mild facial asymmetry. Clefting was near-universal in the cleft-clinic-ascertained founding families and is present in a minority of exome-ascertained cases, so the apparent frequency of this node is strongly ascertainment-dependent.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Roof of mouth development\"]}}, {\"id\": \"PHF8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"PHF8\"], \"gene_terms\": [{\"label\": \"PHF8\", \"id\": \"hgnc:20672\"}], \"association\": \"Causative\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PHF8 p.Lys177Ter\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A nonsense allele (p.K177X) reported in a male with intellectual disability and cleft lip/palate. It truncates the protein upstream of the JmjC domain and removes five nuclear localisation signals, so it is the cleanest example of the null end of the allele spectrum and the reason the PHD/nuclear-targeting arm is modelled separately from the catalytic arm.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PHF8\"], \"gene_terms\": [{\"label\": \"PHF8\", \"id\": \"hgnc:20672\"}], \"variant_type\": \"NONSENSE\"}}, {\"id\": \"PHF8 p.Phe279Ser\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The c.836C\u003eT (p.F279S) missense allele, identified in a Finnish family with multiply affected males. It is the reference functional allele for this disorder: it substitutes a conserved hydrophobic residue in the JmjC domain and is catalytically dead in assays against both peptide and intact-histone substrates, in two independent laboratories, while leaving the rest of the protein intact. It is also the allele used to show that catalytic activity is required for PHF8 to drive neuronal differentiation.\\n\", \"meta\": {\"evidence_count\": 5, \"genes\": [\"PHF8\"], \"gene_terms\": [{\"label\": \"PHF8\", \"id\": \"hgnc:20672\"}], \"variant_type\": \"MISSENSE\"}}, {\"id\": \"Pathogenic PHF8 Loss-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The shared upstream lesion is a hemizygous loss-of-function variant in PHF8 at Xp11.22. The reported allele spectrum is small but mechanistically coherent: nonsense and frameshift alleles that truncate the protein before or within the JmjC domain and remove the nuclear localisation signals, splice alleles, missense alleles clustered in the JmjC-encoding exons, and whole-gene microdeletions. All reported mechanisms converge on loss of function; no dominant-negative or gain-of-function mechanism has been demonstrated for the germline neurodevelopmental phenotype. Two consequences fan out from this node in parallel rather than in series - loss of JmjC catalysis, and, for the truncating alleles, loss of the PHD-finger/nuclear-targeting module - because the F279S missense allele abolishes catalysis while leaving the N-terminal PHD finger intact, and the K177X nonsense allele removes both.\\n\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"PHF8\"], \"gene_terms\": [{\"label\": \"PHF8\", \"id\": \"hgnc:20672\"}]}}, {\"id\": \"Persistence of Repressive H3K9me1/me2 Marks\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHF8 also erases mono- and dimethylated H3K9, a repressive mark associated with facultative heterochromatin. Recombinant PHF8 is selective for H3K9me2 and H3K9me1 and does not accept H3K9me3, so the enzyme trims the repressive mark toward the unmethylated state rather than resolving constitutive heterochromatin. In cells, PHF8 depletion raises H3K9me1 at transcription start sites and H3K9me2 at non-TSS sites. Loss of this activity is one of the two routes by which target promoters fail to be activated.\\n\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"histone H3K9me/H3K9me2 demethylase activity\"]}}, {\"id\": \"Persistence of Repressive H4K20me1 at Target Promoters\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHF8 is the founding H4K20me1 demethylase. When catalysis is lost, H4K20me1 accumulates at the transcription start sites of PHF8 target genes and the genes stay repressed. Two H4K20me1-dependent target sets have been mapped directly: cytoskeletal and cell-adhesion regulators (RHOA, RAC1, GSK3B) whose promoters PHF8 demethylates, and RSK1, whose derepression is the entry point into the mTOR arm. In astrocytes the related H4K20me3 mark accumulates at synaptogenic genes when PHF8 is depleted, extending the same heterochromatinisation logic to glia.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Chromatin organization\"]}}, {\"id\": \"Perturbed Oligodendroglial Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A third glial arm, and the least clinically anchored of the three. Phf8 promotes proliferation of oligodendrocyte progenitor cells and restrains their differentiation into oligodendrocytes, acting largely through Olig2, whose regulatory regions it occupies; ectopic Olig2 rescues the proliferation defect in Phf8-deficient cells. Notably, human iPSC-derived oligodendrocyte generation did not require PHF8 when Olig2 was force-expressed, so the human requirement is conditional. No white-matter abnormality has been documented in patients with this syndrome, so this node is marked provisional.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"oligodendrocyte precursor cell\"], \"biological_processes\": [\"Oligodendrocyte differentiation\"]}}, {\"id\": \"RSK1 Derepression and mTOR Pathway Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A specific, pharmacologically actionable branch of the H4K20me1 arm. In Phf8 knockout mice, failure to demethylate H4K20me1 at the RSK1 locus derepresses RSK1, and the mTOR signalling pathway becomes hyperactive in hippocampus. This is the one node in the entry with a demonstrated rescue: rapamycin normalises both long-term potentiation and cognitive performance in the knockout. The evidence is entirely from the mouse; no patient has been treated on this rationale.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"TOR signaling\"]}}], \"edges\": [{\"source\": \"Pathogenic PHF8 Loss-of-Function Variant\", \"target\": \"Loss of JmjC-Domain Histone Demethylase Activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pathogenic PHF8 Loss-of-Function Variant\", \"target\": \"Loss of PHD-Finger H3K4me3 Reading and Nuclear Targeting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of JmjC-Domain Histone Demethylase Activity\", \"target\": \"Persistence of Repressive H4K20me1 at Target Promoters\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of JmjC-Domain Histone Demethylase Activity\", \"target\": \"Persistence of Repressive H3K9me1/me2 Marks\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of PHD-Finger H3K4me3 Reading and Nuclear Targeting\", \"target\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Persistence of Repressive H4K20me1 at Target Promoters\", \"target\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Persistence of Repressive H4K20me1 at Target Promoters\", \"target\": \"RSK1 Derepression and mTOR Pathway Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Persistence of Repressive H3K9me1/me2 Marks\", \"target\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"target\": \"Impaired Neuronal Differentiation and Neurite Outgrowth\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"target\": \"Impaired Astrocyte Differentiation and Synaptic Gene Silencing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"target\": \"Perturbed Oligodendroglial Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"target\": \"Impaired Serine Biosynthesis in Neural Progenitors\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"target\": \"Impaired Neural Crest and Craniofacial Midline Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RSK1 Derepression and mTOR Pathway Hyperactivation\", \"target\": \"Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Neuronal Differentiation and Neurite Outgrowth\", \"target\": \"Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Astrocyte Differentiation and Synaptic Gene Silencing\", \"target\": \"Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Perturbed Oligodendroglial Development\", \"target\": \"Impaired Cognitive Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Serine Biosynthesis in Neural Progenitors\", \"target\": \"Impaired Cognitive Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Neural Crest and Craniofacial Midline Development\", \"target\": \"Orofacial Clefting and Craniofacial Dysmorphology\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation\", \"target\": \"Impaired Cognitive Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PHF8\", \"target\": \"Pathogenic PHF8 Loss-of-Function Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PHF8 p.Phe279Ser\", \"target\": \"PHF8\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PHF8 p.Lys177Ter\", \"target\": \"PHF8\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence point of the chromatin arms. PHF8 occupies the transcription start sites of thousands of active or poised genes, mirroring the distribution of RNA polymerase II and H3K4me3-marked nucleosomes, and contacts the RNAPII C-terminal domain directly; it therefore acts as a promoter-resident transcriptional coactivator whose activation function depends on PHD binding to H3K4me3. Patient alleles are defective in coactivation as well as in demethylation. PHF8 additionally partners with the XLID transcription factor ZNF711 at a shared target set, and co-occupies promoters with the REST/NRSF repressor, so the net transcriptional output at any locus can be activating or repressive; the dominant documented effect is loss of activation. Downstream of this node the disease diversifies into distinct neural and craniofacial cell-type programmes.\\n\", \"meta\": {\"evidence_count\": 7, \"biological_processes\": [\"Regulation of transcription by RNA polymerase II\"], \"molecular_functions\": [\"transcription coactivator activity\"]}}, {\"id\": \"Impaired Astrocyte Differentiation and Synaptic Gene Silencing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A non-cell-autonomous arm. PHF8 acts in astrocytes through a regulatory crosstalk with Notch signalling that balances expression of the master astrocytic transcription factor Nfia, and it keeps synaptogenic genes accessible by holding H4K20me3 low. Depleting PHF8 in astrocytes alone is sufficient to disrupt neuronal synapse formation and maturation in vitro, so part of the synaptic phenotype originates outside the neuron. Evidence is from mouse astrocytic culture.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"Astrocyte differentiation\"]}}, {\"id\": \"Impaired Cognitive Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The terminal neurodevelopmental output: developmental delay in essentially all affected individuals and borderline to severe intellectual disability in the large majority, with a behavioural profile that includes autism spectrum disorder and attention deficit hyperactivity disorder. The severity range is wide enough that two individuals in the largest cohort had no intellectual disability at all, one with dyscalculia and one with mild learning difficulties.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Learning or memory\"]}}, {\"id\": \"Impaired Neural Crest and Craniofacial Midline Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The craniofacial arm. PHF8 is required for jaw development in zebrafish, where it acts in part by directly regulating the homeodomain transcription factor MSX1/MSXB, an integrator of several craniofacial signalling pathways; Phf8 is independently implicated in neural crest defects in mice and humans. The clinical inference of a midline-formation role predates the molecular work and was drawn directly from the co-segregation of intellectual disability with cleft lip/palate in the original families. Because PHF8 catalysis consumes molecular oxygen, an oxygen-sensing link to the known maternal-hypoxia effect on murine cleft lip has been proposed, but this remains a hypothesis.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"migratory neural crest cell\"], \"biological_processes\": [\"Embryonic cranial skeleton morphogenesis\", \"Roof of mouth development\"]}}, {\"id\": \"Impaired Neuronal Differentiation and Neurite Outgrowth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHF8 is required for neuronal differentiation and for the cytoskeletal programme that builds neurites. Knockdown in P19 embryonal carcinoma cells impairs retinoic-acid-induced neuronal differentiation, and overexpression of wild-type but not the catalytically dead F279S variant pushes the cells toward a neuronal fate - a clean genotype-to-cell-phenotype link through a patient allele. In differentiated neurons, PHF8 depletion downregulates cytoskeletal genes and produces deficient neurite outgrowth, which the authors propose is the cellular substrate of the cognitive phenotype.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"Neuron differentiation\", \"Neuron projection development\"]}}, {\"id\": \"Impaired Serine Biosynthesis in Neural Progenitors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The most recently described arm, and the one that connects chromatin regulation to metabolism. In neural stem cells PHF8 drives the serine biosynthesis pathway by tuning chromatin accessibility at the promoters of metabolic genes, safeguarding the intracellular serine pool that progenitor proliferation depends on. Loss of PHF8 disrupts amino-acid metabolism, blocks autophagy and impairs vesicle formation, and culminates in replication defects, DNA damage and proliferation arrest; in mouse embryos PHF8 deficiency halts progenitor expansion and neuron generation in the developing brain. Evidence is from neural stem cells and mouse embryos, not from patients.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"L-serine biosynthetic process\"]}}, {\"id\": \"Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence point of the neuronal, astrocytic and mTOR arms. Phf8 knockout mice show impaired hippocampal long-term potentiation together with impaired learning and memory, and - importantly for interpreting the human phenotype - without gross morphological brain defects, matching the absence of a consistent structural brain abnormality in patients. The synaptic deficit is reversible in the mouse: rapamycin restores the weakened LTP.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"Long-term synaptic potentiation\"]}}, {\"id\": \"Loss of JmjC-Domain Histone Demethylase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHF8 is an Fe(II)- and 2-oxoglutarate-dependent oxygenase of the double-stranded beta-helix class. Its JmjC domain removes mono- and dimethyl marks from lysine but not trimethyl marks. Patient alleles clustered in the JmjC-encoding exons abolish this catalysis: the F279S missense variant, which substitutes a residue in a conserved hydrophobic region of the JmjC domain, is catalytically inactive against both peptide and intact-histone substrates, and truncating alleles remove the domain outright. Because the reaction requires molecular oxygen, PHF8 activity is oxygen-dependent, a property that has been proposed - though not demonstrated in patients - to link the catalytic arm to the known association between maternal hypoxia and cleft lip in mouse studies.\\n\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"histone H4K20 demethylase activity\", \"histone H3K9 demethylase activity\"]}}, {\"id\": \"Loss of PHD-Finger H3K4me3 Reading and Nuclear Targeting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The N-terminal PHD finger of PHF8 binds H3K4me3/me2, the mark that decorates active transcription start sites, and this reader function is what recruits the enzyme to the promoters it acts on. Truncating patient alleles remove not only the JmjC domain but also the nuclear localisation signals, so the residual protein cannot reach chromatin at all. This is modelled as a sibling of the catalytic arm rather than a downstream consequence, because the F279S catalytic-dead allele leaves the PHD finger intact while the K177X nonsense allele removes both modules - the two arms are separable in the patient allele series.\\n\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"histone H3K4me3 reader activity\"]}}, {\"id\": \"Orofacial Clefting and Craniofacial Dysmorphology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The terminal craniofacial output: cleft lip and/or cleft palate, unilateral or bilateral, together with a mild dysmorphic gestalt that has been described as a long face with broad nasal tip, and in the contemporary series as hypertelorism, microcephaly, elongated face, ptosis and mild facial asymmetry. Clefting was near-universal in the cleft-clinic-ascertained founding families and is present in a minority of exome-ascertained cases, so the apparent frequency of this node is strongly ascertainment-dependent.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Roof of mouth development\"]}}, {\"id\": \"PHF8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"PHF8\"], \"gene_terms\": [{\"label\": \"PHF8\", \"id\": \"hgnc:20672\"}], \"association\": \"Causative\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PHF8 p.Lys177Ter\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A nonsense allele (p.K177X) reported in a male with intellectual disability and cleft lip/palate. It truncates the protein upstream of the JmjC domain and removes five nuclear localisation signals, so it is the cleanest example of the null end of the allele spectrum and the reason the PHD/nuclear-targeting arm is modelled separately from the catalytic arm.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PHF8\"], \"gene_terms\": [{\"label\": \"PHF8\", \"id\": \"hgnc:20672\"}], \"variant_type\": \"NONSENSE\"}}, {\"id\": \"PHF8 p.Phe279Ser\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The c.836C\u003eT (p.F279S) missense allele, identified in a Finnish family with multiply affected males. It is the reference functional allele for this disorder: it substitutes a conserved hydrophobic residue in the JmjC domain and is catalytically dead in assays against both peptide and intact-histone substrates, in two independent laboratories, while leaving the rest of the protein intact. It is also the allele used to show that catalytic activity is required for PHF8 to drive neuronal differentiation.\\n\", \"meta\": {\"evidence_count\": 5, \"genes\": [\"PHF8\"], \"gene_terms\": [{\"label\": \"PHF8\", \"id\": \"hgnc:20672\"}], \"variant_type\": \"MISSENSE\"}}, {\"id\": \"Pathogenic PHF8 Loss-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The shared upstream lesion is a hemizygous loss-of-function variant in PHF8 at Xp11.22. The reported allele spectrum is small but mechanistically coherent: nonsense and frameshift alleles that truncate the protein before or within the JmjC domain and remove the nuclear localisation signals, splice alleles, missense alleles clustered in the JmjC-encoding exons, and whole-gene microdeletions. All reported mechanisms converge on loss of function; no dominant-negative or gain-of-function mechanism has been demonstrated for the germline neurodevelopmental phenotype. Two consequences fan out from this node in parallel rather than in series - loss of JmjC catalysis, and, for the truncating alleles, loss of the PHD-finger/nuclear-targeting module - because the F279S missense allele abolishes catalysis while leaving the N-terminal PHD finger intact, and the K177X nonsense allele removes both.\\n\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"PHF8\"], \"gene_terms\": [{\"label\": \"PHF8\", \"id\": \"hgnc:20672\"}]}}, {\"id\": \"Persistence of Repressive H3K9me1/me2 Marks\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHF8 also erases mono- and dimethylated H3K9, a repressive mark associated with facultative heterochromatin. Recombinant PHF8 is selective for H3K9me2 and H3K9me1 and does not accept H3K9me3, so the enzyme trims the repressive mark toward the unmethylated state rather than resolving constitutive heterochromatin. In cells, PHF8 depletion raises H3K9me1 at transcription start sites and H3K9me2 at non-TSS sites. Loss of this activity is one of the two routes by which target promoters fail to be activated.\\n\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"histone H3K9me/H3K9me2 demethylase activity\"]}}, {\"id\": \"Persistence of Repressive H4K20me1 at Target Promoters\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHF8 is the founding H4K20me1 demethylase. When catalysis is lost, H4K20me1 accumulates at the transcription start sites of PHF8 target genes and the genes stay repressed. Two H4K20me1-dependent target sets have been mapped directly: cytoskeletal and cell-adhesion regulators (RHOA, RAC1, GSK3B) whose promoters PHF8 demethylates, and RSK1, whose derepression is the entry point into the mTOR arm. In astrocytes the related H4K20me3 mark accumulates at synaptogenic genes when PHF8 is depleted, extending the same heterochromatinisation logic to glia.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Chromatin organization\"]}}, {\"id\": \"Perturbed Oligodendroglial Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A third glial arm, and the least clinically anchored of the three. Phf8 promotes proliferation of oligodendrocyte progenitor cells and restrains their differentiation into oligodendrocytes, acting largely through Olig2, whose regulatory regions it occupies; ectopic Olig2 rescues the proliferation defect in Phf8-deficient cells. Notably, human iPSC-derived oligodendrocyte generation did not require PHF8 when Olig2 was force-expressed, so the human requirement is conditional. No white-matter abnormality has been documented in patients with this syndrome, so this node is marked provisional.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"oligodendrocyte precursor cell\"], \"biological_processes\": [\"Oligodendrocyte differentiation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"RSK1 Derepression and mTOR Pathway Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A specific, pharmacologically actionable branch of the H4K20me1 arm. In Phf8 knockout mice, failure to demethylate H4K20me1 at the RSK1 locus derepresses RSK1, and the mTOR signalling pathway becomes hyperactive in hippocampus. This is the one node in the entry with a demonstrated rescue: rapamycin normalises both long-term potentiation and cognitive performance in the knockout. The evidence is entirely from the mouse; no patient has been treated on this rationale.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"TOR signaling\"]}}], \"edges\": [{\"source\": \"Pathogenic PHF8 Loss-of-Function Variant\", \"target\": \"Loss of JmjC-Domain Histone Demethylase Activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pathogenic PHF8 Loss-of-Function Variant\", \"target\": \"Loss of PHD-Finger H3K4me3 Reading and Nuclear Targeting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of JmjC-Domain Histone Demethylase Activity\", \"target\": \"Persistence of Repressive H4K20me1 at Target Promoters\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of JmjC-Domain Histone Demethylase Activity\", \"target\": \"Persistence of Repressive H3K9me1/me2 Marks\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of PHD-Finger H3K4me3 Reading and Nuclear Targeting\", \"target\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Persistence of Repressive H4K20me1 at Target Promoters\", \"target\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Persistence of Repressive H4K20me1 at Target Promoters\", \"target\": \"RSK1 Derepression and mTOR Pathway Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Persistence of Repressive H3K9me1/me2 Marks\", \"target\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"target\": \"Impaired Neuronal Differentiation and Neurite Outgrowth\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"target\": \"Impaired Astrocyte Differentiation and Synaptic Gene Silencing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"target\": \"Perturbed Oligodendroglial Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"target\": \"Impaired Serine Biosynthesis in Neural Progenitors\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"target\": \"Impaired Neural Crest and Craniofacial Midline Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RSK1 Derepression and mTOR Pathway Hyperactivation\", \"target\": \"Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Neuronal Differentiation and Neurite Outgrowth\", \"target\": \"Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Astrocyte Differentiation and Synaptic Gene Silencing\", \"target\": \"Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Perturbed Oligodendroglial Development\", \"target\": \"Impaired Cognitive Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Serine Biosynthesis in Neural Progenitors\", \"target\": \"Impaired Cognitive Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Neural Crest and Craniofacial Midline Development\", \"target\": \"Orofacial Clefting and Craniofacial Dysmorphology\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation\", \"target\": \"Impaired Cognitive Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PHF8\", \"target\": \"Pathogenic PHF8 Loss-of-Function Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PHF8 p.Phe279Ser\", \"target\": \"PHF8\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PHF8 p.Lys177Ter\", \"target\": \"PHF8\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8066,9 +8288,9 @@ This pathophysiological event involves abnormal Roof of mouth development (GO:00
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(7)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(5)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -8111,6 +8333,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8125,6 +8350,8 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8181,6 +8408,9 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8195,6 +8425,8 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8260,6 +8492,9 @@ This clinical feature is Orofacial cleft (HP:0000202). HP:0000202 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8274,6 +8509,8 @@ This clinical feature is Orofacial cleft (HP:0000202). HP:0000202 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8298,6 +8535,8 @@ This clinical feature is Orofacial cleft (HP:0000202). HP:0000202 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8351,6 +8590,9 @@ This clinical feature is Cleft lip (HP:0410030). HP:0410030 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8365,6 +8607,8 @@ This clinical feature is Cleft lip (HP:0410030). HP:0410030 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8418,6 +8662,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8432,6 +8679,8 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8487,6 +8736,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8501,6 +8753,8 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8557,6 +8811,9 @@ This clinical feature is Long face (HP:0000276). HP:0000276 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8571,6 +8828,8 @@ This clinical feature is Long face (HP:0000276). HP:0000276 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8595,6 +8854,8 @@ This clinical feature is Long face (HP:0000276). HP:0000276 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8650,6 +8911,9 @@ This clinical feature is Facial asymmetry (HP:0000324). HP:0000324 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8664,6 +8928,8 @@ This clinical feature is Facial asymmetry (HP:0000324). HP:0000324 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8718,6 +8984,9 @@ This clinical feature is Broad nasal tip (HP:0000455). HP:0000455 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8732,6 +9001,8 @@ This clinical feature is Broad nasal tip (HP:0000455). HP:0000455 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8762,6 +9033,88 @@ This clinical feature is Broad nasal tip (HP:0000455). HP:0000455 is a phenotype
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-large-hands" data-dismech-node="Large Hands" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Large Hands
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001176" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001176</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Large hands (HP:0001176). HP:0001176 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20101266" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20101266" target="_blank">PMID:20101266</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"facial anomalies, such as a long face, broad nasal tip, cleft lip/cleft palate and large hands"</div>
+
+
+                <div class="evidence-explanation">Marked PARTIAL: the statement is a secondary narrative summary of the phenotype rather than a primary clinical observation, and the feature is absent from the largest contemporary series.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">5</span>
                 </summary>
@@ -8782,15 +9135,18 @@ This clinical feature is Broad nasal tip (HP:0000455). HP:0000455 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8810,6 +9166,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8852,15 +9210,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8882,6 +9243,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8896,14 +9259,16 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35469323" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:35469323" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35469323" target="_blank">PMID:35469323</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8928,6 +9293,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8967,15 +9334,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001256</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001256</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Mild intellectual disability (HP:0001256). HP:0001256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8995,6 +9365,8 @@ This clinical feature is Mild intellectual disability (HP:0001256). HP:0001256 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9020,6 +9392,8 @@ This clinical feature is Mild intellectual disability (HP:0001256). HP:0001256 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9041,6 +9415,8 @@ This clinical feature is Mild intellectual disability (HP:0001256). HP:0001256 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9082,15 +9458,18 @@ This clinical feature is Mild intellectual disability (HP:0001256). HP:0001256 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000729</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000729</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9112,6 +9491,8 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9126,14 +9507,16 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:18498374" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:18498374" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18498374" target="_blank">PMID:18498374</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9176,15 +9559,18 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0007018</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0007018</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9206,6 +9592,8 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9214,83 +9602,6 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
                 <div class="evidence-explanation">Supports the association and the FREQUENT band by qualitative-term mapping (&#34;frequently observed&#34;).
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-large-hands" data-dismech-node="Large Hands" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Large Hands
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001176" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001176</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Large hands (HP:0001176). HP:0001176 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20101266" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20101266" target="_blank">PMID:20101266</a>
-                    </span>
-
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"facial anomalies, such as a long face, broad nasal tip, cleft lip/cleft palate and large hands"</div>
-
-
-                <div class="evidence-explanation">Marked PARTIAL: the statement is a secondary narrative summary of the phenotype rather than a primary clinical observation, and the feature is absent from the largest contemporary series.
 </div>
 
 
@@ -9381,6 +9692,9 @@ This disease-associated gene is PHF8 (hgnc:20672). hgnc:20672 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -9395,6 +9709,8 @@ This disease-associated gene is PHF8 (hgnc:20672). hgnc:20672 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9420,6 +9736,8 @@ This disease-associated gene is PHF8 (hgnc:20672). hgnc:20672 is a gene from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9441,6 +9759,8 @@ This disease-associated gene is PHF8 (hgnc:20672). hgnc:20672 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9486,6 +9806,7 @@ This disease-associated gene is PHF8 (hgnc:20672). hgnc:20672 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9505,11 +9826,17 @@ This variant is in PHF8 (hgnc:20672). hgnc:20672 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The c.836C&gt;T (p.F279S) missense allele, identified in a Finnish family with multiply affected males. It is the reference functional allele for this disorder: it substitutes a conserved hydrophobic residue in the JmjC domain and is catalytically dead in assays against both peptide and intact-histone substrates, in two independent laboratories, while leaving the rest of the protein intact. It is also the allele used to show that catalytic activity is required for PHF8 to drive neuronal differentiation.
@@ -9539,6 +9866,8 @@ This variant is in PHF8 (hgnc:20672). hgnc:20672 is a gene from the HUGO Gene No
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9562,6 +9891,8 @@ This variant is in PHF8 (hgnc:20672). hgnc:20672 is a gene from the HUGO Gene No
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9583,6 +9914,8 @@ This variant is in PHF8 (hgnc:20672). hgnc:20672 is a gene from the HUGO Gene No
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9617,6 +9950,7 @@ This variant is in PHF8 (hgnc:20672). hgnc:20672 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9636,11 +9970,17 @@ This variant is in PHF8 (hgnc:20672). hgnc:20672 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">NONSENSE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A nonsense allele (p.K177X) reported in a male with intellectual disability and cleft lip/palate. It truncates the protein upstream of the JmjC domain and removes five nuclear localisation signals, so it is the cleanest example of the null end of the allele spectrum and the reason the PHD/nuclear-targeting arm is modelled separately from the catalytic arm.
@@ -9670,6 +10010,8 @@ This variant is in PHF8 (hgnc:20672). hgnc:20672 is a gene from the HUGO Gene No
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9691,6 +10033,8 @@ This variant is in PHF8 (hgnc:20672). hgnc:20672 is a gene from the HUGO Gene No
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9771,6 +10115,31 @@ This treatment is reconstructive surgery for orofacial cleft, annotated with Rec
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Where a cleft is present, staged surgical repair is the standard of care and is the single most consequential intervention for these patients. It is generic cleft management rather than anything specific to PHF8, and is included because clefting is the defining malformation of the syndrome and because the founding Finnish cohort was assembled from patients operated on for cleft lip/palate. No PHF8-specific surgical outcome data exist.
 </div>
 
@@ -9785,14 +10154,16 @@ This treatment is reconstructive surgery for orofacial cleft, annotated with Rec
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:17661819" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:17661819" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17661819" target="_blank">PMID:17661819</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9857,6 +10228,31 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management of the neurodevelopmental phenotype is supportive and identical to that for other causes of developmental delay: early intervention, special education, and speech and language therapy directed at the communication delay. There is no disease-specific evidence base; this is recorded because it is the actual standard of care and because developmental delay was present in every individual in the largest series.
 </div>
 
@@ -9871,14 +10267,18 @@ This treatment is speech and language therapy, annotated with Speech Language Th
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35469323" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:35469323" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35469323" target="_blank">PMID:35469323</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9888,7 +10288,7 @@ This treatment is speech and language therapy, annotated with Speech Language Th
                 <div class="evidence-snippet">"All affected individuals exhibited developmental delay and all but two had borderline to severe ID."</div>
 
 
-                <div class="evidence-explanation">Marked PARTIAL: this establishes the universal need for developmental intervention but is not evidence for the efficacy of any specific therapy in this disorder.
+                <div class="evidence-explanation">Marked INDIRECT: this establishes the universal need for developmental intervention but is not evidence for the efficacy of any specific therapy in this disorder.
 </div>
 
 
@@ -9943,6 +10343,31 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">X-linked recessive counselling applies: carrier mothers have a 50% risk of transmitting the allele to each son, affected males transmit the allele to all daughters and no sons, and maternal carrier testing should follow a diagnosis in a proband. The founding pedigrees were multiplex X-linked families identified through linkage, which is the empirical basis for the counselling model.
 </div>
 
@@ -9965,6 +10390,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9994,6 +10421,319 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-exome-or-genome-sequencing">
+                <div class="item-name">
+                    Exome or Genome Sequencing
+
+                </div>
+
+                <div class="item-desc">There are no formal clinical diagnostic criteria and the gestalt is too mild to be reliably recognised prospectively; molecular testing is the diagnosis. Exome or genome sequencing, or a targeted X-linked intellectual disability gene panel, is the appropriate route for a male with unexplained developmental delay, with or without orofacial clefting. The ascertainment shift matters clinically: the largest series was assembled largely through sequencing of individuals with developmental delay rather than through cleft clinics, so PHF8 should not be reserved for patients who have a cleft. Chromosomal microarray covers the Xp11.22 microdeletion fraction, which sequencing may miss.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31906484" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31906484" target="_blank">PMID:31906484</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Seven families could be re-contacted and variant segregation analysis of the respective eight candidate variants was performed: HUWE1, IQSEC2, MAOA, MED12, PHF8, SLC6A8, SLC9A6, and SYN1."</div>
+
+
+                <div class="evidence-explanation">Demonstrates PHF8 being returned as a candidate by a targeted X-linked intellectual disability sequencing panel in real diagnostic practice.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31906484" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31906484" target="_blank">PMID:31906484</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our results show the utility of targeted next-generation sequencing in unravelling the genetic origin of XLID, especially in retrospective cases."</div>
+
+
+                <div class="evidence-explanation">Supports targeted sequencing as a diagnostic strategy in this disease class.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35469323" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35469323" target="_blank">PMID:35469323</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We also present five individuals from four different families who have ID and a variant of unknown significance in PHF8 with no other explanatory variant in another gene."</div>
+
+
+                <div class="evidence-explanation">Documents the interpretation problem that follows from sequencing-first ascertainment - a substantial fraction of PHF8 findings in individuals with intellectual disability remain variants of uncertain significance.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-targeted-phf8-sequencing-in-cleft-plus-intellectual-disability">
+                <div class="item-name">
+                    Targeted PHF8 Sequencing in Cleft Plus Intellectual Disability
+
+                </div>
+
+                <div class="item-desc">The historical diagnostic route, and still reasonable when the combination is present. In a nationwide Finnish cleft cohort, restricting PHF8 sequencing to the 18 patients who had cleft lip/palate together with intellectual disability of unknown cause yielded one causative family. That yield illustrates both that the combination enriches strongly for PHF8 and that PHF8 accounts for only a small fraction of syndromic clefting.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17661819" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17661819" target="_blank">PMID:17661819</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"From this nationwide material, 18 patients including one family with two male patients with cleft lip/cleft palate and unknown cause of mental retardation (MR) were sequenced for the coding regions and splice sites of the PHF8 gene."</div>
+
+
+                <div class="evidence-explanation">Describes the phenotype-directed screening strategy and its denominator.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17661819" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17661819" target="_blank">PMID:17661819</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We investigated the prevalence of mutations in the PHD finger protein 8 (PHF8) gene in X-linked mental retardation (XLMR) and facial cleft starting from the original cohort of 7712 patients operated on since 1 January 1950 for cleft lip/cleft palate in the Cleft Centre at the Helsinki University..."</div>
+
+
+                <div class="evidence-explanation">Establishes the full cleft-cohort denominator (7712) from which the 18 sequenced patients were selected, which is why no population frequency is derived from this study.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Not yet documented</span>
+
+                </div>
+
+                <div class="item-notes">No population prevalence or incidence estimate has been published for this disorder, so only a literature case count is recorded. Derivation: 8 individuals across five reports before 2022, plus 16 individuals from 11 families in the 2022 series, giving 24 individuals with a PHF8 loss-of-function variant. Five further individuals from four families carrying PHF8 variants of uncertain significance are deliberately excluded from the count. Individuals with Xp11.22 contiguous-gene deletions are also excluded because they are not single-gene cases. No rate is asserted: there is no denominator that would license one, and the Orphanet prevalence class could not be cited because ORPHA:85287 is not present in references_cache and refreshing it would require a MANIFEST bump (blocked pending #7622).</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35469323" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35469323" target="_blank">PMID:35469323</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"PHF8-XLID is an under-characterized disorder with only five previous reports describing different PHF8 predicted loss-of-function variants in eight individuals."</div>
+
+
+                <div class="evidence-explanation">Supplies the pre-2022 count of 8 individuals used in the derivation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35469323" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35469323" target="_blank">PMID:35469323</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In this report we present 16 additional individuals with PHF8-XLID from 11 different families of diverse ancestry."</div>
+
+
+                <div class="evidence-explanation">Supplies the 16 additional individuals used in the derivation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -10049,6 +10789,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10071,6 +10813,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -10136,6 +10880,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10191,6 +10937,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10212,6 +10960,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10236,6 +10986,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10336,6 +11088,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10357,6 +11111,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10434,6 +11190,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10458,6 +11216,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10479,6 +11239,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10556,6 +11318,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10577,6 +11341,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10652,6 +11418,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -11139,7 +11907,7 @@ pathophysiology:
   - reference: PMID:24852203
     reference_title: PHF8 and REST/NRSF co-occupy gene promoters to regulate proximal
       gene expression.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;Our analysis suggested that PHF8 not only activates but may also repress gene expression.&#34;
     explanation: &gt;
@@ -11159,7 +11927,7 @@ pathophysiology:
   - reference: PMID:20208542
     reference_title: PHF8 activates transcription of rRNA genes through H3K4me3 binding
       and H3K9me1/2 demethylation.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;PHF8 activates transcription of rRNA genes through H3K4me3 binding and H3K9me1/2 demethylation&#34;
     explanation: &gt;
@@ -11349,7 +12117,7 @@ pathophysiology:
   - reference: PMID:38613395
     reference_title: Transcription factor Olig2 is a major downstream effector of histone
       demethylase Phf8 during oligodendroglial development.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Additionally, generation of human oligodendrocytes from induced pluripotent stem cells did not require PHF8 in a system that relies on forced expression of Olig2 during oligodendroglial induction.&#34;
     explanation: &gt;
@@ -11607,7 +12375,7 @@ mechanistic_hypotheses:
   - reference: PMID:19843542
     reference_title: PHF8, a gene associated with cleft lip/palate and mental retardation,
       encodes for an Nepsilon-dimethyl lysine demethylase.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;The dependence of PHF8 activity on oxygen availability is interesting because the occurrence of fetal cleft lip has been demonstrated to increase with maternal hypoxia in mouse studies.&#34;
     explanation: &gt;
@@ -11666,7 +12434,7 @@ phenotypes:
   - reference: PMID:35469323
     reference_title: Variants in PHF8 cause a spectrum of X-linked neurodevelopmental
       disorders and facial dysmorphology.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Of the two who did not have ID, one had dyscalculia and the other had mild learning difficulties.&#34;
     explanation: &gt;
@@ -11816,7 +12584,7 @@ phenotypes:
       the band is not derived from a count.
   - reference: PMID:18498374
     reference_title: Autism-associated familial microdeletion of Xp11.22.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We describe two brothers with autistic disorder, intellectual disability (ID) and cleft lip/palate with a microdeletion of Xp11.22 detected through screening individuals with autism spectrum disorders (ASDs) for microdeletions and duplications using 1-Mb resolution array comparative genomic hybridization.&#34;
     explanation: &gt;
@@ -11994,7 +12762,7 @@ phenotypes:
   evidence:
   - reference: PMID:20101266
     reference_title: Structural insights into a novel histone demethylase PHF8.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;facial anomalies, such as a long face, broad nasal tip, cleft lip/cleft palate and large hands&#34;
     explanation: &gt;
@@ -12428,7 +13196,7 @@ treatments:
   - reference: PMID:17661819
     reference_title: Screening of mutations in the PHF8 gene and identification of a
       novel mutation in a Finnish family with XLMR and cleft lip/cleft palate.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the original cohort of 7712 patients operated on since 1 January 1950 for cleft lip/cleft palate in the Cleft Centre at the Helsinki University Hospital&#34;
     explanation: &gt;
@@ -12453,11 +13221,12 @@ treatments:
   - reference: PMID:35469323
     reference_title: Variants in PHF8 cause a spectrum of X-linked neurodevelopmental
       disorders and facial dysmorphology.
-    supports: PARTIAL
+    supports: SUPPORT
+    directness: INDIRECT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;All affected individuals exhibited developmental delay and all but two had borderline to severe ID.&#34;
     explanation: &gt;
-      Marked PARTIAL: this establishes the universal need for developmental
+      Marked INDIRECT: this establishes the universal need for developmental
       intervention but is not evidence for the efficacy of any specific therapy in
       this disorder.
 - name: Genetic Counselling
@@ -12911,6 +13680,29 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">GeneReviews baseline: searched PubMed on 2026-08-01 with `GeneReviews[All Fields] AND (PHF8 OR Siderius)` (0 hits) and `Siderius[TI] GeneReviews[TI]` (0 hits). No GeneReviews chapter exists for Siderius-Hamel syndrome / PHF8-related X-linked intellectual disability. In the absence of a GeneReviews baseline the phenotype list here is anchored on the single largest systematic series (PMID:35469323, 16 newly reported individuals from 11 families plus review of the 8 previously reported) together with the four founding clinical reports (PMID:10398231, PMID:16199551, PMID:17594395, PMID:17661819).
+Frequency derivations, all from the 16-individual cohort in PMID:35469323 unless stated: developmental delay &#34;All affected individuals&#34; = 16/16 (100%, VERY_FREQUENT); intellectual disability &#34;all but two had borderline to severe ID&#34; = 14/16 (87.5%, VERY_FREQUENT); orofacial clefting &#34;seen in three individuals from our cohort&#34; = 3/16 (18.8%, OCCASIONAL); autism spectrum disorder and ADHD &#34;frequently observed&#34; (qualitative, mapped to FREQUENT); the individual craniofacial findings are reported collectively as occurring &#34;in some affected individuals&#34;, which maps to OCCASIONAL and is applied to the group rather than to each dysmorphism separately. Where the source is qualitative and does not license even a coarse band, `frequency:` is omitted.
+Known gap in phenotype coverage. The deep-research report surfaced a per-feature frequency table from the PMC full text of PMID:35469323 - retrognathia 10/16, infantile feeding difficulty 10/16, high-arched palate 6/16, seizures 5/16, low-set ears 5/16, gross motor delay 12/16, fine motor delay 14/16, speech delay 16/16, and neuroimaging findings including polymicrogyria in one twin pair. Only the abstract of that paper is cached by `just fetch-reference`, so none of those counts can be verified as a byte-exact snippet and none of those phenotypes is curated here. This is a deliberate omission, not an oversight: a smaller correct entry is preferred. Anyone extending this entry should obtain the full text and add them with verified quotes.
+Structured-source citations (ORPHA:85287 for the Orphanet prevalence class, and any ClinGen gene-disease validity or dosage record for PHF8) are NOT included: neither is present in `references_cache/`, and generating them would require bumping a pinned data MANIFEST, which is out of scope for a curation PR and is blocked pending issue #7622. No population prevalence estimate is recorded for the same reason - the literature reports only case counts, and no numerator/denominator that would license a rate is available.
+Deliberately excluded: the extensive somatic-cancer PHF8 literature (breast, hepatocellular, triple-negative breast, gastric), which concerns a different disease context; and the PHF8 depression/anxiety-resistance mouse work (PMID:28485378), which reports a behavioural phenotype not documented in patients with this syndrome.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Siderius_Type_X-Linked_Intellectual_Disability</strong> · 2026-08-01T08:01:42Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Siderius_Type_X-Linked_Intellectual_Disability/2026-08-01T080142Z-claude-code-7ea8cc.yaml">View source</a></p>
+                        <p class="research-review-text">Created the Siderius type syndromic X-linked intellectual disability (MRXSSD, MONDO:0010286, OMIM:300263, PHF8/HGNC:20672) entry from scratch. NEC preflight run first: &#39;uv run runoak -i sqlite:obo:mondo info MONDO:0010286 -O obo&#39; confirmed relationship RO:0004003 HGNC:20672 PHF8 and xref OMIM:300263, and two independent primary papers (PMID:16199551, PMID:18498374) bind PHF8 to MIM/OMIM 300263 in their own text. Kept strictly separate from PHF6 (Borjeson-Forssman-Lehmann), PHF21A, KDM5C (Claes-Jensen), MECP2 duplication (Lubs) and the incidental PHF8 string in Schinzel-Giedion_Syndrome.yaml, which was not touched. Deep research was run with the claude_code provider (research/Siderius_Type_X-Linked_Intellectual_Disability-deep-research-claude_code.md, 15m26s, 89 turns, 13 citations) and read in full; every PMID and snippet it suggested was independently fetched and re-verified. GeneReviews: searched PubMed twice, no chapter exists for this disorder, documented in notes. Content: 15 pathophysiology nodes forming one connected DAG with the single root &#39;Pathogenic PHF8 Loss-of-Function Variant&#39;, two mechanistic_hypotheses (mTOR targeting, oxygen-sensing clefting), 15 HPO-bound phenotypes, genetic/variants/inheritance/prevalence/diagnosis/differential_diagnoses/treatments/animal_models, and five discussions including three HUMAN_MODEL_MISMATCH/KNOWLEDGE_GAP items. Both discordant Phf8 knockout mouse lines are curated, with the Walsh line&#39;s negative cognitive result recorded as supports: REFUTE. Frequency bands derived from the 16-individual cohort in PMID:35469323 with the derivations written into notes; per-feature counts available only in that paper&#39;s full text were deliberately omitted as unverifiable. No ORPHA/CGGV/CGDS structured-source citation and no prevalence rate, because those would need a MANIFEST bump (blocked pending #7622) - noted in the entry. Validation: just validate clean (schema, terms, references), scripts/check_snippets_verbatim.py 115/115 verified 0 failed, scripts/check_folded_hyphens.py clean, compliance 82.3%.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -14430,7 +15222,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Siderius Type X-Linked Intellectual Disability", "mondoId": "MONDO:0010286", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Siderius_Type_X-Linked_Intellectual_Disability", "yamlRevision": "a191b52596a7"};
+        const OS_CONFIG = {"diseaseName": "Siderius Type X-Linked Intellectual Disability", "mondoId": "MONDO:0010286", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Siderius_Type_X-Linked_Intellectual_Disability", "yamlRevision": "c9d710b380f0"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

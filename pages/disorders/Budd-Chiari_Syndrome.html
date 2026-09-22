@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4082,6 +4189,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4141,6 +4250,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4204,6 +4315,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4265,6 +4378,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4309,6 +4424,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-prothrombotic-predisposition" data-dismech-node="Systemic Prothrombotic Predisposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Prothrombotic Predisposition</div>
+
 
                 <div class="item-desc">Primary Budd-Chiari syndrome commonly occurs in patients with acquired or inherited prothrombotic conditions, especially myeloproliferative disorders.</div>
 
@@ -4489,6 +4605,8 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4510,6 +4628,8 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4535,6 +4655,8 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4557,6 +4679,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-venous-outflow-obstruction" data-dismech-node="Hepatic Venous Outflow Obstruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Venous Outflow Obstruction</div>
+
 
                 <div class="item-desc">Obstruction of hepatic venous drainage raises sinusoidal pressure and causes hepatic congestion.</div>
 
@@ -4689,6 +4812,8 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4710,6 +4835,8 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4734,6 +4861,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-portal-hypertension-and-congestive-liver-injury" data-dismech-node="Portal Hypertension and Congestive Liver Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Portal Hypertension and Congestive Liver Injury</div>
+
 
                 <div class="item-desc">Sustained hepatic venous congestion drives portal hypertension, ascites, hepatomegaly, and progressive liver dysfunction.</div>
 
@@ -4962,6 +5090,8 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4984,6 +5114,7 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-congestive-hepatic-fibrosis" data-dismech-node="Congestive Hepatic Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Congestive Hepatic Fibrosis</div>
+
 
                 <div class="item-desc">Untreated hepatic venous outflow obstruction can cause rapid congestive fibrosis and progressive liver failure.</div>
 
@@ -5124,6 +5255,8 @@ This pathophysiological event involves increased extracellular matrix organizati
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5180,6 +5313,8 @@ This pathophysiological event involves increased extracellular matrix organizati
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5243,7 +5378,7 @@ This pathophysiological event involves increased extracellular matrix organizati
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
 
@@ -5251,13 +5386,13 @@ This pathophysiological event involves increased extracellular matrix organizati
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Metabolism<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Constitutional<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5267,14 +5402,14 @@ This pathophysiological event involves increased extracellular matrix organizati
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-gastrointestinal-hemorrhage" data-dismech-node="Gastrointestinal hemorrhage" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatic-vein-thrombosis" data-dismech-node="Hepatic vein thrombosis" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Gastrointestinal hemorrhage
+                        Hepatic vein thrombosis
 
-                        <span class="phenotype-freq">OCCASIONAL</span>
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
 
@@ -5286,15 +5421,18 @@ This pathophysiological event involves increased extracellular matrix organizati
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002239" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002239</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030243" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0030243</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Hepatic vein thrombosis (HP:0030243). HP:0030243 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5314,6 +5452,82 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0030243 | Hepatic vein thrombosis | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists hepatic vein thrombosis as a frequent Budd-Chiari syndrome phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gastrointestinal-hemorrhage" data-dismech-node="Gastrointestinal hemorrhage" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Gastrointestinal hemorrhage
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002239" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002239</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:131" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:131" target="_blank">ORPHA:131</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5364,15 +5578,18 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001744</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001744</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5392,6 +5609,8 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5415,6 +5634,8 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5456,15 +5677,18 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001409" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001409</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001409" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001409</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Portal hypertension (HP:0001409). HP:0001409 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5484,6 +5708,8 @@ This clinical feature is Portal hypertension (HP:0001409). HP:0001409 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5507,6 +5733,8 @@ This clinical feature is Portal hypertension (HP:0001409). HP:0001409 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5557,15 +5785,18 @@ This clinical feature is Portal hypertension (HP:0001409). HP:0001409 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001541" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001541</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001541" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001541</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5585,6 +5816,8 @@ This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5608,6 +5841,8 @@ This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5649,15 +5884,18 @@ This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002240</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002240</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5677,6 +5915,8 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5718,15 +5958,18 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000952</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000952</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5746,6 +5989,8 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5789,15 +6034,18 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002040" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002040</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002040" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002040</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Esophageal varices, annotated with Esophageal varix (HP:0002040). HP:0002040 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5817,6 +6065,8 @@ This clinical feature is Esophageal varices, annotated with Esophageal varix (HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5858,15 +6108,18 @@ This clinical feature is Esophageal varices, annotated with Esophageal varix (HP
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001394</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001394</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5886,6 +6139,8 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5925,15 +6180,18 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001402" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001402</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001402" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001402</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hepatocellular carcinoma (HP:0001402). HP:0001402 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5953,6 +6211,8 @@ This clinical feature is Hepatocellular carcinoma (HP:0001402). HP:0001402 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5976,6 +6236,8 @@ This clinical feature is Hepatocellular carcinoma (HP:0001402). HP:0001402 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6017,15 +6279,18 @@ This clinical feature is Hepatocellular carcinoma (HP:0001402). HP:0001402 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006554" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0006554</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006554" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0006554</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Acute hepatic failure (HP:0006554). HP:0006554 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6045,6 +6310,8 @@ This clinical feature is Acute hepatic failure (HP:0006554). HP:0006554 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6097,15 +6364,18 @@ This clinical feature is Acute hepatic failure (HP:0006554). HP:0006554 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000083</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000083</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6125,6 +6395,8 @@ This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6155,13 +6427,13 @@ This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a pheno
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Metabolism
-                    <span class="cat-count">2</span>
+                    Limbs
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-fever" data-dismech-node="Fever" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bipedal-edema" data-dismech-node="Bipedal edema" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Fever
+                        Bipedal edema
 
                         <span class="phenotype-freq">FREQUENT</span>
 
@@ -6175,15 +6447,18 @@ This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033045" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0033045</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Bipedal edema (HP:0033045). HP:0033045 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6203,6 +6478,91 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0033045 | Bipedal edema | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists bipedal edema as a frequent Budd-Chiari syndrome phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fever" data-dismech-node="Fever" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Fever
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001945</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:131" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:131" target="_blank">ORPHA:131</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6244,10 +6604,10 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002910</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002910</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6258,6 +6618,9 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6272,6 +6635,8 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6282,240 +6647,6 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
                 <div class="evidence-explanation">Orphanet lists elevated circulating hepatic transaminase concentration as a frequent Budd-Chiari syndrome phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatic-encephalopathy" data-dismech-node="Hepatic encephalopathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hepatic encephalopathy
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002480" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002480</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hepatic encephalopathy (HP:0002480). HP:0002480 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:131" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:131" target="_blank">ORPHA:131</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002480 | Hepatic encephalopathy | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists hepatic encephalopathy as an occasional Budd-Chiari syndrome phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Constitutional
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abdominal-pain" data-dismech-node="Abdominal Pain" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abdominal Pain
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002027</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32982109" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32982109" target="_blank">PMID:32982109</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The typical and most common form of clinical presentation of BCS is the chronic one, with a slow-onset pain in the right upper abdomen, jaundice (not always present in chronic form), hepatosplenomegaly, progressive abdominal swelling/stretching (due to ascites), haematemesis (due to esophageal..."</div>
-
-
-                <div class="evidence-explanation">This supports right upper abdominal pain as a common clinical manifestation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatic-vein-thrombosis" data-dismech-node="Hepatic vein thrombosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hepatic vein thrombosis
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030243" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0030243</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hepatic vein thrombosis (HP:0030243). HP:0030243 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:131" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:131" target="_blank">ORPHA:131</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0030243 | Hepatic vein thrombosis | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists hepatic vein thrombosis as a frequent Budd-Chiari syndrome phenotype.</div>
 
 
 
@@ -6547,15 +6678,18 @@ This clinical feature is Hepatic vein thrombosis (HP:0030243). HP:0030243 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0003155</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0003155</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated circulating alkaline phosphatase concentration (HP:0003155). HP:0003155 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6575,6 +6709,8 @@ This clinical feature is Elevated circulating alkaline phosphatase concentration
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6600,11 +6736,20 @@ This clinical feature is Elevated circulating alkaline phosphatase concentration
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bipedal-edema" data-dismech-node="Bipedal edema" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bipedal edema
+            </details>
 
-                        <span class="phenotype-freq">FREQUENT</span>
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatic-encephalopathy" data-dismech-node="Hepatic encephalopathy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hepatic encephalopathy
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
 
@@ -6616,15 +6761,18 @@ This clinical feature is Elevated circulating alkaline phosphatase concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033045" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0033045</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002480" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002480</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bipedal edema (HP:0033045). HP:0033045 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Hepatic encephalopathy (HP:0002480). HP:0002480 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6646,14 +6794,99 @@ This clinical feature is Bipedal edema (HP:0033045). HP:0033045 is a phenotype f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"HP:0033045 | Bipedal edema | Frequent (79-30%)"</div>
+                <div class="evidence-snippet">"HP:0002480 | Hepatic encephalopathy | Occasional (29-5%)"</div>
 
 
-                <div class="evidence-explanation">Orphanet lists bipedal edema as a frequent Budd-Chiari syndrome phenotype.</div>
+                <div class="evidence-explanation">Orphanet lists hepatic encephalopathy as an occasional Budd-Chiari syndrome phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abdominal-pain" data-dismech-node="Abdominal Pain" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abdominal Pain
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002027</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32982109" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32982109" target="_blank">PMID:32982109</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The typical and most common form of clinical presentation of BCS is the chronic one, with a slow-onset pain in the right upper abdomen, jaundice (not always present in chronic form), hepatosplenomegaly, progressive abdominal swelling/stretching (due to ascites), haematemesis (due to esophageal..."</div>
+
+
+                <div class="evidence-explanation">This supports right upper abdominal pain as a common clinical manifestation.</div>
 
 
 
@@ -6741,6 +6974,9 @@ This disease-associated gene is JAK2 (hgnc:6192). hgnc:6192 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6755,6 +6991,8 @@ This disease-associated gene is JAK2 (hgnc:6192). hgnc:6192 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6811,6 +7049,9 @@ This disease-associated gene is F5 (hgnc:3542). hgnc:3542 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6825,6 +7066,8 @@ This disease-associated gene is F5 (hgnc:3542). hgnc:3542 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6946,6 +7189,20 @@ This treatment uses heparin (CHEBI:28304). CHEBI:28304 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Anticoagulation is used to limit thrombus propagation and recurrent venous thrombosis when not contraindicated.</div>
 
 
@@ -6969,6 +7226,8 @@ This treatment uses heparin (CHEBI:28304). CHEBI:28304 is a therapeutic agent fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6990,6 +7249,8 @@ This treatment uses heparin (CHEBI:28304). CHEBI:28304 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7053,6 +7314,20 @@ This treatment is transjugular intrahepatic portosystemic shunt (NCIT:C126288). 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">TIPS can decompress portal hypertension and restore effective hepatic outflow in selected patients.</div>
 
 
@@ -7083,6 +7358,8 @@ This treatment is transjugular intrahepatic portosystemic shunt (NCIT:C126288). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7127,6 +7404,8 @@ This treatment is transjugular intrahepatic portosystemic shunt (NCIT:C126288). 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7148,6 +7427,8 @@ This treatment is transjugular intrahepatic portosystemic shunt (NCIT:C126288). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7211,6 +7492,20 @@ This treatment is angioplasty (NCIT:C51999). NCIT:C51999 is a clinical intervent
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Angioplasty is used in the stepwise strategy when short hepatic venous or inferior vena cava stenoses are anatomically suitable for recanalization.</div>
 
 
@@ -7241,6 +7536,8 @@ This treatment is angioplasty (NCIT:C51999). NCIT:C51999 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7283,6 +7580,8 @@ This treatment is angioplasty (NCIT:C51999). NCIT:C51999 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7345,6 +7644,20 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Liver transplantation is reserved for refractory or advanced Budd-Chiari syndrome when medical and endovascular strategies fail or liver failure is advanced.</div>
 
 
@@ -7375,6 +7688,8 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7419,6 +7734,8 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7440,6 +7757,8 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7469,6 +7788,132 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-hepatic-venous-outflow-imaging">
+                <div class="item-name">
+                    Hepatic venous outflow imaging
+
+                </div>
+
+                <div class="item-desc">Doppler ultrasound, CT, or MRI can noninvasively demonstrate the hepatic venous or inferior vena cava obstruction and collateral consequences that establish the diagnosis.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic imaging
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C17369" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-36">NCIT:C17369</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Demonstration of hepatic venous outflow tract obstruction supports Budd-Chiari syndrome.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19012988" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19012988" target="_blank">PMID:19012988</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Doppler-ultrasound, computed tomography or magnetic resonance imaging of hepatic veins and inferior vena cava are usually successful in demonstrating non-invasively the obstacle or its consequences, the collaterals to hepatic veins or inferior vena cava."</div>
+
+
+                <div class="evidence-explanation">This supports noninvasive imaging of hepatic veins and inferior vena cava for diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7744,8 +8189,8 @@ pathophysiology:
       may include fever.
     evidence:
     - reference: ORPHA:131
-      reference_title: &#34;Budd-Chiari syndrome (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Budd-Chiari syndrome&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001945 | Fever | Frequent (79-30%)&#34;
       explanation: &gt;-
@@ -7811,7 +8256,7 @@ pathophysiology:
     evidence:
     - reference: PMID:32982109
       reference_title: &#34;Transjugular intrahepatic portosystemic shunt for Budd-Chiari syndrome: A comprehensive review.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;jaundice (not always present in chronic form), hepatosplenomegaly, progressive abdominal swelling/stretching (due to ascites)&#34;
       explanation: &gt;-
@@ -7824,7 +8269,7 @@ pathophysiology:
     evidence:
     - reference: PMID:32982109
       reference_title: &#34;Transjugular intrahepatic portosystemic shunt for Budd-Chiari syndrome: A comprehensive review.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;jaundice (not always present in chronic form), hepatosplenomegaly, progressive abdominal swelling/stretching (due to ascites)&#34;
       explanation: &gt;-
@@ -7837,7 +8282,7 @@ pathophysiology:
     evidence:
     - reference: PMID:32982109
       reference_title: &#34;Transjugular intrahepatic portosystemic shunt for Budd-Chiari syndrome: A comprehensive review.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;jaundice (not always present in chronic form), hepatosplenomegaly, progressive abdominal swelling/stretching (due to ascites)&#34;
       explanation: &gt;-
@@ -7871,8 +8316,8 @@ pathophysiology:
       Portal hypertension and hepatic dysfunction can produce dependent edema.
     evidence:
     - reference: ORPHA:131
-      reference_title: &#34;Budd-Chiari syndrome (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Budd-Chiari syndrome&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0033045 | Bipedal edema | Frequent (79-30%)&#34;
       explanation: Supports frequent dependent edema in Budd-Chiari syndrome; the detailed causal route is inferred from portal hypertension and liver dysfunction.
@@ -7882,8 +8327,8 @@ pathophysiology:
       encephalopathy.
     evidence:
     - reference: ORPHA:131
-      reference_title: &#34;Budd-Chiari syndrome (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Budd-Chiari syndrome&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0002480 | Hepatic encephalopathy | Occasional (29-5%)&#34;
       explanation: Supports hepatic encephalopathy as a complication; the congestive-liver-failure route is clinically inferred.
@@ -7912,7 +8357,7 @@ pathophysiology:
     evidence:
     - reference: PMID:32982109
       reference_title: &#34;Transjugular intrahepatic portosystemic shunt for Budd-Chiari syndrome: A comprehensive review.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;50% of patients can manifest renal impairment[31-33].&#34;
       explanation: Supports frequent renal impairment in Budd-Chiari syndrome; the hemodynamic causal route is not resolved by this source.
@@ -7920,8 +8365,8 @@ pathophysiology:
     description: Hypoxic congestive hepatocyte injury releases hepatic transaminases into the circulation.
     evidence:
     - reference: ORPHA:131
-      reference_title: &#34;Budd-Chiari syndrome (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Budd-Chiari syndrome&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0002910 | Elevated circulating hepatic transaminase concentration | Frequent (79-30%)&#34;
       explanation: Supports elevated hepatic transaminases as a frequent readout of liver injury in Budd-Chiari syndrome.
@@ -7929,8 +8374,8 @@ pathophysiology:
     description: Congestive hepatobiliary injury can increase circulating alkaline phosphatase.
     evidence:
     - reference: ORPHA:131
-      reference_title: &#34;Budd-Chiari syndrome (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Budd-Chiari syndrome&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0003155 | Elevated circulating alkaline phosphatase concentration | Frequent (79-30%)&#34;
       explanation: Supports elevated alkaline phosphatase as a frequent readout of congestive hepatobiliary injury.
@@ -7980,8 +8425,8 @@ pathophysiology:
       Fulminant congestive hepatic injury can progress to acute hepatic failure.
     evidence:
     - reference: ORPHA:131
-      reference_title: &#34;Budd-Chiari syndrome (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Budd-Chiari syndrome&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0006554 | Acute hepatic failure | Occasional (29-5%)&#34;
       explanation: Supports acute hepatic failure as an occasional severe outcome of Budd-Chiari syndrome.
@@ -8072,7 +8517,7 @@ phenotypes:
       The clinical review explicitly lists ascites-related abdominal distension
       as part of common chronic Budd-Chiari presentation.
   - reference: ORPHA:131
-    reference_title: &#34;Budd-Chiari syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Budd-Chiari syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001541 | Ascites | Very frequent (99-80%)&#34;
@@ -8159,7 +8604,7 @@ phenotypes:
       The common chronic Budd-Chiari presentation includes hepatosplenomegaly,
       supporting splenic enlargement as a common phenotype.
   - reference: ORPHA:131
-    reference_title: &#34;Budd-Chiari syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Budd-Chiari syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001744 | Splenomegaly | Very frequent (99-80%)&#34;
@@ -8216,7 +8661,7 @@ phenotypes:
       The management review identifies portal hypertension as a disease
       consequence requiring prophylaxis.
   - reference: ORPHA:131
-    reference_title: &#34;Budd-Chiari syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Budd-Chiari syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001409 | Portal hypertension | Very frequent (99-80%)&#34;
@@ -8289,7 +8734,7 @@ phenotypes:
       label: Hepatic vein thrombosis
   evidence:
   - reference: ORPHA:131
-    reference_title: &#34;Budd-Chiari syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Budd-Chiari syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0030243 | Hepatic vein thrombosis | Frequent (79-30%)&#34;
@@ -8306,7 +8751,7 @@ phenotypes:
       label: Cirrhosis
   evidence:
   - reference: ORPHA:131
-    reference_title: &#34;Budd-Chiari syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Budd-Chiari syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001394 | Cirrhosis | Frequent (79-30%)&#34;
@@ -8359,7 +8804,7 @@ phenotypes:
       label: Fever
   evidence:
   - reference: ORPHA:131
-    reference_title: &#34;Budd-Chiari syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Budd-Chiari syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001945 | Fever | Frequent (79-30%)&#34;
@@ -8377,7 +8822,7 @@ phenotypes:
       label: Gastrointestinal hemorrhage
   evidence:
   - reference: ORPHA:131
-    reference_title: &#34;Budd-Chiari syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Budd-Chiari syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002239 | Gastrointestinal hemorrhage | Occasional (29-5%)&#34;
@@ -8395,7 +8840,7 @@ phenotypes:
       label: Hepatic encephalopathy
   evidence:
   - reference: ORPHA:131
-    reference_title: &#34;Budd-Chiari syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Budd-Chiari syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002480 | Hepatic encephalopathy | Occasional (29-5%)&#34;
@@ -8413,7 +8858,7 @@ phenotypes:
       label: Elevated circulating hepatic transaminase concentration
   evidence:
   - reference: ORPHA:131
-    reference_title: &#34;Budd-Chiari syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Budd-Chiari syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002910 | Elevated circulating hepatic transaminase concentration | Frequent (79-30%)&#34;
@@ -8428,8 +8873,8 @@ phenotypes:
       enzymes.
     evidence:
     - reference: ORPHA:131
-      reference_title: &#34;Budd-Chiari syndrome (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Budd-Chiari syndrome&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0002910 | Elevated circulating hepatic transaminase concentration | Frequent (79-30%)&#34;
       explanation: Supports elevated transaminases as a frequent laboratory readout of Budd-Chiari liver injury.
@@ -8446,7 +8891,7 @@ phenotypes:
       label: Elevated circulating alkaline phosphatase concentration
   evidence:
   - reference: ORPHA:131
-    reference_title: &#34;Budd-Chiari syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Budd-Chiari syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003155 | Elevated circulating alkaline phosphatase concentration | Frequent (79-30%)&#34;
@@ -8461,8 +8906,8 @@ phenotypes:
       phosphatase.
     evidence:
     - reference: ORPHA:131
-      reference_title: &#34;Budd-Chiari syndrome (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Budd-Chiari syndrome&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0003155 | Elevated circulating alkaline phosphatase concentration | Frequent (79-30%)&#34;
       explanation: Supports alkaline phosphatase elevation as a frequent laboratory readout of Budd-Chiari liver injury.
@@ -8479,7 +8924,7 @@ phenotypes:
       label: Acute hepatic failure
   evidence:
   - reference: ORPHA:131
-    reference_title: &#34;Budd-Chiari syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Budd-Chiari syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0006554 | Acute hepatic failure | Occasional (29-5%)&#34;
@@ -8497,7 +8942,7 @@ phenotypes:
       label: Bipedal edema
   evidence:
   - reference: ORPHA:131
-    reference_title: &#34;Budd-Chiari syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Budd-Chiari syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0033045 | Bipedal edema | Frequent (79-30%)&#34;
@@ -8748,6 +9193,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9242,7 +9689,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Budd-Chiari Syndrome", "mondoId": "MONDO:0010947", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Budd-Chiari_Syndrome", "yamlRevision": "bb54fcc7f5a7"};
+        const OS_CONFIG = {"diseaseName": "Budd-Chiari Syndrome", "mondoId": "MONDO:0010947", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Budd-Chiari_Syndrome", "yamlRevision": "a825e294c788"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

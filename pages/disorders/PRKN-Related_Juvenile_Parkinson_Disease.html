@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4179,6 +4286,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4200,6 +4309,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4397,6 +4508,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4420,6 +4533,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4441,6 +4556,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4525,6 +4642,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4546,6 +4665,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4582,6 +4703,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prkn-biallelic-loss-of-function" data-dismech-node="PRKN Biallelic Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">PRKN Biallelic Loss of Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Homozygous or compound heterozygous loss-of-function PRKN alleles - most often whole-exon deletions or duplications, and less often point mutations - abolish functional parkin, an E3 ubiquitin ligase. This is the initiating molecular lesion of PARK-PRKN.</div>
 
@@ -4713,6 +4841,8 @@ This pathophysiological event involves decreased parkin ubiquitin protein ligase
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4734,6 +4864,8 @@ This pathophysiological event involves decreased parkin ubiquitin protein ligase
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4758,6 +4890,13 @@ This pathophysiological event involves decreased parkin ubiquitin protein ligase
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-depolarization" data-dismech-node="Mitochondrial Depolarization" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Depolarization</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Loss of inner mitochondrial membrane potential marks an individual mitochondrion as damaged. This is the upstream damage state that the PINK1-parkin quality-control system detects; it is scale-MOLECULAR and is modelled separately from the PINK1 sensing response it triggers.</div>
 
@@ -4844,6 +4983,8 @@ This pathophysiological event involves mitochondrial depolarization (GO:0051882)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4866,6 +5007,13 @@ This pathophysiological event involves mitochondrial depolarization (GO:0051882)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pink1-accumulation-on-the-outer-mitochondrial-membrane" data-dismech-node="PINK1 Accumulation on the Outer Mitochondrial Membrane" data-dismech-type="pathophysiology">
                 <div class="item-name">PINK1 Accumulation on the Outer Mitochondrial Membrane</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Full-length PINK1 accumulates on the outer membrane of the depolarized organelle with its kinase domain facing the cytosol. This is the damage-sensing step that flags an individual mitochondrion for disposal and is the immediate upstream requirement for parkin recruitment.</div>
 
@@ -4952,6 +5100,8 @@ This pathophysiological event involves PINK1 kinase autophosphorylation and stab
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4974,6 +5124,13 @@ This pathophysiological event involves PINK1 kinase autophosphorylation and stab
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-phospho-ubiquitin-dependent-parkin-recruitment-and-e3-ligase-activation" data-dismech-node="Failure of Phospho-Ubiquitin-Dependent Parkin Recruitment and E3 Ligase Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Phospho-Ubiquitin-Dependent Parkin Recruitment and E3 Ligase Activation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Mitochondrial PINK1 phosphorylates ubiquitin at Ser65. Phospho-ubiquitin is the genuine parkin activator: it binds parkin allosterically, unlocking the autoinhibited catalytic cysteine, while PINK1-dependent phosphorylation of parkin itself completes full activation. In PARK-PRKN this convergence step fails because parkin is absent or catalytically dead, so the Ser65 phospho-ubiquitin signal is generated but not transduced.</div>
 
@@ -5098,6 +5255,8 @@ This pathophysiological event involves decreased parkin E3 ubiquitin ligase acti
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5119,6 +5278,8 @@ This pathophysiological event involves decreased parkin E3 ubiquitin ligase acti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5144,6 +5305,8 @@ This pathophysiological event involves decreased parkin E3 ubiquitin ligase acti
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5166,6 +5329,13 @@ This pathophysiological event involves decreased parkin E3 ubiquitin ligase acti
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-ubiquitination-of-outer-mitochondrial-membrane-substrates" data-dismech-node="Loss of Ubiquitination of Outer Mitochondrial Membrane Substrates" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Ubiquitination of Outer Mitochondrial Membrane Substrates</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Activated parkin decorates outer mitochondrial membrane proteins with ubiquitin chains, which are further phosphorylated by PINK1 to generate a feed-forward amplification loop and to build the autophagy-receptor recognition signal on the damaged organelle. In PARK-PRKN this ubiquitin coat is not deposited, so the damaged mitochondrion is never tagged for disposal.</div>
 
@@ -5256,6 +5426,8 @@ This pathophysiological event involves decreased ubiquitination of outer mitocho
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5278,6 +5450,13 @@ This pathophysiological event involves decreased ubiquitination of outer mitocho
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitophagy" data-dismech-node="Impaired Mitophagy" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mitophagy</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Mitophagy - the selective autophagic elimination of damaged mitochondria - is the terminal output of the PINK1-parkin axis and constitutes a mitochondrial quality-control system. Loss of parkin disables the parkin-dependent arm of this system, so damaged organelles are neither tagged nor cleared. Post-mitotic dopaminergic neurons, which cannot dilute damaged mitochondria by division, are predicted to be particularly reliant on this pathway.</div>
 
@@ -5402,6 +5581,8 @@ This pathophysiological event involves decreased mitophagy, annotated with autop
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5423,6 +5604,8 @@ This pathophysiological event involves decreased mitophagy, annotated with autop
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5447,6 +5630,13 @@ This pathophysiological event involves decreased mitophagy, annotated with autop
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accumulation-of-damaged-mitochondria" data-dismech-node="Accumulation of Damaged Mitochondria" data-dismech-type="pathophysiology">
                 <div class="item-name">Accumulation of Damaged Mitochondria</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Without parkin-dependent clearance, dysfunctional mitochondria are not removed from the network and accumulate in the cell. This is the direct organelle-level consequence of the mitophagy block, modelled separately from the oxidative/bioenergetic damage it subsequently produces.</div>
 
@@ -5545,6 +5735,8 @@ This pathophysiological event involves abnormal mitochondrion organization (GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5567,6 +5759,13 @@ This pathophysiological event involves abnormal mitochondrion organization (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress-and-respiratory-chain-deficiency" data-dismech-node="Oxidative Stress and Respiratory Chain Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative Stress and Respiratory Chain Deficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">In parkin-null mice the retained dysfunctional mitochondria manifest as reduced abundance of complex I and complex IV subunits, measurably reduced respiratory capacity of striatal mitochondria, reduced antioxidant defences, and increased protein and lipid peroxidation. Chronic oxidative burden is the proposed proximate injury to dopaminergic neurons.</div>
 
@@ -5678,6 +5877,8 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5700,6 +5901,13 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytosolic-and-circulating-mtdna-release" data-dismech-node="Cytosolic and Circulating mtDNA Release" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytosolic and Circulating mtDNA Release</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Mitochondrial DNA escapes from uncleared damaged mitochondria. In humans this is measurable as increased circulating cell-free mtDNA in carriers of biallelic or heterozygous PRKN/PINK1 mutations relative to idiopathic Parkinson disease, whereas unaffected heterozygous carriers have control-level concentrations. Released mtDNA is the damage-associated molecular pattern that the downstream innate immune sensor detects.</div>
 
@@ -5752,6 +5960,8 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5774,6 +5984,13 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cgas-sting-innate-immune-activation" data-dismech-node="cGAS-STING Innate Immune Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">cGAS-STING Innate Immune Activation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Sensing of released mtDNA drives type I interferon and interleukin-6 responses. In humans, patients with biallelic PRKN/PINK1 mutations have elevated serum IL-6 relative to healthy controls, with an apparent gene-dosage effect between biallelic and heterozygous carriers, and IL-6 correlates with disease duration in mutation carriers but not in idiopathic Parkinson disease. Marked PROVISIONAL: the human data are serum biomarker associations rather than demonstrations of causal neuroinflammatory neurodegeneration.</div>
 
@@ -5898,6 +6115,8 @@ This pathophysiological event involves increased type I interferon production (G
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5919,6 +6138,8 @@ This pathophysiological event involves increased type I interferon production (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5943,6 +6164,13 @@ This pathophysiological event involves increased type I interferon production (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-selective-dopaminergic-neuron-loss-in-the-substantia-nigra-pars-compacta" data-dismech-node="Selective Dopaminergic Neuron Loss in the Substantia Nigra Pars Compacta" data-dismech-type="pathophysiology">
                 <div class="item-name">Selective Dopaminergic Neuron Loss in the Substantia Nigra Pars Compacta</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Dopaminergic neurons of the substantia nigra pars compacta degenerate. In autopsy-confirmed parkin disease the magnitude of nigral neuronal loss is as severe as in idiopathic Parkinson disease, but the topography differs: loss is predominantly ventral with relative preservation of the dorsal tier. Mild neuronal loss also occurs in the locus coeruleus and dorsal motor nucleus of the vagus, but not in the nucleus basalis of Meynert, raphe nucleus, or other brain regions - a markedly more restricted distribution than in idiopathic Parkinson disease.</div>
 
@@ -6088,6 +6316,8 @@ This pathophysiological event occurs in substantia nigra pars compacta (UBERON:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6109,6 +6339,8 @@ This pathophysiological event occurs in substantia nigra pars compacta (UBERON:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6133,6 +6365,13 @@ This pathophysiological event occurs in substantia nigra pars compacta (UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nigrostriatal-dopamine-deficiency" data-dismech-node="Nigrostriatal Dopamine Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Nigrostriatal Dopamine Deficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Degeneration of the nigrostriatal projection produces severe striatal dopamine deficiency, quantified in parkin-mutation patients by 18F-dopa PET as roughly 28% of control putaminal and 44% of control caudate uptake. This deficiency is the direct target of dopamine-replacement therapy and explains the excellent levodopa responsiveness of the disorder.</div>
 
@@ -6244,6 +6483,8 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6266,6 +6507,13 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-parkinsonism" data-dismech-node="Parkinsonism" data-dismech-type="pathophysiology">
                 <div class="item-name">Parkinsonism</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The clinical syndrome: bradykinesia with resting tremor and rigidity, typically with early lower-limb dystonia, hyperreflexia, symmetric involvement, an excellent and sustained levodopa response, and early levodopa-induced dyskinesias. Progression is slow and cognitive decline is no more frequent than in the general population.</div>
 
@@ -6301,6 +6549,8 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6361,6 +6611,8 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6374,14 +6626,16 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23459986" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:23459986" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23459986" target="_blank">PMID:23459986</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6405,6 +6659,8 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6451,7 +6707,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Damaged Mitochondria\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without parkin-dependent clearance, dysfunctional mitochondria are not removed from the network and accumulate in the cell. This is the direct organelle-level consequence of the mitophagy block, modelled separately from the oxidative/bioenergetic damage it subsequently produces.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitochondrion organization\"]}}, {\"id\": \"Bradykinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slowness of voluntary movement; one of the three cardinal signs of PARK-PRKN.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002067\"}}, {\"id\": \"Cytosolic and Circulating mtDNA Release\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial DNA escapes from uncleared damaged mitochondria. In humans this is measurable as increased circulating cell-free mtDNA in carriers of biallelic or heterozygous PRKN/PINK1 mutations relative to idiopathic Parkinson disease, whereas unaffected heterozygous carriers have control-level concentrations. Released mtDNA is the damage-associated molecular pattern that the downstream innate immune sensor detects.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Deep Brain Stimulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Deep brain stimulation is recommended for individuals experiencing difficulty with levodopa therapy - in PARK-PRKN typically those limited by levodopa-induced dyskinesias and motor fluctuations rather than by loss of dopaminergic responsiveness.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Failure of Phospho-Ubiquitin-Dependent Parkin Recruitment and E3 Ligase Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial PINK1 phosphorylates ubiquitin at Ser65. Phospho-ubiquitin is the genuine parkin activator: it binds parkin allosterically, unlocking the autoinhibited catalytic cysteine, while PINK1-dependent phosphorylation of parkin itself completes full activation. In PARK-PRKN this convergence step fails because parkin is absent or catalytically dead, so the Ser65 phospho-ubiquitin signal is generated but not transduced.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"PINK1-mediated ubiquitin Ser65 phosphorylation\"], \"molecular_functions\": [\"parkin E3 ubiquitin ligase activation\"]}}, {\"id\": \"Impaired Mitophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitophagy - the selective autophagic elimination of damaged mitochondria - is the terminal output of the PINK1-parkin axis and constitutes a mitochondrial quality-control system. Loss of parkin disables the parkin-dependent arm of this system, so damaged organelles are neither tagged nor cleared. Post-mitotic dopaminergic neurons, which cannot dilute damaged mitochondria by division, are predicted to be particularly reliant on this pathway.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"dopaminergic neuron\"], \"biological_processes\": [\"mitophagy\"]}}, {\"id\": \"Levodopa-Induced Dyskinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dyskinesias complicating levodopa therapy occur frequently and often early in the disease course, which is why GeneReviews explicitly lists exceeding the levodopa dose needed for satisfactory clinical response as a circumstance to avoid.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100660\"}}, {\"id\": \"Levodopa/Carbidopa\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dopamine replacement is the mainstay of therapy and PARK-PRKN responds excellently and durably, often at low doses. Carbidopa is a peripheral DOPA-decarboxylase inhibitor co-administered to reduce peripheral conversion. IMPORTANT SAFETY NOTE from the GeneReviews agents/circumstances-to-avoid section: levodopa dosing beyond what is needed for satisfactory clinical response should be avoided, because levodopa-induced dyskinesias occur frequently and early in this disorder.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"levodopa\", \"carbidopa\"]}}, {\"id\": \"Loss of Ubiquitination of Outer Mitochondrial Membrane Substrates\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated parkin decorates outer mitochondrial membrane proteins with ubiquitin chains, which are further phosphorylated by PINK1 to generate a feed-forward amplification loop and to build the autophagy-receptor recognition signal on the damaged organelle. In PARK-PRKN this ubiquitin coat is not deposited, so the damaged mitochondrion is never tagged for disposal.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ubiquitination of outer mitochondrial membrane substrates\"]}}, {\"id\": \"Mitochondrial Depolarization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of inner mitochondrial membrane potential marks an individual mitochondrion as damaged. This is the upstream damage state that the PINK1-parkin quality-control system detects; it is scale-MOLECULAR and is modelled separately from the PINK1 sensing response it triggers.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitochondrial depolarization\"]}}, {\"id\": \"Nigrostriatal Dopamine Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Degeneration of the nigrostriatal projection produces severe striatal dopamine deficiency, quantified in parkin-mutation patients by 18F-dopa PET as roughly 28% of control putaminal and 44% of control caudate uptake. This deficiency is the direct target of dopamine-replacement therapy and explains the excellent levodopa responsiveness of the disorder.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"dopaminergic synaptic transmission\"], \"locations\": [\"striatum\"]}}, {\"id\": \"Oxidative Stress and Respiratory Chain Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In parkin-null mice the retained dysfunctional mitochondria manifest as reduced abundance of complex I and complex IV subunits, measurably reduced respiratory capacity of striatal mitochondria, reduced antioxidant defences, and increased protein and lipid peroxidation. Chronic oxidative burden is the proposed proximate injury to dopaminergic neurons.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"oxidative stress response\"], \"locations\": [\"striatum\"]}}, {\"id\": \"PINK1 Accumulation on the Outer Mitochondrial Membrane\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Full-length PINK1 accumulates on the outer membrane of the depolarized organelle with its kinase domain facing the cytosol. This is the damage-sensing step that flags an individual mitochondrion for disposal and is the immediate upstream requirement for parkin recruitment.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"PINK1 kinase autophosphorylation and stabilization\"]}}, {\"id\": \"PRKN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"PRKN\"], \"gene_terms\": [{\"label\": \"PRKN\", \"id\": \"hgnc:8607\"}], \"presence\": \"present\", \"association\": \"Biallelic loss-of-function variants in PRKN (formerly PARK2), encoding the RING-between-RING E3 ubiquitin ligase parkin, cause autosomal recessive juvenile/early-onset Parkinson disease. The gene lies at 6q25.2-q27, spans more than 500 kb, and has 12 exons.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PRKN Biallelic Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous or compound heterozygous loss-of-function PRKN alleles - most often whole-exon deletions or duplications, and less often point mutations - abolish functional parkin, an E3 ubiquitin ligase. This is the initiating molecular lesion of PARK-PRKN.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"parkin ubiquitin protein ligase activity\"], \"genes\": [\"PRKN\"], \"gene_terms\": [{\"label\": \"PRKN\", \"id\": \"hgnc:8607\"}]}}, {\"id\": \"Parkinsonism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical syndrome: bradykinesia with resting tremor and rigidity, typically with early lower-limb dystonia, hyperreflexia, symmetric involvement, an excellent and sustained levodopa response, and early levodopa-induced dyskinesias. Progression is slow and cognitive decline is no more frequent than in the general population.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Resting Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tremor present at rest; a cardinal sign and, together with dystonia, a common presenting feature in autopsy-confirmed parkin disease.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002322\"}}, {\"id\": \"Rigidity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased muscle tone; a cardinal sign of PARK-PRKN.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002063\"}}, {\"id\": \"Selective Dopaminergic Neuron Loss in the Substantia Nigra Pars Compacta\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dopaminergic neurons of the substantia nigra pars compacta degenerate. In autopsy-confirmed parkin disease the magnitude of nigral neuronal loss is as severe as in idiopathic Parkinson disease, but the topography differs: loss is predominantly ventral with relative preservation of the dorsal tier. Mild neuronal loss also occurs in the locus coeruleus and dorsal motor nucleus of the vagus, but not in the nucleus basalis of Meynert, raphe nucleus, or other brain regions - a markedly more restricted distribution than in idiopathic Parkinson disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"nigral dopaminergic neuron\"], \"biological_processes\": [\"dopaminergic neuron apoptosis\"], \"locations\": [\"substantia nigra pars compacta\"]}}, {\"id\": \"cGAS-STING Innate Immune Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sensing of released mtDNA drives type I interferon and interleukin-6 responses. In humans, patients with biallelic PRKN/PINK1 mutations have elevated serum IL-6 relative to healthy controls, with an apparent gene-dosage effect between biallelic and heterozygous carriers, and IL-6 correlates with disease duration in mutation carriers but not in idiopathic Parkinson disease. Marked PROVISIONAL: the human data are serum biomarker associations rather than demonstrations of causal neuroinflammatory neurodegeneration.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"interleukin-6 production\", \"type I interferon production\"]}}], \"edges\": [{\"source\": \"PRKN Biallelic Loss of Function\", \"target\": \"Failure of Phospho-Ubiquitin-Dependent Parkin Recruitment and E3 Ligase Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"With no functional parkin protein, the recruitment/activation step of the PINK1-parkin axis cannot proceed regardless of an intact upstream PINK1 signal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial Depolarization\", \"target\": \"PINK1 Accumulation on the Outer Mitochondrial Membrane\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Depolarization blocks the voltage-dependent proteolysis that normally keeps outer-membrane PINK1 low, so PINK1 accumulates selectively on the depolarized organelle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PINK1 Accumulation on the Outer Mitochondrial Membrane\", \"target\": \"Failure of Phospho-Ubiquitin-Dependent Parkin Recruitment and E3 Ligase Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated PINK1 is necessary and sufficient to recruit parkin; in PARK-PRKN the PINK1 signal is generated normally but has no competent effector.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Phospho-Ubiquitin-Dependent Parkin Recruitment and E3 Ligase Activation\", \"target\": \"Loss of Ubiquitination of Outer Mitochondrial Membrane Substrates\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated parkin is the enzyme that transfers ubiquitin onto outer-membrane proteins; without activation this transfer does not occur.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Ubiquitination of Outer Mitochondrial Membrane Substrates\", \"target\": \"Impaired Mitophagy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The parkin-deposited ubiquitin signal is what commits the damaged mitochondrion to autophagic engulfment; its absence blocks mitophagy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Mitophagy\", \"target\": \"Accumulation of Damaged Mitochondria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Undisposed damaged mitochondria persist, with falling respiratory-chain capacity and rising reactive oxygen species and oxidative damage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Damaged Mitochondria\", \"target\": \"Oxidative Stress and Respiratory Chain Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retained dysfunctional mitochondria have reduced respiratory-chain capacity and generate oxidative damage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Damaged Mitochondria\", \"target\": \"Cytosolic and Circulating mtDNA Release\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Damaged, uncleared mitochondria release mitochondrial DNA, which acts as a damage-associated molecular pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oxidative Stress and Respiratory Chain Deficiency\", \"target\": \"Selective Dopaminergic Neuron Loss in the Substantia Nigra Pars Compacta\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic mitochondrial dysfunction and oxidative damage are the proposed cell-autonomous driver of nigral dopaminergic degeneration. The link is marked INDIRECT_UNKNOWN_INTERMEDIATES deliberately: parkin-null mice show the mitochondrial and oxidative phenotype WITHOUT nigral neuron loss, so the intermediate steps that convert this cellular stress into human dopaminergic cell death are not established (see the HUMAN_MODEL_MISMATCH discussion on this entry).\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cytosolic and Circulating mtDNA Release\", \"target\": \"cGAS-STING Innate Immune Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytosolic mtDNA is sensed by cGAS-STING, converting the organelle defect into an inflammatory signal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"cGAS-STING Innate Immune Activation\", \"target\": \"Selective Dopaminergic Neuron Loss in the Substantia Nigra Pars Compacta\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic mtDNA-driven innate immune activation is hypothesized to contribute to dopaminergic neurodegeneration. This edge is the least established in the graph - the supporting human data are peripheral serum biomarkers, not CNS neuropathology.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Selective Dopaminergic Neuron Loss in the Substantia Nigra Pars Compacta\", \"target\": \"Nigrostriatal Dopamine Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of nigral dopaminergic neurons removes the dopaminergic projection to the striatum, producing measurable presynaptic striatal dopaminergic denervation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nigrostriatal Dopamine Deficiency\", \"target\": \"Parkinsonism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Striatal dopamine deficiency produces the cardinal motor syndrome of bradykinesia, rest tremor and rigidity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Levodopa/Carbidopa\", \"target\": \"Nigrostriatal Dopamine Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Levodopa/Carbidopa\", \"target\": \"Bradykinesia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Levodopa/Carbidopa\", \"target\": \"Rigidity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Levodopa/Carbidopa\", \"target\": \"Resting Tremor\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Deep Brain Stimulation\", \"target\": \"Levodopa-Induced Dyskinesia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"PRKN\", \"target\": \"PRKN Biallelic Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Damaged Mitochondria\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without parkin-dependent clearance, dysfunctional mitochondria are not removed from the network and accumulate in the cell. This is the direct organelle-level consequence of the mitophagy block, modelled separately from the oxidative/bioenergetic damage it subsequently produces.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitochondrion organization\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Bradykinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slowness of voluntary movement; one of the three cardinal signs of PARK-PRKN.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002067\"}}, {\"id\": \"Cytosolic and Circulating mtDNA Release\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial DNA escapes from uncleared damaged mitochondria. In humans this is measurable as increased circulating cell-free mtDNA in carriers of biallelic or heterozygous PRKN/PINK1 mutations relative to idiopathic Parkinson disease, whereas unaffected heterozygous carriers have control-level concentrations. Released mtDNA is the damage-associated molecular pattern that the downstream innate immune sensor detects.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Deep Brain Stimulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Deep brain stimulation is recommended for individuals experiencing difficulty with levodopa therapy - in PARK-PRKN typically those limited by levodopa-induced dyskinesias and motor fluctuations rather than by loss of dopaminergic responsiveness.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Failure of Phospho-Ubiquitin-Dependent Parkin Recruitment and E3 Ligase Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial PINK1 phosphorylates ubiquitin at Ser65. Phospho-ubiquitin is the genuine parkin activator: it binds parkin allosterically, unlocking the autoinhibited catalytic cysteine, while PINK1-dependent phosphorylation of parkin itself completes full activation. In PARK-PRKN this convergence step fails because parkin is absent or catalytically dead, so the Ser65 phospho-ubiquitin signal is generated but not transduced.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"PINK1-mediated ubiquitin Ser65 phosphorylation\"], \"molecular_functions\": [\"parkin E3 ubiquitin ligase activation\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Impaired Mitophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitophagy - the selective autophagic elimination of damaged mitochondria - is the terminal output of the PINK1-parkin axis and constitutes a mitochondrial quality-control system. Loss of parkin disables the parkin-dependent arm of this system, so damaged organelles are neither tagged nor cleared. Post-mitotic dopaminergic neurons, which cannot dilute damaged mitochondria by division, are predicted to be particularly reliant on this pathway.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"dopaminergic neuron\"], \"biological_processes\": [\"mitophagy\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Levodopa-Induced Dyskinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dyskinesias complicating levodopa therapy occur frequently and often early in the disease course, which is why GeneReviews explicitly lists exceeding the levodopa dose needed for satisfactory clinical response as a circumstance to avoid.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100660\"}}, {\"id\": \"Levodopa/Carbidopa\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dopamine replacement is the mainstay of therapy and PARK-PRKN responds excellently and durably, often at low doses. Carbidopa is a peripheral DOPA-decarboxylase inhibitor co-administered to reduce peripheral conversion. IMPORTANT SAFETY NOTE from the GeneReviews agents/circumstances-to-avoid section: levodopa dosing beyond what is needed for satisfactory clinical response should be avoided, because levodopa-induced dyskinesias occur frequently and early in this disorder.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"levodopa\", \"carbidopa\"]}}, {\"id\": \"Loss of Ubiquitination of Outer Mitochondrial Membrane Substrates\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated parkin decorates outer mitochondrial membrane proteins with ubiquitin chains, which are further phosphorylated by PINK1 to generate a feed-forward amplification loop and to build the autophagy-receptor recognition signal on the damaged organelle. In PARK-PRKN this ubiquitin coat is not deposited, so the damaged mitochondrion is never tagged for disposal.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ubiquitination of outer mitochondrial membrane substrates\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Mitochondrial Depolarization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of inner mitochondrial membrane potential marks an individual mitochondrion as damaged. This is the upstream damage state that the PINK1-parkin quality-control system detects; it is scale-MOLECULAR and is modelled separately from the PINK1 sensing response it triggers.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitochondrial depolarization\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Nigrostriatal Dopamine Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Degeneration of the nigrostriatal projection produces severe striatal dopamine deficiency, quantified in parkin-mutation patients by 18F-dopa PET as roughly 28% of control putaminal and 44% of control caudate uptake. This deficiency is the direct target of dopamine-replacement therapy and explains the excellent levodopa responsiveness of the disorder.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"dopaminergic synaptic transmission\"], \"locations\": [\"striatum\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Oxidative Stress and Respiratory Chain Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In parkin-null mice the retained dysfunctional mitochondria manifest as reduced abundance of complex I and complex IV subunits, measurably reduced respiratory capacity of striatal mitochondria, reduced antioxidant defences, and increased protein and lipid peroxidation. Chronic oxidative burden is the proposed proximate injury to dopaminergic neurons.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"oxidative stress response\"], \"locations\": [\"striatum\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"PINK1 Accumulation on the Outer Mitochondrial Membrane\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Full-length PINK1 accumulates on the outer membrane of the depolarized organelle with its kinase domain facing the cytosol. This is the damage-sensing step that flags an individual mitochondrion for disposal and is the immediate upstream requirement for parkin recruitment.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"PINK1 kinase autophosphorylation and stabilization\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"PRKN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"PRKN\"], \"gene_terms\": [{\"label\": \"PRKN\", \"id\": \"hgnc:8607\"}], \"presence\": \"present\", \"association\": \"Biallelic loss-of-function variants in PRKN (formerly PARK2), encoding the RING-between-RING E3 ubiquitin ligase parkin, cause autosomal recessive juvenile/early-onset Parkinson disease. The gene lies at 6q25.2-q27, spans more than 500 kb, and has 12 exons.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PRKN Biallelic Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous or compound heterozygous loss-of-function PRKN alleles - most often whole-exon deletions or duplications, and less often point mutations - abolish functional parkin, an E3 ubiquitin ligase. This is the initiating molecular lesion of PARK-PRKN.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"parkin ubiquitin protein ligase activity\"], \"genes\": [\"PRKN\"], \"gene_terms\": [{\"label\": \"PRKN\", \"id\": \"hgnc:8607\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Parkinsonism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical syndrome: bradykinesia with resting tremor and rigidity, typically with early lower-limb dystonia, hyperreflexia, symmetric involvement, an excellent and sustained levodopa response, and early levodopa-induced dyskinesias. Progression is slow and cognitive decline is no more frequent than in the general population.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Resting Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tremor present at rest; a cardinal sign and, together with dystonia, a common presenting feature in autopsy-confirmed parkin disease.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002322\"}}, {\"id\": \"Rigidity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased muscle tone; a cardinal sign of PARK-PRKN.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002063\"}}, {\"id\": \"Selective Dopaminergic Neuron Loss in the Substantia Nigra Pars Compacta\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dopaminergic neurons of the substantia nigra pars compacta degenerate. In autopsy-confirmed parkin disease the magnitude of nigral neuronal loss is as severe as in idiopathic Parkinson disease, but the topography differs: loss is predominantly ventral with relative preservation of the dorsal tier. Mild neuronal loss also occurs in the locus coeruleus and dorsal motor nucleus of the vagus, but not in the nucleus basalis of Meynert, raphe nucleus, or other brain regions - a markedly more restricted distribution than in idiopathic Parkinson disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"nigral dopaminergic neuron\"], \"biological_processes\": [\"dopaminergic neuron apoptosis\"], \"locations\": [\"substantia nigra pars compacta\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"cGAS-STING Innate Immune Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sensing of released mtDNA drives type I interferon and interleukin-6 responses. In humans, patients with biallelic PRKN/PINK1 mutations have elevated serum IL-6 relative to healthy controls, with an apparent gene-dosage effect between biallelic and heterozygous carriers, and IL-6 correlates with disease duration in mutation carriers but not in idiopathic Parkinson disease. Marked PROVISIONAL: the human data are serum biomarker associations rather than demonstrations of causal neuroinflammatory neurodegeneration.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"interleukin-6 production\", \"type I interferon production\"], \"mechanism_confidence\": \"PROVISIONAL\"}}], \"edges\": [{\"source\": \"PRKN Biallelic Loss of Function\", \"target\": \"Failure of Phospho-Ubiquitin-Dependent Parkin Recruitment and E3 Ligase Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"With no functional parkin protein, the recruitment/activation step of the PINK1-parkin axis cannot proceed regardless of an intact upstream PINK1 signal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial Depolarization\", \"target\": \"PINK1 Accumulation on the Outer Mitochondrial Membrane\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Depolarization blocks the voltage-dependent proteolysis that normally keeps outer-membrane PINK1 low, so PINK1 accumulates selectively on the depolarized organelle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PINK1 Accumulation on the Outer Mitochondrial Membrane\", \"target\": \"Failure of Phospho-Ubiquitin-Dependent Parkin Recruitment and E3 Ligase Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated PINK1 is necessary and sufficient to recruit parkin; in PARK-PRKN the PINK1 signal is generated normally but has no competent effector.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Phospho-Ubiquitin-Dependent Parkin Recruitment and E3 Ligase Activation\", \"target\": \"Loss of Ubiquitination of Outer Mitochondrial Membrane Substrates\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated parkin is the enzyme that transfers ubiquitin onto outer-membrane proteins; without activation this transfer does not occur.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Ubiquitination of Outer Mitochondrial Membrane Substrates\", \"target\": \"Impaired Mitophagy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The parkin-deposited ubiquitin signal is what commits the damaged mitochondrion to autophagic engulfment; its absence blocks mitophagy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Mitophagy\", \"target\": \"Accumulation of Damaged Mitochondria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Undisposed damaged mitochondria persist, with falling respiratory-chain capacity and rising reactive oxygen species and oxidative damage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Damaged Mitochondria\", \"target\": \"Oxidative Stress and Respiratory Chain Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retained dysfunctional mitochondria have reduced respiratory-chain capacity and generate oxidative damage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Damaged Mitochondria\", \"target\": \"Cytosolic and Circulating mtDNA Release\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Damaged, uncleared mitochondria release mitochondrial DNA, which acts as a damage-associated molecular pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oxidative Stress and Respiratory Chain Deficiency\", \"target\": \"Selective Dopaminergic Neuron Loss in the Substantia Nigra Pars Compacta\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic mitochondrial dysfunction and oxidative damage are the proposed cell-autonomous driver of nigral dopaminergic degeneration. The link is marked INDIRECT_UNKNOWN_INTERMEDIATES deliberately: parkin-null mice show the mitochondrial and oxidative phenotype WITHOUT nigral neuron loss, so the intermediate steps that convert this cellular stress into human dopaminergic cell death are not established (see the HUMAN_MODEL_MISMATCH discussion on this entry).\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cytosolic and Circulating mtDNA Release\", \"target\": \"cGAS-STING Innate Immune Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytosolic mtDNA is sensed by cGAS-STING, converting the organelle defect into an inflammatory signal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"cGAS-STING Innate Immune Activation\", \"target\": \"Selective Dopaminergic Neuron Loss in the Substantia Nigra Pars Compacta\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic mtDNA-driven innate immune activation is hypothesized to contribute to dopaminergic neurodegeneration. This edge is the least established in the graph - the supporting human data are peripheral serum biomarkers, not CNS neuropathology.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Selective Dopaminergic Neuron Loss in the Substantia Nigra Pars Compacta\", \"target\": \"Nigrostriatal Dopamine Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of nigral dopaminergic neurons removes the dopaminergic projection to the striatum, producing measurable presynaptic striatal dopaminergic denervation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nigrostriatal Dopamine Deficiency\", \"target\": \"Parkinsonism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Striatal dopamine deficiency produces the cardinal motor syndrome of bradykinesia, rest tremor and rigidity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Levodopa/Carbidopa\", \"target\": \"Nigrostriatal Dopamine Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Levodopa/Carbidopa\", \"target\": \"Bradykinesia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Levodopa/Carbidopa\", \"target\": \"Rigidity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Levodopa/Carbidopa\", \"target\": \"Resting Tremor\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Deep Brain Stimulation\", \"target\": \"Levodopa-Induced Dyskinesia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"PRKN\", \"target\": \"PRKN Biallelic Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6472,9 +6728,9 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(7)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6515,6 +6771,9 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6529,6 +6788,8 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6560,7 +6821,7 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">7</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-bradykinesia" data-dismech-node="Bradykinesia" data-dismech-type="phenotype">
@@ -6591,6 +6852,9 @@ This clinical feature is Bradykinesia (HP:0002067). HP:0002067 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6605,6 +6869,8 @@ This clinical feature is Bradykinesia (HP:0002067). HP:0002067 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6658,6 +6924,9 @@ This clinical feature is Resting tremor (HP:0002322). HP:0002322 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6672,6 +6941,8 @@ This clinical feature is Resting tremor (HP:0002322). HP:0002322 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6697,6 +6968,8 @@ This clinical feature is Resting tremor (HP:0002322). HP:0002322 is a phenotype 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6705,6 +6978,105 @@ This clinical feature is Resting tremor (HP:0002322). HP:0002322 is a phenotype 
 
 
                 <div class="evidence-explanation">Autopsy-confirmed series describing tremor (with dystonia) as the typical presenting sign.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lower-limb-dystonia-at-onset" data-dismech-node="Lower-Limb Dystonia at Onset" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Lower-Limb Dystonia at Onset
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Leg dystonia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031959" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0031959</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Leg dystonia (HP:0031959). HP:0031959 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301651" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301651" target="_blank">PMID:20301651</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Lower-limb dystonia may be a presenting sign"</div>
+
+
+                <div class="evidence-explanation">GeneReviews identifies lower-limb dystonia as a presenting sign. No frequency band is asserted: &#34;may be&#34; does not map to a FrequencyEnum value.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10824074" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10824074" target="_blank">PMID:10824074</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"they were more likely to have symmetric involvement and dystonia at onset"</div>
+
+
+                <div class="evidence-explanation">Comparative evidence that dystonia at onset discriminates parkin-mutation carriers from non-carriers with early-onset Parkinson disease.</div>
 
 
 
@@ -6736,15 +7108,18 @@ This clinical feature is Resting tremor (HP:0002322). HP:0002322 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001347</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001347</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6764,6 +7139,8 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6789,6 +7166,8 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6797,199 +7176,6 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
                 <div class="evidence-explanation">Independent confirmation that hyperreflexia is over-represented in parkin-mutation carriers.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-levodopa-induced-dyskinesia" data-dismech-node="Levodopa-Induced Dyskinesia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Levodopa-Induced Dyskinesia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100660" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0100660</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Dyskinesia (HP:0100660). HP:0100660 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301651" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301651" target="_blank">PMID:20301651</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Dyskinesia as a result of treatment with levodopa frequently occurs."</div>
-
-
-                <div class="evidence-explanation">Supports both the association and the FREQUENT band; &#34;frequently occurs&#34; maps to FREQUENT (30-79%) under the project&#39;s mapping table.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10824074" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10824074" target="_blank">PMID:10824074</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"to have levodopa-induced dyskinesias during treatment"</div>
-
-
-                <div class="evidence-explanation">Confirms the over-representation of levodopa-induced dyskinesias in parkin-mutation carriers.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-lower-limb-dystonia-at-onset" data-dismech-node="Lower-Limb Dystonia at Onset" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Lower-Limb Dystonia at Onset
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Leg dystonia</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031959" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0031959</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Leg dystonia (HP:0031959). HP:0031959 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301651" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301651" target="_blank">PMID:20301651</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Lower-limb dystonia may be a presenting sign"</div>
-
-
-                <div class="evidence-explanation">GeneReviews identifies lower-limb dystonia as a presenting sign. No frequency band is asserted: &#34;may be&#34; does not map to a FrequencyEnum value.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10824074" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10824074" target="_blank">PMID:10824074</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"they were more likely to have symmetric involvement and dystonia at onset"</div>
-
-
-                <div class="evidence-explanation">Comparative evidence that dystonia at onset discriminates parkin-mutation carriers from non-carriers with early-onset Parkinson disease.</div>
 
 
 
@@ -7021,15 +7207,18 @@ This clinical feature is Leg dystonia (HP:0031959). HP:0031959 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002548" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002548</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002548" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002548</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Parkinsonism with favorable response to dopaminergic medication (HP:0002548). HP:0002548 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7049,6 +7238,8 @@ This clinical feature is Parkinsonism with favorable response to dopaminergic me
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7074,6 +7265,8 @@ This clinical feature is Parkinsonism with favorable response to dopaminergic me
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7082,6 +7275,105 @@ This clinical feature is Parkinsonism with favorable response to dopaminergic me
 
 
                 <div class="evidence-explanation">Systematic review of more than 1100 patients confirming the excellent treatment response. Note the review pools Parkin, PINK1 and DJ1.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-levodopa-induced-dyskinesia" data-dismech-node="Levodopa-Induced Dyskinesia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Levodopa-Induced Dyskinesia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100660" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0100660</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyskinesia (HP:0100660). HP:0100660 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301651" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301651" target="_blank">PMID:20301651</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Dyskinesia as a result of treatment with levodopa frequently occurs."</div>
+
+
+                <div class="evidence-explanation">Supports both the association and the FREQUENT band; &#34;frequently occurs&#34; maps to FREQUENT (30-79%) under the project&#39;s mapping table.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10824074" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10824074" target="_blank">PMID:10824074</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"to have levodopa-induced dyskinesias during treatment"</div>
+
+
+                <div class="evidence-explanation">Confirms the over-representation of levodopa-induced dyskinesias in parkin-mutation carriers.</div>
 
 
 
@@ -7125,6 +7417,9 @@ This clinical feature is Freezing of gait (HP:0031825). HP:0031825 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7139,6 +7434,8 @@ This clinical feature is Freezing of gait (HP:0031825). HP:0031825 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7164,12 +7461,24 @@ This clinical feature is Freezing of gait (HP:0031825). HP:0031825 is a phenotyp
 
                 </div>
 
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-relative-cognitive-sparing" data-dismech-node="Relative Cognitive Sparing" data-dismech-type="phenotype">
                     <div class="item-name">
                         Relative Cognitive Sparing
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">NEEDS-TERM-REQUEST (NTR). This entry deliberately carries NO `term:` binding. HPO has no positive term for &#34;cognition preserved&#34;, and both available workarounds are wrong: binding an HP dementia term would be read by downstream tooling as the disease HAVING dementia (the opposite of the curated finding, since dismech&#39;s phenotype model has no negation slot), and binding the general parent HP:0001300 Parkinsonism - which this entry did until PR review - is misleading because it labels a cognitive observation with a motor term that is already asserted elsewhere in the entry. An unbound `preferred_term` is the honest representation: the substantive claim is carried by the description and the two evidence items. An HPO term request for a &#34;cognitive function preserved / not more frequent than population baseline&#34; concept would be needed to bind this properly.</div>
@@ -7193,6 +7502,8 @@ This clinical feature is Freezing of gait (HP:0031825). HP:0031825 is a phenotyp
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7214,6 +7525,8 @@ This clinical feature is Freezing of gait (HP:0031825). HP:0031825 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7315,6 +7628,9 @@ This disease-associated gene is PRKN (hgnc:8607). hgnc:8607 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7329,6 +7645,8 @@ This disease-associated gene is PRKN (hgnc:8607). hgnc:8607 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7354,6 +7672,8 @@ This disease-associated gene is PRKN (hgnc:8607). hgnc:8607 is a gene from the H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7375,6 +7695,8 @@ This disease-associated gene is PRKN (hgnc:8607). hgnc:8607 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7497,6 +7819,31 @@ This treatment uses carbidopa (CHEBI:3395). CHEBI:3395 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Dopamine replacement is the mainstay of therapy and PARK-PRKN responds excellently and durably, often at low doses. Carbidopa is a peripheral DOPA-decarboxylase inhibitor co-administered to reduce peripheral conversion. IMPORTANT SAFETY NOTE from the GeneReviews agents/circumstances-to-avoid section: levodopa dosing beyond what is needed for satisfactory clinical response should be avoided, because levodopa-induced dyskinesias occur frequently and early in this disorder.</div>
 
 
@@ -7527,6 +7874,8 @@ This treatment uses carbidopa (CHEBI:3395). CHEBI:3395 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7627,6 +7976,8 @@ This treatment targets Resting tremor (HP:0002322). HP:0002322 is a phenotype fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7650,6 +8001,8 @@ This treatment targets Resting tremor (HP:0002322). HP:0002322 is a phenotype fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7671,6 +8024,8 @@ This treatment targets Resting tremor (HP:0002322). HP:0002322 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7734,6 +8089,31 @@ This treatment is deep brain stimulation (NCIT:C21024). NCIT:C21024 is a clinica
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Deep brain stimulation is recommended for individuals experiencing difficulty with levodopa therapy - in PARK-PRKN typically those limited by levodopa-induced dyskinesias and motor fluctuations rather than by loss of dopaminergic responsiveness.</div>
 
 
@@ -7777,6 +8157,8 @@ This treatment targets Dyskinesia (HP:0100660). HP:0100660 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7840,6 +8222,31 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Non-pharmacological rehabilitation: exercise as tolerated (aerobic, strength building and integrative), physical and occupational therapy, and speech and voice therapy. Particularly relevant here given the long disease duration and young age at onset.</div>
 
 
@@ -7861,6 +8268,8 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7924,6 +8333,31 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">PARK-PRKN care is not confined to the motor syndrome. GeneReviews specifies symptomatic treatment of constipation; urology management of genitourinary manifestations; sleep aids, minimizing caffeine, good sleep hygiene and light therapy for sleep problems; and standard treatment of orthostatic hypotension. These matter disproportionately in this disorder because onset is early and disease duration can exceed 60 years, so the cumulative non-motor burden is carried for decades.</div>
 
 
@@ -7945,6 +8379,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8029,6 +8465,31 @@ This treatment uses cholinesterase inhibitor, annotated with Acetylcholinesteras
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Where cognitive impairment does occur, GeneReviews recommends cognitive behavioral therapy, pharmacologic treatment, and/or a cholinesterase inhibitor as needed. Note this is an &#34;as needed&#34; contingency rather than an expected course: cognitive decline in PARK-PRKN is no more frequent than in the general population (see the &#34;Relative Cognitive Sparing&#34; phenotype), in contrast to idiopathic Parkinson disease where dementia is a common late outcome.</div>
 
 
@@ -8050,6 +8511,8 @@ This treatment uses cholinesterase inhibitor, annotated with Acetylcholinesteras
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8113,6 +8576,31 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Autosomal recessive recurrence counseling. Once the familial PRKN variants are known, heterozygote testing for at-risk relatives and prenatal or preimplantation genetic testing are possible.</div>
 
 
@@ -8136,6 +8624,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8157,6 +8647,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8186,6 +8678,508 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-prkn-molecular-genetic-testing-with-exon-dosage-analysis">
+                <div class="item-name">
+                    PRKN Molecular Genetic Testing with Exon-Dosage Analysis
+
+                </div>
+
+                <div class="item-desc">Diagnosis is established by identifying biallelic pathogenic PRKN variants. Because exonic deletions and duplications dominate the mutational spectrum, sequence analysis alone is insufficient and must be paired with a copy-number/dosage method (e.g. MLPA). A single heterozygous point mutation should prompt dosage testing for a second, rearrangement allele in trans.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301651" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301651" target="_blank">PMID:20301651</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of PARK-PRKN is established in a proband with suggestive findings and biallelic pathogenic variants in PRKN identified by molecular genetic testing."</div>
+
+
+                <div class="evidence-explanation">States the diagnostic standard.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10824074" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10824074" target="_blank">PMID:10824074</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All subjects were screened for mutations in the parkin gene with use of a semiquantitative polymerase-chain-reaction assay that simultaneously amplified several exons."</div>
+
+
+                <div class="evidence-explanation">Illustrates that a dosage-sensitive (semiquantitative, multi-exon) assay rather than plain sequencing was required to detect the rearrangements that made up the majority of alleles found.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10824074" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10824074" target="_blank">PMID:10824074</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Accurate diagnosis of these cases cannot be based only on the clinical manifestations of the disease."</div>
+
+
+                <div class="evidence-explanation">Supports the requirement for molecular confirmation rather than clinical diagnosis alone.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-periodic-neurologic-autonomic-and-cognitive-surveillance">
+                <div class="item-name">
+                    Periodic Neurologic, Autonomic and Cognitive Surveillance
+
+                </div>
+
+                <div class="item-desc">Ongoing surveillance rather than one-off diagnosis. GeneReviews recommends neurologic examination together with assessment of autonomic function and cognitive issues every six to 12 months. The autonomic and cognitive components are the reason this is not simply motor follow-up: they are the domains that generate the non-motor management needs (constipation, genitourinary, sleep, orthostatic hypotension) curated under treatments.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        neurologic examination
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C81313" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-42">NCIT:C81313</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301651" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301651" target="_blank">PMID:20301651</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Surveillance: Neurologic examination and assessment of autonomic function and cognitive issues every six to 12 months."</div>
+
+
+                <div class="evidence-explanation">The GeneReviews Surveillance recommendation, including its six-to-12-month interval, quoted verbatim.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+        <div class="card" id="imaging-findings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">🩻</div>
+                <h2 class="card-title">Imaging Findings</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-reduced-striatal-18f-dopa-uptake">
+                <div class="item-name">
+                    Reduced Striatal 18F-Dopa Uptake
+
+                </div>
+
+                <div class="item-desc">18F-dopa PET in juvenile-onset patients with parkin mutations shows a profound presynaptic dopaminergic deficit, with uptake reduced to approximately 28% of control values in the putamen and 44% in the caudate nucleus - a putamen-predominant gradient similar to idiopathic Parkinson disease.</div>
+
+                <div class="item-meta">
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10994015" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10994015" target="_blank">PMID:10994015</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"representing 28% of putamen and 44% of caudate nucleus control subject values"</div>
+
+
+                <div class="evidence-explanation">Quantifies the imaging phenotype. Based on three cases (one familial, two sporadic), so the point estimates should be read as illustrative.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10994015" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10994015" target="_blank">PMID:10994015</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"They found a profound decrease of [fluorine-18] ... -dopa uptake, representing 28% of putamen and 44% of caudate nucleus control subject values. PD caused by parkin gene mutations is distinct from idiopathic PD on molecular grounds but has similar clinical and PET findings."</div>
+
+
+                <div class="evidence-explanation">Important nuance: imaging does NOT distinguish parkin disease from idiopathic Parkinson disease - the divergence is molecular and neuropathologic.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-age-at-onset">
+                <div class="item-name">Age at onset</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Median age at onset approximately 31 years, with a very wide reported range (1-84 years). Progression is slow and disease duration of more than 60 years has been reported, in contrast to the more rapid course typical of late-onset Parkinson disease.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301651" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301651" target="_blank">PMID:20301651</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The median age at onset is 31 years (range: 1-84 years)."</div>
+
+
+                <div class="evidence-explanation">GeneReviews gives the median and range of age at onset.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301651" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301651" target="_blank">PMID:20301651</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The disease is slowly progressive: a disease duration of more than 60 years has been reported."</div>
+
+
+                <div class="evidence-explanation">Supports the slow rate of progression and long disease duration.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29644727" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29644727" target="_blank">PMID:29644727</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"median age at onset of ∼30 years for carriers of at least 2 mutations in any of the 3 genes"</div>
+
+
+                <div class="evidence-explanation">Independent systematic-review confirmation of the early median onset. Note the MDSGene figure pools carriers of biallelic variants in Parkin, PINK1 or DJ1 rather than PRKN alone.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Unknown</span>
+
+
+
+                    <span class="tag">Rare</span>
+
+                </div>
+
+                <div class="item-notes">No direct population-based prevalence estimate for PARK-PRKN specifically was identified in the sources used for this entry, so only the coarse qualitative band is asserted. The rarity can be bounded indirectly: only a small minority of Parkinson disease is early-onset, and only a minority of early-onset cases carry biallelic PRKN variants (see the structured `case_fractions` on the PRKN `genetic` entry, which is the well-quantified dimension). Do not read this record as a measured rate.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22956510" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22956510" target="_blank">PMID:22956510</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Approximately 3.6% of patients with Parkinson&#39;s disease develop symptoms before age 45."</div>
+
+
+                <div class="evidence-explanation">Supports the rarity band only indirectly. It quantifies the early-onset Parkinson disease denominator, not the prevalence of PARK-PRKN itself; PRKN-attributable cases are a minority of that already small subgroup. Marked PARTIAL because the quoted statistic does not measure this disease&#39;s occurrence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8234,6 +9228,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8255,6 +9251,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8311,6 +9309,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8332,6 +9332,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8519,7 +9521,7 @@ prevalence:
   evidence:
   - reference: PMID:22956510
     reference_title: &#34;Systematic review and UK-based study of PARK2 (parkin), PINK1, PARK7 (DJ-1) and LRRK2 in early-onset Parkinson&#39;s disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Approximately 3.6% of patients with Parkinson&#39;s disease develop symptoms
@@ -9144,7 +10146,7 @@ pathophysiology:
     evidence:
     - reference: PMID:14985362
       reference_title: &#34;Mitochondrial dysfunction and oxidative damage in parkin-deficient mice.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &gt;-
         provide the first direct evidence of mitochondrial dysfunction and
@@ -9261,7 +10263,7 @@ pathophysiology:
     evidence:
     - reference: PMID:33029617
       reference_title: &#34;Mitochondrial damage-associated inflammation highlights biomarkers in PRKN/PINK1 parkinsonism.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         our study further implicates inflammation due to impaired mitophagy and
@@ -9716,7 +10718,7 @@ histopathology:
       PD cases and 4 controls).
   - reference: PMID:23459986
     reference_title: &#34;Parkin disease: a clinicopathologic entity?&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Sparse Lewy bodies were identified in 2 cases (brainstem and cortex).
@@ -9769,8 +10771,10 @@ imaging_findings:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      PD caused by parkin gene mutations is distinct from idiopathic PD on
-      molecular grounds but has similar clinical and PET findings.
+      They found a profound decrease of [fluorine-18] ... -dopa uptake, representing 28% of
+      putamen and 44% of caudate nucleus control subject values. PD caused by parkin gene
+      mutations is distinct from idiopathic PD on molecular grounds but has similar clinical
+      and PET findings.
     explanation: &gt;-
       Important nuance: imaging does NOT distinguish parkin disease from
       idiopathic Parkinson disease - the divergence is molecular and
@@ -10330,6 +11334,24 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Lump-vs-split rationale: this entry is deliberately kept SEPARATE from the existing `Parkinsons_Disease` entry (MONDO:0005180), which curates the common, largely sporadic, late-onset alpha-synucleinopathy. The two are complementary rather than redundant. (1) Different mechanism anchor: the dismech `Parkinsons_Disease` graph is built on misfolded alpha-synuclein aggregation and Lewy-body pathology, whereas PARK-PRKN is a monogenic mitochondrial-quality-control (PINK1-parkin mitophagy) disorder in which Lewy bodies are usually absent. (2) Different neuropathology: PARK-PRKN shows predominantly ventral-tier nigral loss with relative dorsal-tier preservation and absent or rare Lewy bodies (PMID:23459986). (3) Different clinical signature: early median onset, dystonia at presentation, hyperreflexia, excellent sustained levodopa response with early dyskinesias, and slow progression. (4) Different actionable genetics: the mutational spectrum is dominated by whole-exon deletions and duplications that sequencing-only panels miss, so dosage analysis (e.g. MLPA) is required. The existing `Parkinsons_Disease` entry already lists PRKN in its `genetic` section as one contributor to the broader PD gene landscape; that remains appropriate and is not duplicated here. ClinGen curates the PRKN gene-disease relationship at the broad &#34;Parkinson disease&#34; (MONDO:0005180) level rather than against MONDO:0010820, which is why the gene-validity evidence in this entry cites that broader assertion. Named-entity-confusion (NEC) preflight was performed before curation: the PARK numbered series is a high-NEC-risk class and PARK2/PRKN, PARK6/PINK1 and PARK7/DJ-1 are frequently conflated in the literature. MONDO:0010820 was confirmed via OAK to carry `RO:0004003 HGNC:8607 ! PRKN`, `xref OMIM:600116`, and the synonyms &#34;PARK2&#34; and &#34;PRKN young-onset Parkinson disease&#34;. All evidence in this entry was checked to be about PRKN/parkin rather than PINK1 or DJ-1; where a cited study reports PRKN and PINK1 jointly (PMID:33029617, PMID:29644727) that joint scope is stated explicitly in the evidence explanation. Deep-research provenance: a `claude_code` deep-research run was performed (`research/PRKN-Related_Juvenile_Parkinson_Disease-deep-research-claude_code.md` plus its `.citations.md` sidecar; 13 web searches, 42 citations, 306 s). It was used as a completeness cross-check only - every claim in this entry is sourced to a `just fetch-reference`-cached primary reference that was read directly, not to the DR narrative. A gene-frequency NEC check on the report itself passed: PRKN/PARK2 is mentioned ~108 times versus PINK1 13 and DJ-1 2, confirming the report resolved to the intended entity rather than a PARK-series sibling. Retracted-literature note: PMID:30135585 (Sliter et al., Nature 2018, &#34;Parkin and PINK1 mitigate STING-induced inflammation&#34;) is the most widely cited source for the parkin-STING innate-immune arm, but it was RETRACTED in 2025 (Nature 644:1116). It is therefore deliberately NOT cited anywhere in this entry. The innate-immune arm is instead sourced to the independent human study PMID:33029617.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Address PR #7377 review: DR artifact, evidence_source, GO term, node splits, NTR, GeneReviews management</strong> · 2026-07-31T17:00:18Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/PRKN-Related_Juvenile_Parkinson_Disease/2026-07-31T170018Z-claude-code-3f0013.yaml">View source</a></p>
+                        <p class="research-review-text">Response to the ai4c-reviewer CHANGES_REQUESTED review on PR #7377. All six IMPORTANT items and the one SUGGESTION were accepted and addressed; none were disputed. (1) Deep-research artifact: ran the claude_code provider, producing research/PRKN-Related_Juvenile_Parkinson_Disease-deep-research-claude_code.md plus its citations sidecar (13 web searches, 42 citations, 306 s). A gene-frequency NEC check on the report passed (PRKN/PARK2 about 108 mentions vs PINK1 13, DJ-1 2). The report was used as a completeness cross-check only; all entry claims remain sourced to directly-read fetch-reference caches, and this provenance is recorded in the entry notes. (2) evidence_source corrections on PMID:33029617: two items quoting Borsche&#39;s introductory summary of murine work were retagged from HUMAN_CLINICAL to MODEL_ORGANISM, and the truncated snippet was requoted with its full &#39;Recent research in murine models suggests that&#39; lead-in so the murine framing is visible. The paper&#39;s genuine human-cohort results remain HUMAN_CLINICAL, and a further human result (IL6 correlation with disease duration) was added. (3) Replaced GO:0051881 regulation of mitochondrial membrane potential plus modifier ABNORMAL with the exact-match GO:0051882 mitochondrial depolarization. (4) Split three bundled pathophysiology nodes into atomic nodes, taking the graph from 10 to 13 nodes: Mitochondrial Depolarization and PINK1 Accumulation became Mitochondrial Depolarization then PINK1 Accumulation on the Outer Mitochondrial Membrane; Accumulation of Damaged Mitochondria and Oxidative Stress became Accumulation of Damaged Mitochondria then Oxidative Stress and Respiratory Chain Deficiency; mtDNA Release and Innate Immune Activation became Cytosolic and Circulating mtDNA Release then cGAS-STING Innate Immune Activation. All downstream edges were rewired and the HUMAN_MODEL_MISMATCH discussion attaches_to refs and rationale text updated to the new node names; a script check confirms zero dangling edges and zero dangling attaches_to. (5) Relative Cognitive Sparing: removed the misleading HP:0001300 Parkinsonism binding, leaving an unbound preferred_term plus an explicit NEEDS-TERM-REQUEST note explaining why both a dementia term and the general parkinsonism parent are wrong. (6) Mined the previously under-used GeneReviews Management and Surveillance sections: added a Non-Motor and Autonomic Symptom Management treatment covering constipation, genitourinary, sleep and orthostatic hypotension, a Cognitive and Dementia Management treatment bound to NCIT:C47792 Acetylcholinesterase Inhibitor, and a Periodic Neurologic, Autonomic and Cognitive Surveillance diagnosis entry bound to NCIT:C81313 capturing the six-to-12-month interval. SUGGESTION: removed the unsupported ascertainment-bias attribution from the case-fraction notes, and rewrote the mutational-spectrum claim so it no longer conflates counts of distinct variant types with allele share, explicitly stating what is not asserted. Validation after changes: just validate passed on schema, terms and references, with 90 of 90 snippets verified (up from 82); check_folded_hyphens passed; targeted pytest selection over discussion/attaches/hypothesis tests passed 1799 tests.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10818,7 +11840,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "PRKN-Related Juvenile Parkinson Disease", "mondoId": "MONDO:0010820", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "PRKN-Related_Juvenile_Parkinson_Disease", "yamlRevision": "aa33df25bf8b"};
+        const OS_CONFIG = {"diseaseName": "PRKN-Related Juvenile Parkinson Disease", "mondoId": "MONDO:0010820", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "PRKN-Related_Juvenile_Parkinson_Disease", "yamlRevision": "e0ea1accb11a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

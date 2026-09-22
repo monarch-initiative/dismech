@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4258,6 +4365,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kit-receptor-tyrosine-kinase-activation" data-dismech-node="KIT Receptor Tyrosine Kinase Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">KIT Receptor Tyrosine Kinase Activation</div>
 
+
                 <div class="item-desc">KIT mutations, most commonly in exons 11, 13, and 17, result in constitutive receptor activation independent of stem cell factor (SCF) ligand binding. Mutations may cause ligand-independent dimerization, altered kinase domain conformation, or loss of autoinhibitory mechanisms, leading to persistent downstream signaling.</div>
 
 
@@ -4387,14 +4495,16 @@ This pathophysiological event involves increased signal transduction (GO:0007165
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41042158" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41042158" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41042158" target="_blank">PMID:41042158</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4418,6 +4528,8 @@ This pathophysiological event involves increased signal transduction (GO:0007165
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4439,6 +4551,8 @@ This pathophysiological event involves increased signal transduction (GO:0007165
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4465,6 +4579,7 @@ This pathophysiological event involves increased signal transduction (GO:0007165
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mapk-pathway-activation" data-dismech-node="MAPK Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">MAPK Pathway Activation</div>
+
 
                 <div class="item-desc">Activated KIT recruits adapter proteins that engage RAS-MAPK signaling, driving melanocyte proliferation through ERK-mediated transcriptional programs promoting cell cycle progression.</div>
 
@@ -4555,6 +4670,8 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4577,6 +4694,7 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pi3k-akt-pathway-activation" data-dismech-node="PI3K-AKT Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">PI3K-AKT Pathway Activation</div>
+
 
                 <div class="item-desc">KIT activates PI3K through recruitment and phosphorylation of adapter proteins. Subsequent AKT activation promotes cell survival through inhibition of pro-apoptotic proteins and activation of mTOR signaling.</div>
 
@@ -4667,6 +4785,8 @@ This pathophysiological event involves increased signal transduction (GO:0007165
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4689,6 +4809,7 @@ This pathophysiological event involves increased signal transduction (GO:0007165
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-jak-stat-pathway-activation" data-dismech-node="JAK-STAT Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">JAK-STAT Pathway Activation</div>
+
 
                 <div class="item-desc">KIT-mutant melanoma cells also show JAK-STAT pathway modulation downstream of KIT kinase activity, supporting transcriptional programs that complement MAPK and PI3K-AKT signaling.</div>
 
@@ -4779,6 +4900,8 @@ This pathophysiological event involves increased JAK-STAT signaling pathway, ann
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4801,6 +4924,7 @@ This pathophysiological event involves increased JAK-STAT signaling pathway, ann
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-uncontrolled-melanocyte-proliferation" data-dismech-node="Uncontrolled Melanocyte Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Uncontrolled Melanocyte Proliferation</div>
+
 
                 <div class="item-desc">Constitutive KIT signaling through MAPK and PI3K pathways drives abnormal melanocyte proliferation in acral and mucosal sites, leading to tumor formation.</div>
 
@@ -4910,6 +5034,8 @@ This pathophysiological event involves increased cell population proliferation (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4932,6 +5058,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cell-survival-and-anti-apoptosis" data-dismech-node="Cell Survival and Anti-Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cell Survival and Anti-Apoptosis</div>
+
 
                 <div class="item-desc">PI3K-AKT activation downstream of KIT promotes melanoma cell survival through phosphorylation-mediated inactivation of pro-apoptotic proteins and activation of survival pathways.</div>
 
@@ -5007,6 +5134,8 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5057,14 +5186,16 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:27268913" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:27268913" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27268913" target="_blank">PMID:27268913</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5126,9 +5257,9 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Integument<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Integument<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Neoplasm<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5138,7 +5269,7 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-acral-lentiginous-melanoma" data-dismech-node="Acral Lentiginous Melanoma" data-dismech-type="phenotype">
@@ -5171,6 +5302,9 @@ This clinical feature is Acral lentiginous melanoma (HP:0012060). HP:0012060 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5185,6 +5319,8 @@ This clinical feature is Acral lentiginous melanoma (HP:0012060). HP:0012060 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5244,79 +5380,6 @@ This clinical feature is Cutaneous melanoma (HP:0012056). HP:0012056 is a phenot
 
 
 
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-melanoma" data-dismech-node="Melanoma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Melanoma
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002861" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002861</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Melanoma (HP:0002861). HP:0002861 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:16908931" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16908931" target="_blank">PMID:16908931</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"KIT is an important oncogene in melanoma."</div>
-
-
-                <div class="evidence-explanation">Curtin et al. established KIT as an oncogene driving melanoma in specific subtypes.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
 
 
 
@@ -5338,15 +5401,18 @@ This clinical feature is Melanoma (HP:0002861). HP:0002861 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0012059</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0012059</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lentigo maligna melanoma (HP:0012059). HP:0012059 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5368,6 +5434,8 @@ This clinical feature is Lentigo maligna melanoma (HP:0012059). HP:0012059 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5376,6 +5444,87 @@ This clinical feature is Lentigo maligna melanoma (HP:0012059). HP:0012059 is a 
 
 
                 <div class="evidence-explanation">Curtin et al. established that 28% of melanomas on chronically sun-damaged skin harbor KIT alterations, supporting this phenotype entry.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Neoplasm
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-melanoma" data-dismech-node="Melanoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Melanoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002861" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002861</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Melanoma (HP:0002861). HP:0002861 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16908931" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16908931" target="_blank">PMID:16908931</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"KIT is an important oncogene in melanoma."</div>
+
+
+                <div class="evidence-explanation">Curtin et al. established KIT as an oncogene driving melanoma in specific subtypes.</div>
 
 
 
@@ -5441,6 +5590,9 @@ This clinical feature is Lentigo maligna melanoma (HP:0012059). HP:0012059 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5455,6 +5607,8 @@ This clinical feature is Lentigo maligna melanoma (HP:0012059). HP:0012059 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5489,6 +5643,9 @@ This clinical feature is Lentigo maligna melanoma (HP:0012059). HP:0012059 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5503,6 +5660,8 @@ This clinical feature is Lentigo maligna melanoma (HP:0012059). HP:0012059 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5539,6 +5698,9 @@ This clinical feature is Lentigo maligna melanoma (HP:0012059). HP:0012059 is a 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-kit-amplification" data-dismech-node="KIT Amplification" data-dismech-type="genetic">
@@ -5548,6 +5710,9 @@ This clinical feature is Lentigo maligna melanoma (HP:0012059). HP:0012059 is a 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic Alteration)</span>
 
                 </div>
+
+
+
 
 
 
@@ -5566,6 +5731,8 @@ This clinical feature is Lentigo maligna melanoma (HP:0012059). HP:0012059 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5670,6 +5837,20 @@ This treatment uses imatinib (CHEBI:45783). CHEBI:45783 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Tyrosine kinase inhibitor with activity against KIT, ABL, and PDGFR. Shows clinical benefit in KIT-mutant melanoma, particularly for exon 11 and 13 mutations. Response rates of approximately 16-29% with meaningful disease stabilization in additional patients.</div>
 
 
@@ -5691,6 +5872,8 @@ This treatment uses imatinib (CHEBI:45783). CHEBI:45783 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5716,6 +5899,8 @@ This treatment uses imatinib (CHEBI:45783). CHEBI:45783 is a therapeutic agent f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5737,6 +5922,8 @@ This treatment uses imatinib (CHEBI:45783). CHEBI:45783 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5822,6 +6009,20 @@ This treatment uses nilotinib (CHEBI:52172). CHEBI:52172 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Second-generation KIT inhibitor with increased potency compared to imatinib. May have activity in some imatinib-resistant cases depending on the specific mutation conferring resistance. Meta-analysis showed highest pooled ORR of 20% among KIT inhibitors.</div>
 
 
@@ -5843,6 +6044,8 @@ This treatment uses nilotinib (CHEBI:52172). CHEBI:52172 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5928,6 +6131,20 @@ This treatment uses dasatinib, annotated with dasatinib (anhydrous) (CHEBI:49375
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Multi-kinase inhibitor with activity against KIT, ABL, and SRC family kinases. Phase II trial showed limited response rate in KIT-mutant melanoma, and imatinib remains the KIT inhibitor of choice.</div>
 
 
@@ -5941,14 +6158,16 @@ This treatment uses dasatinib, annotated with dasatinib (anhydrous) (CHEBI:49375
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:28334439" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:28334439" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28334439" target="_blank">PMID:28334439</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6034,6 +6253,20 @@ This treatment uses ripretinib (NCIT:C124067). NCIT:C124067 is a therapeutic age
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Broad-spectrum KIT/PDGFRA switch-control tyrosine kinase inhibitor studied in KIT-altered metastatic melanoma. Phase I expansion data showed a 23% confirmed objective response rate and median progression-free survival of 7.3 months.</div>
 
 
@@ -6057,6 +6290,8 @@ This treatment uses ripretinib (NCIT:C124067). NCIT:C124067 is a therapeutic age
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6078,6 +6313,8 @@ This treatment uses ripretinib (NCIT:C124067). NCIT:C124067 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6141,6 +6378,20 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Anti-PD-1 antibodies (pembrolizumab, nivolumab) are also used in KIT-mutant melanoma. The optimal sequencing of KIT inhibitors versus immunotherapy depends on mutation status and patient characteristics.</div>
 
 
@@ -6158,6 +6409,33 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6235,7 +6513,7 @@ pathophysiology:
   evidence:
   - reference: PMID:41042158
     reference_title: &#34;c-KIT Small Molecule Inhibitors as a Therapeutic Strategy for Melanoma: Clinical Insights, SAR, and Future Directions.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Mutation of c-KIT has been observed in acral, mucosal, and chronically sun-damaged melanoma subtypes marking it as a key therapeutic target for melanoma.
     explanation: This abstract documents c-KIT mutations in melanoma subtypes associated with KIT-mutant disease.
   - reference: PMID:16908931
@@ -6389,7 +6667,7 @@ histopathology:
   evidence:
   - reference: PMID:27268913
     reference_title: &#34;Malignant melanoma: diagnosis, treatment and cancer stem cells.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;Malignant melanoma represents a neoplasm stemming from melanocytes&#34;
     explanation: Abstract defines melanoma as a neoplasm stemming from melanocytes.
 
@@ -6576,7 +6854,7 @@ treatments:
   evidence:
   - reference: PMID:28334439
     reference_title: &#34;A phase 2 trial of dasatinib in patients with locally advanced or stage IV mucosal, acral, or vulvovaginal melanoma: A trial of the ECOG-ACRIN Cancer Research Group (E2607).&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;it is recommended that imatinib remain the KIT tyrosine kinase inhibitor of choice for unresectable KIT+ melanoma&#34;
     explanation: Phase II trial showing low dasatinib response rate in KIT-mutant melanoma, recommending imatinib as the preferred agent.
@@ -6830,6 +7108,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7048,6 +7328,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7118,6 +7400,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7186,6 +7470,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7295,6 +7581,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7365,6 +7653,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7399,6 +7689,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7849,7 +8141,7 @@ Suggested mappings:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "KIT Mutant Melanoma", "mondoId": "MONDO:0003865", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "KIT_Mutant_Melanoma", "yamlRevision": "d20a3e30c3e1"};
+        const OS_CONFIG = {"diseaseName": "KIT Mutant Melanoma", "mondoId": "MONDO:0003865", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "KIT_Mutant_Melanoma", "yamlRevision": "ad136bd5781e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

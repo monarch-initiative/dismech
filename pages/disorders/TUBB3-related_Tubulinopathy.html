@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4183,6 +4290,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4284,6 +4393,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4355,6 +4466,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4923,6 +5036,8 @@ This readout reports on dysregulated microtubule cytoskeleton organization (GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4944,6 +5059,8 @@ This readout reports on dysregulated microtubule cytoskeleton organization (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4980,6 +5097,7 @@ This readout reports on dysregulated microtubule cytoskeleton organization (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-beta-iii-tubulin-tubb3-function" data-dismech-node="Altered Beta-III Tubulin (TUBB3) Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Beta-III Tubulin (TUBB3) Function</div>
+
 
                 <div class="item-desc">Heterozygous missense mutations in TUBB3 alter the neuron-specific beta-III tubulin isotype. Disease-associated substitutions reduce the abundance of functional alpha/beta-tubulin heterodimers and alter the dynamic instability of the microtubules that incorporate beta-III tubulin. Different residues perturb distinct microtubule properties — some alter the resistance of microtubules to depolymerization while a subset disrupts the interaction of microtubules with kinesin motors — establishing altered beta-III tubulin function as the shared initiating molecular lesion that feeds the divergent axon-guidance and neuronal-migration arms of the disorder.</div>
 
@@ -5074,6 +5192,8 @@ This pathophysiological event involves TUBB3 (hgnc:20772). hgnc:20772 is a gene 
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense</span>
 
 
@@ -5089,6 +5209,9 @@ This pathophysiological event involves TUBB3 (hgnc:20772). hgnc:20772 is a gene 
         <span class="tag tag-classification">functional_impact_category: DOMINANT_NEGATIVE</span>
 
     </div>
+
+
+
 
     <div class="context-detail">All reported disease alleles are heterozygous missense substitutions. The founding functional study showed that although the substitutions impair heterodimer formation, the mutant heterodimers that do fold still polymerize into microtubules, where they alter dynamic instability and, for a subset of residues, disrupt the microtubule-kinesin interaction. A mutant subunit that incorporates into the polymer and degrades a motor-binding surface acts on the wild-type polymer rather than merely subtracting one gene dose, which is why the category is DOMINANT_NEGATIVE and not haploinsufficiency. Some alleles are inherited from a mildly affected or unaffected parent, and one maternally inherited TUBB3 c.211G&gt;A allele has been reported with milder features.</div>
 
@@ -5273,6 +5396,8 @@ This pathophysiological event involves dysregulated microtubule cytoskeleton org
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5296,6 +5421,8 @@ This pathophysiological event involves dysregulated microtubule cytoskeleton org
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5317,6 +5444,8 @@ This pathophysiological event involves dysregulated microtubule cytoskeleton org
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5343,6 +5472,7 @@ This pathophysiological event involves dysregulated microtubule cytoskeleton org
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-kinesin-microtubule-interaction-and-axon-guidance-failure" data-dismech-node="Impaired Kinesin-Microtubule Interaction and Axon Guidance Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Kinesin-Microtubule Interaction and Axon Guidance Failure</div>
+
 
                 <div class="item-desc">In the axon-guidance arm, TUBB3 mutations that affect residues mediating the kinesin-microtubule interface (notably R262) impair the motility and ATPase activity of kinesin motors moving along microtubules. Because beta-III tubulin is expressed most highly during axon outgrowth, this defect compromises kinesin-dependent axonal transport and growth-cone dynamics, producing axon guidance and projection-maintenance failure in the absence of overt cortical migration abnormalities — the mechanism underlying the cranial dysinnervation phenotype.</div>
 
@@ -5551,6 +5681,8 @@ This pathophysiological event involves dysregulated neuron projection guidance (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5572,6 +5704,8 @@ This pathophysiological event involves dysregulated neuron projection guidance (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5597,6 +5731,8 @@ This pathophysiological event involves dysregulated neuron projection guidance (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5619,6 +5755,7 @@ This pathophysiological event involves dysregulated neuron projection guidance (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cranial-motor-nerve-maldevelopment-and-ocular-dysmotility" data-dismech-node="Cranial Motor Nerve Maldevelopment and Ocular Dysmotility" data-dismech-type="pathophysiology">
                 <div class="item-name">Cranial Motor Nerve Maldevelopment and Ocular Dysmotility</div>
+
 
                 <div class="item-desc">Failure of kinesin-dependent axon guidance in cranial motor neurons produces hypoplasia of the oculomotor (and trochlear/abducens) nerves and dysgenesis of the corpus callosum, anterior commissure, and corticospinal tracts. The misinnervation of the extraocular muscles manifests clinically as congenital fibrosis of the extraocular muscles type 3 (CFEOM3), a restrictive non-progressive ocular motility disorder, and may be accompanied by facial weakness and a later-onset axonal sensorimotor polyneuropathy.</div>
 
@@ -5785,6 +5922,8 @@ This pathophysiological event involves abnormal neuron projection morphogenesis 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5806,6 +5945,8 @@ This pathophysiological event involves abnormal neuron projection morphogenesis 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5830,6 +5971,7 @@ This pathophysiological event involves abnormal neuron projection morphogenesis 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-microtubule-dependent-neuronal-migration" data-dismech-node="Impaired Microtubule-Dependent Neuronal Migration" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Microtubule-Dependent Neuronal Migration</div>
+
 
                 <div class="item-desc">In the cortical arm, TUBB3 mutations that alter microtubule dynamics impair the microtubule-based nucleokinesis and radial migration of cortical neurons. Patient fibroblasts carrying malformation-of-cortical-development mutations show altered resistance of microtubules to depolymerization, contrasting with the increased microtubule stability seen with CFEOM3 mutations, so that the migration defect arises from a distinct biophysical perturbation of the same microtubule apparatus.</div>
 
@@ -6008,6 +6150,8 @@ This pathophysiological event involves dysregulated microtubule-based movement (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6029,6 +6173,8 @@ This pathophysiological event involves dysregulated microtubule-based movement (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6054,6 +6200,8 @@ This pathophysiological event involves dysregulated microtubule-based movement (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6076,6 +6224,7 @@ This pathophysiological event involves dysregulated microtubule-based movement (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-dyslamination" data-dismech-node="Cortical Dyslamination" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Dyslamination</div>
+
 
                 <div class="item-desc">Impaired migration of cortical neurons disrupts cortical lamination, producing cortical disorganization and focal or multifocal dysgyria with an abnormal and simplified gyral pattern.</div>
 
@@ -6234,6 +6383,8 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6257,6 +6408,8 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6278,6 +6431,8 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6344,13 +6499,11 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(5)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(9)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6360,8 +6513,80 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-fibrosis-of-extraocular-muscles" data-dismech-node="Congenital Fibrosis of Extraocular Muscles" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Congenital Fibrosis of Extraocular Muscles
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001491" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001491</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congenital fibrosis of extraocular muscles (HP:0001491). HP:0001491 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20829227" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20829227" target="_blank">PMID:20829227</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the ocular motility disorder, congenital fibrosis of the extraocular muscle type 3 (CFEOM3)"</div>
+
+
+                <div class="evidence-explanation">Names CFEOM3 as the ocular phenotype in the originally described TUBB3 axon-guidance cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-facial-palsy" data-dismech-node="Facial Palsy" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6377,15 +6602,18 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010628" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0010628</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010628" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0010628</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Facial palsy (HP:0010628). HP:0010628 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6405,6 +6633,8 @@ This clinical feature is Facial palsy (HP:0010628). HP:0010628 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6444,15 +6674,18 @@ This clinical feature is Facial palsy (HP:0010628). HP:0010628 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6472,6 +6705,8 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6520,15 +6755,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001257</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001257</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6548,6 +6786,8 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6579,7 +6819,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">9</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-corpus-callosum-morphology" data-dismech-node="Abnormal Corpus Callosum Morphology" data-dismech-type="phenotype">
@@ -6596,10 +6836,10 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001273</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001273</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:0001273 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6610,6 +6850,9 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6624,6 +6867,8 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6634,352 +6879,6 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
                 <div class="evidence-explanation">Documents corpus callosum and commissural tract dysgenesis as a TUBB3 neuroimaging feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebellar-hypoplasia" data-dismech-node="Cerebellar Hypoplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cerebellar Hypoplasia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001321" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001321</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30016746" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30016746" target="_blank">PMID:30016746</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"cerebellar hypoplasia or dysplasia and dysmorphism of the hind-brain structures"</div>
-
-
-                <div class="evidence-explanation">Documents cerebellar hypoplasia/dysplasia and hindbrain dysmorphism as tubulinopathy hallmarks.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dysmorphic-basal-ganglia" data-dismech-node="Dysmorphic Basal Ganglia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dysmorphic Basal Ganglia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal basal ganglia morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002134" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002134</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal basal ganglia morphology (HP:0002134). HP:0002134 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24860126" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24860126" target="_blank">PMID:24860126</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Dysmorphic basal ganglia are the hallmark of tubulinopathies (found in 75% of cases)"</div>
-
-
-                <div class="evidence-explanation">Establishes dysmorphic basal ganglia as the imaging hallmark of tubulinopathies, present in the majority of cases.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual Disability" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Intellectual Disability
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001249</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20074521" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20074521" target="_blank">PMID:20074521</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"some also result in intellectual and behavioral impairments"</div>
-
-
-                <div class="evidence-explanation">Documents intellectual and behavioral impairment as a feature of a subset of TUBB3 syndrome patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Seizure
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001250</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Epilepsy varies significantly among affected individuals and is not necessarily determined by the severity of the cortical malformation, the gene involved, or the causative pathogenic variant"</div>
-
-
-                <div class="evidence-explanation">GeneReviews documents epilepsy as a variable tubulinopathy phenotype without licensing a TUBB3-specific frequency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-fibrosis-of-extraocular-muscles" data-dismech-node="Congenital Fibrosis of Extraocular Muscles" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Congenital Fibrosis of Extraocular Muscles
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001491" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001491</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Congenital fibrosis of extraocular muscles (HP:0001491). HP:0001491 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20829227" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20829227" target="_blank">PMID:20829227</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"the ocular motility disorder, congenital fibrosis of the extraocular muscle type 3 (CFEOM3)"</div>
-
-
-                <div class="evidence-explanation">Names CFEOM3 as the ocular phenotype in the originally described TUBB3 axon-guidance cohort.</div>
 
 
 
@@ -7009,15 +6908,18 @@ This clinical feature is Congenital fibrosis of extraocular muscles (HP:0001491)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032398" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0032398</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032398" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0032398</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dysgyria (HP:0032398). HP:0032398 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7039,6 +6941,8 @@ This clinical feature is Dysgyria (HP:0032398). HP:0032398 is a phenotype from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7047,6 +6951,78 @@ This clinical feature is Dysgyria (HP:0032398). HP:0032398 is a phenotype from t
 
 
                 <div class="evidence-explanation">Identifies polymicrogyria-like cortical dysplasia as the core cortical phenotype of TUBB3 mutations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebellar-hypoplasia" data-dismech-node="Cerebellar Hypoplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cerebellar Hypoplasia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001321" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001321</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30016746" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30016746" target="_blank">PMID:30016746</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"cerebellar hypoplasia or dysplasia and dysmorphism of the hind-brain structures"</div>
+
+
+                <div class="evidence-explanation">Documents cerebellar hypoplasia/dysplasia and hindbrain dysmorphism as tubulinopathy hallmarks.</div>
 
 
 
@@ -7078,15 +7054,18 @@ This clinical feature is Dysgyria (HP:0032398). HP:0032398 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0012110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0012110</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pontine hypoplasia, annotated with Hypoplasia of the pons (HP:0012110). HP:0012110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7106,6 +7085,8 @@ This clinical feature is Pontine hypoplasia, annotated with Hypoplasia of the po
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7131,6 +7112,8 @@ This clinical feature is Pontine hypoplasia, annotated with Hypoplasia of the po
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7139,6 +7122,80 @@ This clinical feature is Pontine hypoplasia, annotated with Hypoplasia of the po
 
 
                 <div class="evidence-explanation">The TUBB3 row in GeneReviews specifically lists brainstem and cerebellar vermian hypoplasia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysmorphic-basal-ganglia" data-dismech-node="Dysmorphic Basal Ganglia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dysmorphic Basal Ganglia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal basal ganglia morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002134" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002134</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal basal ganglia morphology (HP:0002134). HP:0002134 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24860126" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24860126" target="_blank">PMID:24860126</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Dysmorphic basal ganglia are the hallmark of tubulinopathies (found in 75% of cases)"</div>
+
+
+                <div class="evidence-explanation">Establishes dysmorphic basal ganglia as the imaging hallmark of tubulinopathies, present in the majority of cases.</div>
 
 
 
@@ -7170,15 +7227,18 @@ This clinical feature is Pontine hypoplasia, annotated with Hypoplasia of the po
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002363" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002363</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002363" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002363</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal brainstem morphology (HP:0002363). HP:0002363 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7200,6 +7260,8 @@ This clinical feature is Abnormal brainstem morphology (HP:0002363). HP:0002363 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7208,6 +7270,78 @@ This clinical feature is Abnormal brainstem morphology (HP:0002363). HP:0002363 
 
 
                 <div class="evidence-explanation">Documents brainstem (and cerebellar) hypoplasia as a distinctive MRI feature of tubulinopathies.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual Disability" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Intellectual Disability
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20074521" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20074521" target="_blank">PMID:20074521</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"some also result in intellectual and behavioral impairments"</div>
+
+
+                <div class="evidence-explanation">Documents intellectual and behavioral impairment as a feature of a subset of TUBB3 syndrome patients.</div>
 
 
 
@@ -7239,15 +7373,18 @@ This clinical feature is Abnormal brainstem morphology (HP:0002363). HP:0002363 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003477" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0003477</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003477" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0003477</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Peripheral axonal neuropathy (HP:0003477). HP:0003477 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7269,6 +7406,8 @@ This clinical feature is Peripheral axonal neuropathy (HP:0003477). HP:0003477 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7277,6 +7416,78 @@ This clinical feature is Peripheral axonal neuropathy (HP:0003477). HP:0003477 i
 
 
                 <div class="evidence-explanation">Documents a later-onset axonal sensorimotor polyneuropathy as part of the TUBB3 syndrome spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Seizure
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Epilepsy varies significantly among affected individuals and is not necessarily determined by the severity of the cortical malformation, the gene involved, or the causative pathogenic variant"</div>
+
+
+                <div class="evidence-explanation">GeneReviews documents epilepsy as a variable tubulinopathy phenotype without licensing a TUBB3-specific frequency.</div>
 
 
 
@@ -7366,6 +7577,9 @@ This disease-associated gene is TUBB3 (beta-III tubulin), annotated with TUBB3 (
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7380,6 +7594,8 @@ This disease-associated gene is TUBB3 (beta-III tubulin), annotated with TUBB3 (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7403,6 +7619,8 @@ This disease-associated gene is TUBB3 (beta-III tubulin), annotated with TUBB3 (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7437,6 +7655,7 @@ This disease-associated gene is TUBB3 (beta-III tubulin), annotated with TUBB3 (
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7458,7 +7677,13 @@ This variant is in TUBB3 (hgnc:20772). hgnc:20772 is a gene from the HUGO Gene N
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A recurrent CFEOM3-associated missense change at the kinesin–microtubule interface. Recombinant-mutant and mouse rescue experiments show impaired kinesin motility/ATPase activity and axonal growth, linking this allele to the axon-guidance arm.</div>
@@ -7485,6 +7710,8 @@ This variant is in TUBB3 (hgnc:20772). hgnc:20772 is a gene from the HUGO Gene N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7572,6 +7799,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Individuals with CFEOM3 may require nonsurgical or surgical ophthalmologic management. These approaches address ocular manifestations rather than the underlying neurodevelopmental mechanism.</div>
 
 
@@ -7593,6 +7845,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7656,6 +7910,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Multidisciplinary supportive care including developmental, physical, and occupational therapy for individuals with cortical involvement, intellectual disability, or polyneuropathy, and anti-seizure medication where epilepsy is present.</div>
 
 
@@ -7679,6 +7947,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7700,6 +7970,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7762,6 +8034,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling should address autosomal-dominant inheritance, the predominantly de novo occurrence of tubulinopathy variants, parental testing, and recurrence risk.</div>
 
 
@@ -7783,6 +8069,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7808,6 +8096,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7829,6 +8119,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7858,6 +8150,387 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-brain-and-cranial-nerve-magnetic-resonance-imaging">
+                <div class="item-name">
+                    Brain and cranial-nerve magnetic resonance imaging
+
+                </div>
+
+                <div class="item-desc">MRI defines the cortical gyral pattern and evaluates the corpus callosum, basal ganglia, cerebellum, brainstem, and cranial nerves; the combination helps distinguish the cortical-malformation and CFEOM3-predominant arms.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        magnetic resonance imaging
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-44">NCIT:C16809</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20074521" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20074521" target="_blank">PMID:20074521</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Neuroimaging reveals a spectrum of abnormalities including hypoplasia of oculomotor nerves and dysgenesis of the corpus callosum, anterior commissure, and corticospinal tracts."</div>
+
+
+                <div class="evidence-explanation">Supports MRI assessment of cranial nerves and commissural/long-tract abnormalities.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-confirmation-of-a-heterozygous-tubb3-pathogenic-variant">
+                <div class="item-name">
+                    Molecular confirmation of a heterozygous TUBB3 pathogenic variant
+
+                </div>
+
+                <div class="item-desc">Molecular testing using a tubulinopathy or cortical-malformation panel, or exome/genome sequencing, establishes the genetic diagnosis and informs parental testing and recurrence-risk counseling.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-45">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Molecular genetic testing approaches can include a combination of gene-targeted testing (multigene panel) and comprehensive genomic testing (exome sequencing, genome sequencing)."</div>
+
+
+                <div class="evidence-explanation">GeneReviews recommends panel or genomic approaches for molecular diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-congenital-neurodevelopmental-presentation">
+                <div class="item-name">Congenital neurodevelopmental presentation</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Prenatal period to infancy</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Structural brain and cranial-nerve abnormalities arise during development; the phenotype varies by allele between a CFEOM3/axon-guidance presentation and a cortical-malformation presentation that may lack ocular dysmotility.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20829227" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20829227" target="_blank">PMID:20829227</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"nine patients that all share cortical disorganization, axonal abnormalities associated with pontocerebellar hypoplasia, but with no ocular motility defects, CFEOM3."</div>
+
+
+                <div class="evidence-explanation">Documents congenital cortical and axonal malformations without CFEOM3 in the cortical-malformation cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-later-neurologic-course-in-some-axon-guidance-variants">
+                <div class="item-name">Later neurologic course in some axon-guidance variants</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Later childhood to adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Some individuals develop later-onset axonal sensorimotor polyneuropathy; this is variant-dependent rather than a universal progressive phase.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20074521" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20074521" target="_blank">PMID:20074521</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"some also result in intellectual and behavioral impairments, facial paralysis, and/or later-onset axonal sensorimotor polyneuropathy."</div>
+
+
+                <div class="evidence-explanation">Directly supports a later-onset neuropathy in a subset.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+        <div class="card" id="clinical-burden">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ffe4e6; color: #be123c;">⚖️</div>
+                <h2 class="card-title">Clinical Burden</h2>
+            </div>
+            <div class="item-box anchor-target">
+
+                <div class="item-name">High</div>
+
+
+                <div class="item-desc">Burden ranges widely with the structural brain phenotype. Cortical forms can cause severe motor and intellectual disability and epilepsy, while milder axon-guidance forms may survive into adulthood but require ophthalmologic, developmental, and sometimes neuropathy care.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"While most affected individuals have severe-to-profound intellectual disability, a minority have less extensive cortical malformations that result in only moderate intellectual disability, and a few have limited malformations that allow near-normal cognitive abilities."</div>
+
+
+                <div class="evidence-explanation">GeneReviews documents the broad severity spectrum and substantial cognitive burden.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+        </div>
 
 
         <!-- Differential Diagnoses -->
@@ -7951,6 +8624,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8004,6 +8679,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8045,6 +8722,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8288,7 +8967,7 @@ pathophysiology:
       heterodimer formation while still producing microtubules.
   - reference: PMID:41152456
     reference_title: &#34;Expanding genetic and clinical spectra of β-tubulinopathies: A Korean study.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Most variants were de novo, but one was a maternally inherited variant,
@@ -8333,7 +9012,7 @@ pathophysiology:
     evidence:
     - reference: PMID:20829227
       reference_title: &#34;Mutations in the neuronal ß-tubulin subunit TUBB3 result in malformation of cortical development and neuronal migration defects.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         nine patients that all share cortical disorganization, axonal abnormalities
@@ -8345,7 +9024,7 @@ pathophysiology:
     evidence:
     - reference: PMID:20829227
       reference_title: &#34;Mutations in the neuronal ß-tubulin subunit TUBB3 result in malformation of cortical development and neuronal migration defects.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         nine patients that all share cortical disorganization, axonal abnormalities
@@ -8356,8 +9035,8 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf
-      reference_title: Tubulinopathies Overview.
-      supports: PARTIAL
+      reference_title: &#34;https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         Brain stem &amp; cerebellar vermian
@@ -8369,8 +9048,8 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf
-      reference_title: Tubulinopathies Overview.
-      supports: PARTIAL
+      reference_title: &#34;https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         Brain stem &amp; cerebellar vermian
@@ -8383,7 +9062,7 @@ pathophysiology:
     evidence:
     - reference: PMID:20074521
       reference_title: &#34;Human TUBB3 mutations perturb microtubule dynamics, kinesin interactions, and axon guidance.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         some also result in intellectual and behavioral impairments
@@ -8394,7 +9073,7 @@ pathophysiology:
     evidence:
     - reference: PMID:20074521
       reference_title: &#34;Human TUBB3 mutations perturb microtubule dynamics, kinesin interactions, and axon guidance.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         some also result in intellectual and behavioral impairments, facial
@@ -8405,8 +9084,8 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf
-      reference_title: Tubulinopathies Overview.
-      supports: PARTIAL
+      reference_title: &#34;https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         At the extreme severe end of the spectrum, only one fetus was reported with microlissencephaly and corpus callosum agenesis,
@@ -8563,7 +9242,7 @@ pathophysiology:
     evidence:
     - reference: PMID:20074521
       reference_title: &#34;Human TUBB3 mutations perturb microtubule dynamics, kinesin interactions, and axon guidance.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Neuroimaging reveals a spectrum of abnormalities including hypoplasia of
@@ -8818,7 +9497,7 @@ phenotypes:
       label: Hypoplasia of the pons
   evidence:
   - reference: PMID:20829227
-    reference_title: &#34;Mutations in TUBB3 cause malformations of cortical development and neuronal migration defects.&#34;
+    reference_title: &#34;Mutations in the neuronal ß-tubulin subunit TUBB3 result in malformation of cortical development and neuronal migration defects.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8826,7 +9505,7 @@ phenotypes:
       ocular motility defects, CFEOM3.
     explanation: The clinical series explicitly identifies pontocerebellar hypoplasia in the TUBB3 cortical-malformation spectrum.
   - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf
-    reference_title: Tubulinopathies Overview.
+    reference_title: &#34;https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -8940,7 +9619,7 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf
-    reference_title: Tubulinopathies Overview.
+    reference_title: &#34;https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -8958,7 +9637,7 @@ phenotypes:
       label: Spasticity
   evidence:
   - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf
-    reference_title: Tubulinopathies Overview.
+    reference_title: &#34;https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -8977,7 +9656,7 @@ phenotypes:
       label: Microcephaly
   evidence:
   - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf
-    reference_title: Tubulinopathies Overview.
+    reference_title: &#34;https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9077,7 +9756,7 @@ clinical_burden:
     developmental, and sometimes neuropathy care.
   evidence:
   - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf
-    reference_title: Tubulinopathies Overview.
+    reference_title: &#34;https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9118,7 +9797,7 @@ diagnosis:
       label: Genetic Testing
   evidence:
   - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf
-    reference_title: Tubulinopathies Overview.
+    reference_title: &#34;https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9139,7 +9818,7 @@ treatments:
       label: Surgical Procedure
   evidence:
   - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf
-    reference_title: Tubulinopathies Overview.
+    reference_title: &#34;https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9158,7 +9837,7 @@ treatments:
       label: Supportive Care
   evidence:
   - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf
-    reference_title: Tubulinopathies Overview.
+    reference_title: &#34;https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9167,7 +9846,7 @@ treatments:
       and/or strabismus should begin at the time of diagnosis
     explanation: GeneReviews supports early individualized multidisciplinary therapies.
   - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf
-    reference_title: Tubulinopathies Overview.
+    reference_title: &#34;https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9185,7 +9864,7 @@ treatments:
       label: Genetic Counseling
   evidence:
   - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf
-    reference_title: Tubulinopathies Overview.
+    reference_title: &#34;https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9193,7 +9872,7 @@ treatments:
       TUBA1A, TUBB2A, TUBB2B, TUBB3, TUBB (TUBB5), or TUBG1.
     explanation: Supports counseling about the predominantly de novo autosomal-dominant occurrence.
   - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf
-    reference_title: Tubulinopathies Overview.
+    reference_title: &#34;https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9201,7 +9880,7 @@ treatments:
       have either a TUBB3 or (less frequently) TUBB2B pathogenic variant.
     explanation: GeneReviews identifies TUBB3 as the principal exception to the predominantly de novo pattern.
   - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf
-    reference_title: Tubulinopathies Overview.
+    reference_title: &#34;https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9755,7 +10434,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "TUBB3-related Tubulinopathy", "mondoId": "MONDO:0100154", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "TUBB3-related_Tubulinopathy", "yamlRevision": "7ae450ac5ff4"};
+        const OS_CONFIG = {"diseaseName": "TUBB3-related Tubulinopathy", "mondoId": "MONDO:0100154", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "TUBB3-related_Tubulinopathy", "yamlRevision": "190efabcff1c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

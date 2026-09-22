@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3726,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3993,6 +4100,125 @@
         <!-- Classifications -->
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="Placed with the immune disorders: a Mendelian inborn error of type I (and type III) interferon immunity whose clinical burden is infection susceptibility, following the placement of the sibling ISGF3 defect entry (IRF9 deficiency) and of IMD101, which reaches the same interferon axis from upstream — POLR3F is a subunit of RNA polymerase III, the cytosolic AT-rich viral DNA sensor that drives interferon induction, not a component of ISGF3.">IMMUNE RHEUMATOLOGIC</span>
+
+
+                    <span class="tag tag-classification" title="A biallelic Mendelian disorder of a single gene (STAT2), so it also belongs in Harrison&#39;s genetics Part.">GENETICS ENVIRONMENT DISEASE</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification Table 6 (defects in intrinsic and innate immunity), section 3 (Predisposition to Severe Viral Infection): the &#34;STAT2 deficiency&#34; row (STAT2, AR, OMIM column 600556 - the STAT2 gene record), with severe viral infections including disseminated vaccine-strain measles as the associated feature.">innate immunity defect</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
         <!-- Mappings -->
 
 
@@ -4053,6 +4279,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4136,6 +4364,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4157,6 +4387,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4196,6 +4428,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-type-i-interferon-isgf3-signaling" data-dismech-node="Defective Type I Interferon (ISGF3) Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Type I Interferon (ISGF3) Signaling</div>
+
 
                 <div class="item-desc">STAT2 is a required subunit of the heterotrimeric ISGF3 complex (STAT1-STAT2-IRF9) assembled downstream of the type I interferon receptor. Biallelic loss-of-function STAT2 variants abolish or cripple STAT2 protein expression and prevent ISGF3-dependent transcription, so type I interferon (IFN-alpha/beta) fails to induce its antiviral interferon-stimulated genes (e.g., MxA, ISG15, OAS1). Because type III interferon (IFN-lambda) signals through the same ISGF3 module, the mucosal IFN-lambda arm is likely impaired as well, whereas STAT1-dependent type II (IFN-gamma/GAF) signaling remains intact - distinguishing STAT2 deficiency from the broader STAT1 deficiency phenotype that also includes mycobacterial susceptibility.
 </div>
@@ -4390,6 +4623,8 @@ This pathophysiological event involves decreased Antiviral defense response, ann
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4411,6 +4646,8 @@ This pathophysiological event involves decreased Antiviral defense response, ann
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4435,6 +4672,7 @@ This pathophysiological event involves decreased Antiviral defense response, ann
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-permissiveness-to-viral-replication" data-dismech-node="Permissiveness to Viral Replication" data-dismech-type="pathophysiology">
                 <div class="item-name">Permissiveness to Viral Replication</div>
+
 
                 <div class="item-desc">Without an inducible type I interferon antiviral program, host cells cannot restrict viral replication. Clinically this manifests as severe viral illness and, characteristically, disseminated disease following live attenuated viral vaccines such as measles-mumps-rubella. The defect is cell-intrinsic and reproducible in patient fibroblasts, which fail to be protected by exogenous IFN-alpha (but remain responsive to IFN-gamma).
 </div>
@@ -4545,6 +4783,8 @@ This pathophysiological event involves decreased Viral defense failure, annotate
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4607,231 +4847,51 @@ This pathophysiological event involves decreased Viral defense failure, annotate
             </div>
 
 
+            <div class="pheno-toc">
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-severe-and-recurrent-viral-infections" data-dismech-node="Severe and recurrent viral infections" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Severe and recurrent viral infections
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(3)</span></button>
+
+                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
+            </div>
 
 
-                    <span class="phenotype-category">Immunological</span>
+            <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Blood
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hemophagocytic-lymphohistiocytosis" data-dismech-node="Hemophagocytic lymphohistiocytosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hemophagocytic lymphohistiocytosis
+
+
 
 
 
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Hemophagocytosis</span>
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031691" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0031691</a>
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0012156</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Severe viral infection (HP:0031691). HP:0031691 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23391734" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23391734" target="_blank">PMID:23391734</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"the proband developed disseminated vaccine strain measles following routine immunization, whereas an infant brother died after a 2-d febrile illness from an unknown viral infection."</div>
-
-
-                <div class="evidence-explanation">Reports severe and fatal viral illness in STAT2-deficient siblings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-            </div>
-
-            <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-viral-infections" data-dismech-node="Recurrent viral infections" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Recurrent viral infections
-
-
-                    <span class="phenotype-category">Immunological</span>
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0004429</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent viral infections (HP:0004429). HP:0004429 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33729549" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33729549" target="_blank">PMID:33729549</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A picture is emerging of greater redundancy of human type I IFNs for protective immunity to viruses in natural conditions than was initially anticipated."</div>
-
-
-                <div class="evidence-explanation">Establishes the type I IFN deficiency context (including STAT2) in which recurrent/severe viral infections arise, while noting variable penetrance.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-            </div>
-
-            <div class="item-box phenotype-box anchor-target" id="phenotype-disseminated-infection-with-live-viral-vaccine" data-dismech-node="Disseminated infection with live viral vaccine" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Disseminated infection with live viral vaccine
-
-
-                    <span class="phenotype-category">Immunological</span>
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031697" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0031697</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Disseminated infection with live vaccine virus (HP:0031697). HP:0031697 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23391734" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23391734" target="_blank">PMID:23391734</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"the proband developed disseminated vaccine strain measles following routine immunization, whereas an infant brother died after a 2-d febrile illness from an unknown viral infection."</div>
-
-
-                <div class="evidence-explanation">Documents disseminated vaccine-strain measles after routine MMR immunization, the characteristic live-vaccine complication of STAT2 deficiency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-            </div>
-
-            <div class="item-box phenotype-box anchor-target" id="phenotype-hemophagocytic-lymphohistiocytosis" data-dismech-node="Hemophagocytic lymphohistiocytosis" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Hemophagocytic lymphohistiocytosis
-
-
-                    <span class="phenotype-category">Immunological</span>
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0012156</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
 This clinical feature is Hemophagocytosis (HP:0012156). HP:0012156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
+
+
+
 
 
 
@@ -4851,6 +4911,8 @@ This clinical feature is Hemophagocytosis (HP:0012156). HP:0012156 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4874,8 +4936,263 @@ This clinical feature is Hemophagocytosis (HP:0012156). HP:0012156 is a phenotyp
 
 
 
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-severe-and-recurrent-viral-infections" data-dismech-node="Severe and recurrent viral infections" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Severe and recurrent viral infections
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Severe viral infection</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031691" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0031691</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Severe viral infection (HP:0031691). HP:0031691 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23391734" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23391734" target="_blank">PMID:23391734</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the proband developed disseminated vaccine strain measles following routine immunization, whereas an infant brother died after a 2-d febrile illness from an unknown viral infection."</div>
+
+
+                <div class="evidence-explanation">Reports severe and fatal viral illness in STAT2-deficient siblings.</div>
+
+
+
             </div>
 
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-viral-infections" data-dismech-node="Recurrent viral infections" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Recurrent viral infections
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0004429</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent viral infections (HP:0004429). HP:0004429 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33729549" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33729549" target="_blank">PMID:33729549</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A picture is emerging of greater redundancy of human type I IFNs for protective immunity to viruses in natural conditions than was initially anticipated."</div>
+
+
+                <div class="evidence-explanation">Establishes the type I IFN deficiency context (including STAT2) in which recurrent/severe viral infections arise, while noting variable penetrance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-disseminated-infection-with-live-viral-vaccine" data-dismech-node="Disseminated infection with live viral vaccine" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Disseminated infection with live viral vaccine
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Disseminated infection with live vaccine virus</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031697" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0031697</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Disseminated infection with live vaccine virus (HP:0031697). HP:0031697 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23391734" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23391734" target="_blank">PMID:23391734</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the proband developed disseminated vaccine strain measles following routine immunization, whereas an infant brother died after a 2-d febrile illness from an unknown viral infection."</div>
+
+
+                <div class="evidence-explanation">Documents disseminated vaccine-strain measles after routine MMR immunization, the characteristic live-vaccine complication of STAT2 deficiency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <script>
+            (function() {
+                // TOC pill click: expand target group and scroll to it
+                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
+                    pill.addEventListener('click', function() {
+                        var target = document.getElementById(pill.dataset.target);
+                        if (target) {
+                            target.open = true;
+                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
+                        }
+                    });
+                });
+                // Expand/collapse all toggle
+                var btn = document.getElementById('phenoToggleAll');
+                if (btn) {
+                    btn.addEventListener('click', function() {
+                        var groups = document.querySelectorAll('.phenotype-category-group');
+                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
+                        groups.forEach(function(g) { g.open = !anyOpen; });
+                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
+                    });
+                }
+            })();
+            </script>
 
         </div>
 
@@ -4922,6 +5239,9 @@ This disease-associated gene is STAT2 (hgnc:11363). hgnc:11363 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4936,6 +5256,8 @@ This disease-associated gene is STAT2 (hgnc:11363). hgnc:11363 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5018,6 +5340,20 @@ This treatment is Intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Immunoglobulin replacement (including high-dose intravenous immunoglobulin during severe infectious episodes) has been used to provide passive immunity and anti-inflammatory effect in STAT2-deficient patients, particularly in childhood before the adaptive immune system has matured.
 </div>
 
@@ -5070,6 +5406,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Because live attenuated viral vaccines (e.g., measles-mumps-rubella) can cause disseminated vaccine-strain infection in STAT2 deficiency, such vaccines should be avoided; this is a key agents/circumstances-to-avoid consideration once the diagnosis is known.
 </div>
 
@@ -5088,6 +5438,33 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -5130,6 +5507,41 @@ disease_term:
 parents:
   - inborn error of immunity
   - autosomal recessive disease
+classifications:
+  harrisons_chapter:
+  - classification_value: IMMUNE_RHEUMATOLOGIC
+    notes: &gt;-
+      Placed with the immune disorders: a Mendelian inborn error of type I
+      (and type III) interferon immunity whose clinical burden is infection
+      susceptibility, following the placement of the sibling ISGF3 defect
+      entry (IRF9 deficiency) and of IMD101, which reaches the same
+      interferon axis from upstream — POLR3F is a subunit of RNA polymerase III,
+      the cytosolic AT-rich viral DNA sensor that drives interferon induction,
+      not a component of ISGF3.
+  - classification_value: GENETICS_ENVIRONMENT_DISEASE
+    notes: &gt;-
+      A biallelic Mendelian disorder of a single gene (STAT2), so it also
+      belongs in Harrison&#39;s genetics Part.
+  iuis_category:
+    classification_value: innate immunity defect
+    notes: &gt;-
+      IUIS 2022 phenotypic classification Table 6 (defects in intrinsic and
+      innate immunity), section 3 (Predisposition to Severe Viral Infection):
+      the &#34;STAT2 deficiency&#34; row (STAT2, AR, OMIM column 600556 - the STAT2
+      gene record), with severe viral infections including disseminated
+      vaccine-strain measles as the associated feature.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;STAT2 deficiency STAT2 AR 600556&#34;
+      explanation: &gt;-
+        The STAT2 row of IUIS 2022 Table 6, section 3 (Predisposition to
+        Severe Viral Infection). Quoted at the row-identity fragment because
+        the typeset table text merges the affected-cells and affected-function
+        columns mid-word immediately after it (&#34;cellsS TAT2-dependent&#34;),
+        corrupting the remainder of the row.
 references:
   - reference: PMID:28087227
     title: &#34;A novel kindred with inherited STAT2 deficiency and severe viral illness.&#34;
@@ -5484,7 +5896,7 @@ treatments:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "STAT2 Deficiency", "mondoId": "MONDO:0014715", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "STAT2_Deficiency", "yamlRevision": "6715ec15bf32"};
+        const OS_CONFIG = {"diseaseName": "STAT2 Deficiency", "mondoId": "MONDO:0014715", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "STAT2_Deficiency", "yamlRevision": "5a1f1bc27f02"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

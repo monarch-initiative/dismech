@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4207,6 +4314,8 @@ Penetrance is recorded as UNKNOWN rather than COMPLETE. Every reported biallelic
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4230,6 +4339,8 @@ Penetrance is recorded as UNKNOWN rather than COMPLETE. Every reported biallelic
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4251,6 +4362,8 @@ Penetrance is recorded as UNKNOWN rather than COMPLETE. Every reported biallelic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4327,6 +4440,8 @@ Recorded because the mode of inheritance for this gene cannot be stated as autos
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4348,6 +4463,8 @@ Recorded because the mode of inheritance for this gene cannot be stated as autos
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4957,7 +5074,7 @@ Recorded because the mode of inheritance for this gene cannot be stated as autos
 
 
 
-    <span class="entity-ref-chip">prevalence#</span>
+    <a class="entity-ref-chip" href="#prevalence">prevalence#</a>
 
 
 
@@ -5032,6 +5149,13 @@ Recorded because the mode of inheritance for this gene cannot be stated as autos
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-damaging-sars1-alleles-in-the-catalytic-core" data-dismech-node="Damaging SARS1 Alleles in the Catalytic Core" data-dismech-type="pathophysiology">
                 <div class="item-name">Damaging SARS1 Alleles in the Catalytic Core</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The primary lesion is damage to SARS1 at 1p13.3, reported against transcript NM_006513.4. What is striking about the allelic series is its positional consistency: the founding homozygous missense c.514G&gt;A (p.Asp172Asn) was described as affecting the enzymatic core domain; the variant reported by Bogershausen and colleagues was mapped structurally to a position directly within the enzyme&#39;s active site; the de novo splice-site deletion reported by Verdura and colleagues produces a five-residue in-frame insertion near the active site. Every allele reported in the clinical literature with a published structural position therefore converges on the aminoacylation machinery rather than on the tRNA-binding domain, the dimer interface or the vertebrate-specific UNE-S appendage. This is the single most important structural observation in the entry, because it is what licenses reading the disorder as a charging defect rather than as a defect of one of SerRS&#39;s non-canonical activities.</div>
 
@@ -5143,6 +5267,8 @@ This pathophysiological event involves SARS1 (hgnc:10537). hgnc:10537 is a gene 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5164,6 +5290,8 @@ This pathophysiological event involves SARS1 (hgnc:10537). hgnc:10537 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5189,6 +5317,8 @@ This pathophysiological event involves SARS1 (hgnc:10537). hgnc:10537 is a gene 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5211,6 +5341,13 @@ This pathophysiological event involves SARS1 (hgnc:10537). hgnc:10537 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-serrs-protein-stability-and-steady-state-abundance" data-dismech-node="Reduced SerRS Protein Stability and Steady-State Abundance" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced SerRS Protein Stability and Steady-State Abundance</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Two independently reported missense alleles reduce the amount of SerRS in the cell rather than only its per-molecule activity. The founding p.Asp172Asn allele was predicted to be unstable and this was substantiated for ectopically expressed mutant protein in transfected HEK293T cells; the p.Arg213Leu allele was shown to cause protein instability with a consequent fall in both protein level and enzymatic activity. Instability is the commonest single mechanism across the recessive ARS deficiencies and it has a specific consequence for this disease: the deficit is in total cellular charging CAPACITY, which is exactly the quantity that a rise in translational demand can outstrip.</div>
 
@@ -5399,6 +5536,8 @@ This pathophysiological event involves cytosol (GO:0005829). GO:0005829 is a cel
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5420,6 +5559,8 @@ This pathophysiological event involves cytosol (GO:0005829). GO:0005829 is a cel
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5444,6 +5585,13 @@ This pathophysiological event involves cytosol (GO:0005829). GO:0005829 is a cel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-serylation-of-trna-ser" data-dismech-node="Deficient Serylation of tRNA-Ser" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Serylation of tRNA-Ser</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The convergent molecular defect. SerRS is a homodimeric class II synthetase that catalyses aminoacylation in two steps - serine is first activated by ATP to form enzyme-bound serine-adenylate, then the seryl moiety is transferred to the 3&#39; end of the cognate tRNA to give Ser-tRNA-Ser for delivery to the ribosome. Its recognition strategy is unusual and relevant here: unlike most synthetases SerRS does not read the anticodon but recognises the long variable arm unique to tRNA-Ser, and each subunit&#39;s N-terminal tRNA-binding domain directs the tRNA 3&#39;-CCA end into the active site of the OTHER subunit, so the functional unit is the dimer rather than the monomer. Motifs 2 and 3 of the class II fold carry the active-site residues; motif 1 forms the dimer interface. Patient-derived material shows the predicted outcome: serylation assays in patient fibroblasts were used to demonstrate loss of function, and the founding report inferred reduced cytoplasmic tRNA-Ser charging directly from the impaired enzymatic activity of the mutant.</div>
 
@@ -5691,6 +5839,8 @@ This pathophysiological event involves decreased serine-tRNA ligase activity (GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5714,6 +5864,8 @@ This pathophysiological event involves decreased serine-tRNA ligase activity (GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5735,6 +5887,8 @@ This pathophysiological event involves decreased serine-tRNA ligase activity (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5761,6 +5915,13 @@ This pathophysiological event involves decreased serine-tRNA ligase activity (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dominant-negative-poisoning-of-the-serrs-homodimer" data-dismech-node="Dominant-Negative Poisoning of the SerRS Homodimer" data-dismech-type="pathophysiology">
                 <div class="item-name">Dominant-Negative Poisoning of the SerRS Homodimer</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">An allele-specific route to the same endpoint. The de novo splice-site deletion reported in the spastic paraplegia patient yields a five-residue in-frame insertion near the active site, and complementation and serylation assays established that this allele is not simply inactive but dominant negative - that is, its presence reduces the activity attainable by the wild-type allele in the same cell. This node exists separately from the loss-of-abundance node because the two predict different things. Under simple haploinsufficiency a carrier of one null allele would be unaffected, which is what is observed for the recessive families; under dimer poisoning a single allele suffices, which is what is observed here.</div>
 
@@ -5936,6 +6097,8 @@ This pathophysiological event involves decreased serine-tRNA ligase activity (GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5958,6 +6121,13 @@ This pathophysiological event involves decreased serine-tRNA ligase activity (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-insufficient-aminoacylation-capacity-for-translational-demand" data-dismech-node="Insufficient Aminoacylation Capacity for Translational Demand" data-dismech-type="pathophysiology">
                 <div class="item-name">Insufficient Aminoacylation Capacity for Translational Demand</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The organising hypothesis of the whole recessive ARS deficiency family, and the reason this disorder&#39;s phenotype is not arbitrary. Aminoacylation is the committed first step of protein synthesis: the synthetase ligates the amino acid to its cognate tRNA, and the resulting aminoacyl-tRNA is handed to ribosome elongation factors. A hypomorphic synthetase leaves a cell able to translate at rest but unable to scale, so the deficit manifests wherever and whenever translational demand is highest - in the tissues with the highest amino-acid incorporation rates and during the periods of highest demand, which are early growth and intercurrent illness. Fuchs and colleagues reached this formulation from the whole recessive ARS cohort, in which SARS was one of the thirteen synthetase deficiencies analysed, and drew from it the clinically consequential corollary that patients need adequate protein and amino acid supply rather than the traditional protein restriction of metabolic disease.</div>
 
@@ -6127,6 +6297,8 @@ This pathophysiological event involves cytosol (GO:0005829). GO:0005829 is a cel
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6150,6 +6322,8 @@ This pathophysiological event involves cytosol (GO:0005829). GO:0005829 is a cel
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6171,6 +6345,8 @@ This pathophysiological event involves cytosol (GO:0005829). GO:0005829 is a cel
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6197,6 +6373,13 @@ This pathophysiological event involves cytosol (GO:0005829). GO:0005829 is a cel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neural-progenitor-proliferation-and-brain-growth" data-dismech-node="Impaired Neural Progenitor Proliferation and Brain Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neural Progenitor Proliferation and Brain Growth</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The causal step from a translation defect to the cardinal phenotype. Brain growth in the second and third trimesters and the first postnatal years is among the most protein-synthesis-intensive processes in human development; a ceiling on charged-tRNA supply constrains progenitor proliferation and the accretion of neuronal and glial mass, producing microcephaly. This is the single feature that unites the SARS1 families with the recessive WARS1 families reported alongside them, and it is the reason the two were described together as an emerging disease group of ARS-related developmental disorders with or without microcephaly. The microcephaly is not an isolated head-size measurement: it is accompanied by intellectual disability, developmental delay and structural brain anomalies in the same individuals.</div>
 
@@ -6355,6 +6538,8 @@ This pathophysiological event involves decreased cytoplasmic translation (GO:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6376,6 +6561,8 @@ This pathophysiological event involves decreased cytoplasmic translation (GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6400,6 +6587,13 @@ This pathophysiological event involves decreased cytoplasmic translation (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-and-cerebral-atrophy" data-dismech-node="Cerebellar and Cerebral Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar and Cerebral Atrophy</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Structural neuroimaging in the Turkish NEDMAS families showed bilateral cerebral AND cerebellar diffuse atrophy. The cerebellar component is the anatomical substrate of the ataxia that names the disorder, and its presence alongside cerebral atrophy indicates that the lesion is not confined to a developmental failure of head growth but includes ongoing tissue loss. That combination - a small brain that also atrophies - is characteristic of the recessive ARS deficiencies generally, and it is the reason the disorder is curated as neurodevelopmental with a neurodegenerative component rather than as static.</div>
 
@@ -6554,6 +6748,8 @@ This pathophysiological event involves abnormal brain development (GO:0007420). 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6576,6 +6772,13 @@ This pathophysiological event involves abnormal brain development (GO:0007420). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-demand-dependent-decompensation-during-febrile-catabolic-stress" data-dismech-node="Demand-Dependent Decompensation During Febrile Catabolic Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Demand-Dependent Decompensation During Febrile Catabolic Stress</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The most clinically consequential node in the entry and the clearest test of the demand-capacity model. In the SARS1 family reported from Nancy, febrile illness precipitated acute metabolic decompensation that was fatal; three siblings of the surviving proband died during similar febrile episodes. Fever raises basal metabolic rate, drives protein catabolism, and increases the demand for de novo protein synthesis for the acute-phase response and for tissue repair - precisely the demand that a hypomorphic synthetase cannot meet. The decompensation is multi-system, presenting with vomiting, hypotonia and seizures, and its lethal component is cardiac. The clinical corollary inverts standard metabolic-crisis management: rather than restricting protein, these patients need more of the limiting amino acid, and escalation of L-serine was associated with survival of an episode that had killed the patient&#39;s untreated siblings.</div>
 
@@ -6666,6 +6869,8 @@ This pathophysiological event involves decreased cytoplasmic translation (GO:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6689,6 +6894,8 @@ This pathophysiological event involves decreased cytoplasmic translation (GO:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6710,6 +6917,8 @@ This pathophysiological event involves decreased cytoplasmic translation (GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6736,6 +6945,13 @@ This pathophysiological event involves decreased cytoplasmic translation (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyocyte-translational-insufficiency" data-dismech-node="Cardiomyocyte Translational Insufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyocyte Translational Insufficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Cardiomyopathy is part of the SARS1 phenotype in the presentation reported from Nancy and is the feature that determines survival. In the documented decompensation episode the left ventricular ejection fraction fell to 20%, requiring mechanical ventilation and vasopressor support, with myocardial oedema that resolved on follow-up echocardiography; a subsequent febrile crisis produced severe biventricular dysfunction and fatal cardiogenic shock. Cardiac muscle is a plausible target for a charging-capacity defect because it combines high protein turnover with an inability to reduce workload during fever - the opposite of skeletal muscle, which can rest. The reversibility of the myocardial oedema between crises argues that the cardiac lesion is at least in part an acute, demand-driven failure superimposed on a chronic cardiomyopathy rather than fixed structural damage alone.</div>
 
@@ -6845,6 +7061,8 @@ This pathophysiological event involves decreased cytoplasmic translation (GO:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6866,6 +7084,8 @@ This pathophysiological event involves decreased cytoplasmic translation (GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6891,6 +7111,8 @@ This pathophysiological event involves decreased cytoplasmic translation (GO:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6913,6 +7135,13 @@ This pathophysiological event involves decreased cytoplasmic translation (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cellular-senescence-with-a-senescence-associated-secretory-phenotype" data-dismech-node="Cellular Senescence with a Senescence-Associated Secretory Phenotype" data-dismech-type="pathophysiology">
                 <div class="item-name">Cellular Senescence with a Senescence-Associated Secretory Phenotype</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The only cell-autonomous phenotype demonstrated in human SARS1 patient cells. Fibroblasts from the patient with the de novo dominant-negative allele showed abnormal cell shape, arrested division, increased beta-galactosidase staining, and a senescence-associated secretory phenotype with raised interleukin-6, p21, p16 and p53. The authors read this as revealing a role for SARS1 in the regulation of cell growth, division and senescence. There are two ways this could arise and they are not mutually exclusive: a translational ceiling is itself a proliferation constraint and chronically stalled growth engages p53/p21-dependent arrest; alternatively, the senescence could reflect loss of a non-canonical SerRS activity, since SerRS binds telomeric DNA and cooperates with the shelterin protein POT1 to regulate telomere length and senescence. Distinguishing these would require testing whether senescence is rescued by restoring serylation alone.</div>
 
@@ -7022,6 +7251,8 @@ This pathophysiological event involves increased cellular senescence (GO:0090398
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7045,6 +7276,8 @@ This pathophysiological event involves increased cellular senescence (GO:0090398
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7058,14 +7291,16 @@ This pathophysiological event involves increased cellular senescence (GO:0090398
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38255739" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38255739" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38255739" target="_blank">PMID:38255739</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7090,6 +7325,13 @@ This pathophysiological event involves increased cellular senescence (GO:0090398
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-selenocysteine-incorporation" data-dismech-node="Impaired Selenocysteine Incorporation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Selenocysteine Incorporation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">A predicted second consequence of the same enzyme deficit, included because it is a specific, testable prediction that the aminoacylation literature makes and the clinical literature has never examined. Selenoprotein synthesis in all domains of life begins with SerRS serylating the selenocysteine-specific tRNA-Sec; the serylated intermediate is then converted to selenocysteinyl-tRNA-Sec for co-translational insertion of the 21st amino acid. A hypomorphic SerRS therefore throttles the supply of the obligatory precursor for every selenoprotein. Which selenoproteins would be rate-limited first, and whether any of them are the antioxidant enzymes usually invoked, is not addressed by any source cached for this entry. If this arm operates, it would predict oxidative vulnerability that worsens under febrile stress and would give SARS1 deficiency a pathophysiological component that other ARS deficiencies do not have.</div>
 
@@ -7237,6 +7479,8 @@ This pathophysiological event involves decreased serine-tRNA ligase activity (GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7259,6 +7503,13 @@ This pathophysiological event involves decreased serine-tRNA ligase activity (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-non-canonical-nuclear-serrs-function" data-dismech-node="Loss of Non-Canonical Nuclear SerRS Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Non-Canonical Nuclear SerRS Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Vertebrate SerRS is not only a synthetase. It acquired a C-terminal UNE-S domain in the lineage that developed closed circulatory systems; UNE-S carries a nuclear localisation signal that directs SerRS into the nucleus, where it attenuates VEGFA expression, acting through a complex with the transcription factor YY1 that binds distal cis-regulatory elements of the vegfa promoter and competes with activating factors. Genetically, this is not a minor embellishment: zebrafish sars mutants isolated in a vascular screen show dilated aortic arch vessels and aberrant hindbrain capillary patterning in a Vegf-dependent manner, and human SerRS alleles that disrupt nuclear localisation cause abnormal vasculature and premature death in fish. The question for this entry is whether any of this contributes to the human disease. The honest answer is that it is not known, and this node exists to say so precisely rather than to leave the moonlighting literature quietly attached to the mechanism.</div>
 
@@ -7432,6 +7683,8 @@ This pathophysiological event involves nucleus (GO:0005634). GO:0005634 is a cel
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7455,6 +7708,8 @@ This pathophysiological event involves nucleus (GO:0005634). GO:0005634 is a cel
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7468,14 +7723,16 @@ This pathophysiological event involves nucleus (GO:0005634). GO:0005634 is a cel
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:27913726" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:27913726" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27913726" target="_blank">PMID:27913726</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7525,7 +7782,7 @@ This pathophysiological event involves nucleus (GO:0005634). GO:0005634 is a cel
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cardiomyocyte Translational Insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiomyopathy is part of the SARS1 phenotype in the presentation reported from Nancy and is the feature that determines survival. In the documented decompensation episode the left ventricular ejection fraction fell to 20%, requiring mechanical ventilation and vasopressor support, with myocardial oedema that resolved on follow-up echocardiography; a subsequent febrile crisis produced severe biventricular dysfunction and fatal cardiogenic shock. Cardiac muscle is a plausible target for a charging-capacity defect because it combines high protein turnover with an inability to reduce workload during fever - the opposite of skeletal muscle, which can rest. The reversibility of the myocardial oedema between crises argues that the cardiac lesion is at least in part an acute, demand-driven failure superimposed on a chronic cardiomyopathy rather than fixed structural damage alone.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"cytoplasmic translation\"]}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiomyopathy is the feature that determines survival in SARS1 deficiency and the one the MONDO label gives no hint of. It is chronic at baseline and catastrophically decompensating during febrile illness, with left ventricular ejection fraction falling to 20% in the documented episode and biventricular failure with fatal cardiogenic shock in a later one. Any child given a molecular diagnosis of SARS1 deficiency needs cardiac surveillance regardless of which presentation they were ascertained through, because the cardiac risk has not been shown to be allele-restricted - only to be, so far, allele-associated.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001638\"}}, {\"id\": \"Cellular Senescence with a Senescence-Associated Secretory Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The only cell-autonomous phenotype demonstrated in human SARS1 patient cells. Fibroblasts from the patient with the de novo dominant-negative allele showed abnormal cell shape, arrested division, increased beta-galactosidase staining, and a senescence-associated secretory phenotype with raised interleukin-6, p21, p16 and p53. The authors read this as revealing a role for SARS1 in the regulation of cell growth, division and senescence. There are two ways this could arise and they are not mutually exclusive: a translational ceiling is itself a proliferation constraint and chronically stalled growth engages p53/p21-dependent arrest; alternatively, the senescence could reflect loss of a non-canonical SerRS activity, since SerRS binds telomeric DNA and cooperates with the shelterin protein POT1 to regulate telomere length and senescence. Distinguishing these would require testing whether senescence is rescued by restoring serylation alone.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"patient-derived dermal fibroblast\"], \"biological_processes\": [\"cellular senescence\"]}}, {\"id\": \"Cerebellar and Cerebral Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Structural neuroimaging in the Turkish NEDMAS families showed bilateral cerebral AND cerebellar diffuse atrophy. The cerebellar component is the anatomical substrate of the ataxia that names the disorder, and its presence alongside cerebral atrophy indicates that the lesion is not confined to a developmental failure of head growth but includes ongoing tissue loss. That combination - a small brain that also atrophies - is characteristic of the recessive ARS deficiencies generally, and it is the reason the disorder is curated as neurodevelopmental with a neurodegenerative component rather than as static.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cerebellar Purkinje cell\", \"neuron\"], \"biological_processes\": [\"brain development\"]}}, {\"id\": \"Damaging SARS1 Alleles in the Catalytic Core\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is damage to SARS1 at 1p13.3, reported against transcript NM_006513.4. What is striking about the allelic series is its positional consistency: the founding homozygous missense c.514G\u003eA (p.Asp172Asn) was described as affecting the enzymatic core domain; the variant reported by Bogershausen and colleagues was mapped structurally to a position directly within the enzyme\u0027s active site; the de novo splice-site deletion reported by Verdura and colleagues produces a five-residue in-frame insertion near the active site. Every allele reported in the clinical literature with a published structural position therefore converges on the aminoacylation machinery rather than on the tRNA-binding domain, the dimer interface or the vertebrate-specific UNE-S appendage. This is the single most important structural observation in the entry, because it is what licenses reading the disorder as a charging defect rather than as a defect of one of SerRS\u0027s non-canonical activities.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"SARS1\"], \"gene_terms\": [{\"label\": \"SARS1\", \"id\": \"hgnc:10537\"}]}}, {\"id\": \"Deficient Serylation of tRNA-Ser\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent molecular defect. SerRS is a homodimeric class II synthetase that catalyses aminoacylation in two steps - serine is first activated by ATP to form enzyme-bound serine-adenylate, then the seryl moiety is transferred to the 3\u0027 end of the cognate tRNA to give Ser-tRNA-Ser for delivery to the ribosome. Its recognition strategy is unusual and relevant here: unlike most synthetases SerRS does not read the anticodon but recognises the long variable arm unique to tRNA-Ser, and each subunit\u0027s N-terminal tRNA-binding domain directs the tRNA 3\u0027-CCA end into the active site of the OTHER subunit, so the functional unit is the dimer rather than the monomer. Motifs 2 and 3 of the class II fold carry the active-site residues; motif 1 forms the dimer interface. Patient-derived material shows the predicted outcome: serylation assays in patient fibroblasts were used to demonstrate loss of function, and the founding report inferred reduced cytoplasmic tRNA-Ser charging directly from the impaired enzymatic activity of the mutant.\", \"meta\": {\"evidence_count\": 7, \"cell_types\": [\"patient-derived dermal fibroblast\"], \"biological_processes\": [\"seryl-tRNA aminoacylation\", \"tRNA aminoacylation for protein translation\"], \"molecular_functions\": [\"serine-tRNA ligase activity\"], \"genes\": [\"SARS1\"], \"gene_terms\": [{\"label\": \"SARS1\", \"id\": \"hgnc:10537\"}]}}, {\"id\": \"Demand-Dependent Decompensation During Febrile Catabolic Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The most clinically consequential node in the entry and the clearest test of the demand-capacity model. In the SARS1 family reported from Nancy, febrile illness precipitated acute metabolic decompensation that was fatal; three siblings of the surviving proband died during similar febrile episodes. Fever raises basal metabolic rate, drives protein catabolism, and increases the demand for de novo protein synthesis for the acute-phase response and for tissue repair - precisely the demand that a hypomorphic synthetase cannot meet. The decompensation is multi-system, presenting with vomiting, hypotonia and seizures, and its lethal component is cardiac. The clinical corollary inverts standard metabolic-crisis management: rather than restricting protein, these patients need more of the limiting amino acid, and escalation of L-serine was associated with survival of an episode that had killed the patient\u0027s untreated siblings.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"cytoplasmic translation\"]}}, {\"id\": \"Dominant-Negative Poisoning of the SerRS Homodimer\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An allele-specific route to the same endpoint. The de novo splice-site deletion reported in the spastic paraplegia patient yields a five-residue in-frame insertion near the active site, and complementation and serylation assays established that this allele is not simply inactive but dominant negative - that is, its presence reduces the activity attainable by the wild-type allele in the same cell. This node exists separately from the loss-of-abundance node because the two predict different things. Under simple haploinsufficiency a carrier of one null allele would be unaffected, which is what is observed for the recessive families; under dimer poisoning a single allele suffices, which is what is observed here.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"patient-derived dermal fibroblast\"], \"molecular_functions\": [\"serine-tRNA ligase activity\"], \"genes\": [\"SARS1\"], \"gene_terms\": [{\"label\": \"SARS1\", \"id\": \"hgnc:10537\"}]}}, {\"id\": \"Emergency protocol for febrile illness\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because febrile illness is the trigger for lethal decompensation, anticipatory management of intercurrent fever is the central chronic-care task in this disorder: early presentation, aggressive escalation of L-serine, and cardiac and haemodynamic monitoring during the episode. The 2026 report explicitly frames early, aggressive escalation as a viable strategy while noting that no guidelines exist. It also records the limit of the approach: the patient died in a subsequent crisis despite having an emergency protocol in place, so a protocol reduces but does not remove the risk.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Impaired Neural Progenitor Proliferation and Brain Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The causal step from a translation defect to the cardinal phenotype. Brain growth in the second and third trimesters and the first postnatal years is among the most protein-synthesis-intensive processes in human development; a ceiling on charged-tRNA supply constrains progenitor proliferation and the accretion of neuronal and glial mass, producing microcephaly. This is the single feature that unites the SARS1 families with the recessive WARS1 families reported alongside them, and it is the reason the two were described together as an emerging disease group of ARS-related developmental disorders with or without microcephaly. The microcephaly is not an isolated head-size measurement: it is accompanied by intellectual disability, developmental delay and structural brain anomalies in the same individuals.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"brain development\", \"cytoplasmic translation\"]}}, {\"id\": \"Impaired Selenocysteine Incorporation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A predicted second consequence of the same enzyme deficit, included because it is a specific, testable prediction that the aminoacylation literature makes and the clinical literature has never examined. Selenoprotein synthesis in all domains of life begins with SerRS serylating the selenocysteine-specific tRNA-Sec; the serylated intermediate is then converted to selenocysteinyl-tRNA-Sec for co-translational insertion of the 21st amino acid. A hypomorphic SerRS therefore throttles the supply of the obligatory precursor for every selenoprotein. Which selenoproteins would be rate-limited first, and whether any of them are the antioxidant enzymes usually invoked, is not addressed by any source cached for this entry. If this arm operates, it would predict oxidative vulnerability that worsens under febrile stress and would give SARS1 deficiency a pathophysiological component that other ARS deficiencies do not have.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"selenocysteine incorporation\", \"conversion of seryl-tRNA(Sec) to selenocysteinyl-tRNA(Sec)\"], \"molecular_functions\": [\"serine-tRNA ligase activity\"]}}, {\"id\": \"Insufficient Aminoacylation Capacity for Translational Demand\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organising hypothesis of the whole recessive ARS deficiency family, and the reason this disorder\u0027s phenotype is not arbitrary. Aminoacylation is the committed first step of protein synthesis: the synthetase ligates the amino acid to its cognate tRNA, and the resulting aminoacyl-tRNA is handed to ribosome elongation factors. A hypomorphic synthetase leaves a cell able to translate at rest but unable to scale, so the deficit manifests wherever and whenever translational demand is highest - in the tissues with the highest amino-acid incorporation rates and during the periods of highest demand, which are early growth and intercurrent illness. Fuchs and colleagues reached this formulation from the whole recessive ARS cohort, in which SARS was one of the thirteen synthetase deficiencies analysed, and drew from it the clinically consequential corollary that patients need adequate protein and amino acid supply rather than the traditional protein restriction of metabolic disease.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"cytoplasmic translation\", \"tRNA aminoacylation for protein translation\"]}}, {\"id\": \"L-serine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only disease-specific intervention reported, and its rationale follows directly from the mechanism. If the lesion is insufficient charging capacity for the demand, then raising the intracellular concentration of the substrate amino acid should drive the residual hypomorphic enzyme harder - a mass-action rescue rather than a correction of the defect. Chronic supplementation is described as established practice in SARS1 deficiency. What was new in 2026 is acute management: during a febrile decompensation with an ejection fraction of 20%, the patient\u0027s L-serine dose was progressively tripled alongside standard supportive care and he survived, where three untreated siblings had died of comparable episodes. That is the first documented survival of a SARS1 metabolic crisis. It is also, honestly, an n-of-1 with a fatal outcome a year later despite an emergency protocol - so the intervention is reported here as promising and mechanistically coherent, not as established efficacy.\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"L-serine\"]}}, {\"id\": \"Loss of Non-Canonical Nuclear SerRS Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vertebrate SerRS is not only a synthetase. It acquired a C-terminal UNE-S domain in the lineage that developed closed circulatory systems; UNE-S carries a nuclear localisation signal that directs SerRS into the nucleus, where it attenuates VEGFA expression, acting through a complex with the transcription factor YY1 that binds distal cis-regulatory elements of the vegfa promoter and competes with activating factors. Genetically, this is not a minor embellishment: zebrafish sars mutants isolated in a vascular screen show dilated aortic arch vessels and aberrant hindbrain capillary patterning in a Vegf-dependent manner, and human SerRS alleles that disrupt nuclear localisation cause abnormal vasculature and premature death in fish. The question for this entry is whether any of this contributes to the human disease. The honest answer is that it is not known, and this node exists to say so precisely rather than to leave the moonlighting literature quietly attached to the mechanism.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"negative regulation of vascular endothelial growth factor production\", \"telomere maintenance\"], \"genes\": [\"SARS1\"], \"gene_terms\": [{\"label\": \"SARS1\", \"id\": \"hgnc:10537\"}]}}, {\"id\": \"Reduced SerRS Protein Stability and Steady-State Abundance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two independently reported missense alleles reduce the amount of SerRS in the cell rather than only its per-molecule activity. The founding p.Asp172Asn allele was predicted to be unstable and this was substantiated for ectopically expressed mutant protein in transfected HEK293T cells; the p.Arg213Leu allele was shown to cause protein instability with a consequent fall in both protein level and enzymatic activity. Instability is the commonest single mechanism across the recessive ARS deficiencies and it has a specific consequence for this disease: the deficit is in total cellular charging CAPACITY, which is exactly the quantity that a rise in translational demand can outstrip.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"patient-derived dermal fibroblast\"], \"molecular_functions\": [\"serine-tRNA ligase activity\"], \"genes\": [\"SARS1\"], \"gene_terms\": [{\"label\": \"SARS1\", \"id\": \"hgnc:10537\"}]}}, {\"id\": \"SARS1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SARS1\"], \"gene_terms\": [{\"label\": \"SARS1\", \"id\": \"hgnc:10537\"}], \"association\": \"Biallelic missense and splice variants in the catalytic core cause autosomal recessive disease; one de novo, dominant-negative in-frame insertion allele has been reported\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"SARS1 c.1196C\u003eT p.Thr399Met\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Reported as a novel missense variant in unrelated Turkish families with the NEDMAS phenotype, in individuals whose main manifestations were severe developmental delay and intellectual disability, thin body habitus and severe hypotonia, with bilateral cerebral and cerebellar diffuse atrophy on imaging. No functional assay has been published for this allele and no structural mapping is available, so its mechanism is assumed rather than shown.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SARS1\"], \"gene_terms\": [{\"label\": \"SARS1\", \"id\": \"hgnc:10537\"}], \"variant_type\": \"missense variant\", \"clinical_significance\": \"UNCERTAIN_SIGNIFICANCE\"}}, {\"id\": \"SARS1 c.514G\u003eA p.Asp172Asn\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The founding allele, homozygous in an Iranian family with autosomal recessive intellectual disability; the abstract reports the family as Iranian and does not state whether it is consanguineous. It lies in the enzymatic core domain, impairs enzymatic activity, and destabilises the protein - a combined activity-and-abundance hit rather than a pure catalytic lesion. The authors inferred from the activity loss that cytoplasmic tRNA-Ser charging is reduced.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SARS1\"], \"gene_terms\": [{\"label\": \"SARS1\", \"id\": \"hgnc:10537\"}], \"variant_type\": \"missense variant\"}}, {\"id\": \"SARS1 c.638G\u003eT p.Arg213Leu\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The allele of the deafness-cardiomyopathy-febrile-decompensation presentation, biallelic in a consanguineous Turkish family. Functionally it behaves as a destabilising allele: reduced protein level with consequently reduced enzymatic activity. This is the only SARS1 allele so far associated with fatal metabolic crises, and the only one for which a treatment response has been documented.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SARS1\"], \"gene_terms\": [{\"label\": \"SARS1\", \"id\": \"hgnc:10537\"}], \"variant_type\": \"missense variant\"}}, {\"id\": \"SARS1 de novo splice-site deletion causing a five-residue in-frame insertion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The single reported de novo, monoallelic, dominant-negative SARS1 allele. A splice-site deletion yields a five-amino-acid in-frame insertion near the active site; complementation in yeast and serylation assays in yeast and in the patient\u0027s fibroblasts established a loss-of-function, dominant-negative effect. Clinically it produced complex spastic paraplegia with ataxia, intellectual disability, developmental delay and seizures, explicitly WITHOUT microcephaly - the one published SARS1 phenotype that the MONDO label would actively mislead a clinician about.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SARS1\"], \"gene_terms\": [{\"label\": \"SARS1\", \"id\": \"hgnc:10537\"}], \"variant_type\": \"splice site variant\"}}], \"edges\": [{\"source\": \"Damaging SARS1 Alleles in the Catalytic Core\", \"target\": \"Reduced SerRS Protein Stability and Steady-State Abundance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The abundance arm. Both the p.Asp172Asn and the p.Arg213Leu missense alleles were shown to destabilise the protein, so less enzyme is present before any question of per-molecule catalytic competence arises.\"}, {\"source\": \"Damaging SARS1 Alleles in the Catalytic Core\", \"target\": \"Deficient Serylation of tRNA-Ser\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The catalytic arm. Active-site alleles reduce the specific activity of the enzyme that is present, independently of how much of it there is.\"}, {\"source\": \"Damaging SARS1 Alleles in the Catalytic Core\", \"target\": \"Dominant-Negative Poisoning of the SerRS Homodimer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The allele-specific arm. The de novo in-frame insertion acts dominant negatively, which is a property of the allele rather than a consequence of reduced total protein, and so branches directly from the variant node.\"}, {\"source\": \"Reduced SerRS Protein Stability and Steady-State Abundance\", \"target\": \"Deficient Serylation of tRNA-Ser\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Less enzyme present means less serine charged per unit time, regardless of the intrinsic catalytic competence of each molecule.\"}, {\"source\": \"Deficient Serylation of tRNA-Ser\", \"target\": \"Insufficient Aminoacylation Capacity for Translational Demand\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A smaller pool of charged tRNA-Ser sets a ceiling on the rate at which the cytoplasmic ribosome can elongate serine-containing nascent chains.\"}, {\"source\": \"Deficient Serylation of tRNA-Ser\", \"target\": \"Impaired Selenocysteine Incorporation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A second, parallel and untested consequence: tRNA-Sec must be serylated by the same enzyme before it can be converted to selenocysteinyl-tRNA-Sec.\"}, {\"source\": \"Dominant-Negative Poisoning of the SerRS Homodimer\", \"target\": \"Insufficient Aminoacylation Capacity for Translational Demand\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dimer poisoning lowers total cellular serylation capacity by the same final common route as biallelic hypomorphism.\"}, {\"source\": \"Dominant-Negative Poisoning of the SerRS Homodimer\", \"target\": \"Cellular Senescence with a Senescence-Associated Secretory Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Patient fibroblasts carrying this allele arrest and senesce, which is the only cell-autonomous consequence of a SARS1 variant demonstrated in human patient cells to date.\"}, {\"source\": \"Insufficient Aminoacylation Capacity for Translational Demand\", \"target\": \"Impaired Neural Progenitor Proliferation and Brain Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A translational ceiling constrains the proliferative expansion of neural progenitors during fetal and early postnatal brain growth.\"}, {\"source\": \"Insufficient Aminoacylation Capacity for Translational Demand\", \"target\": \"Cerebellar and Cerebral Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic translational insufficiency in post-mitotic neurons underlies progressive tissue loss rather than a purely developmental deficit.\"}, {\"source\": \"Insufficient Aminoacylation Capacity for Translational Demand\", \"target\": \"Demand-Dependent Decompensation During Febrile Catabolic Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An acute rise in translational and catabolic demand exceeds the residual charging capacity.\"}, {\"source\": \"Insufficient Aminoacylation Capacity for Translational Demand\", \"target\": \"Cardiomyocyte Translational Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac muscle has a high protein turnover and is one of the organs in which the capacity ceiling becomes symptomatic.\"}, {\"source\": \"Impaired Neural Progenitor Proliferation and Brain Growth\", \"target\": \"Cerebellar and Cerebral Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced brain growth and ongoing neuronal attrition are seen together on imaging in the same individuals.\"}, {\"source\": \"Cerebellar and Cerebral Atrophy\", \"target\": \"Demand-Dependent Decompensation During Febrile Catabolic Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Not a causal edge from atrophy to crisis, but the clinical observation that a brain already compromised structurally is where the acute decompensations declare themselves neurologically, with hypotonia and seizures.\"}, {\"source\": \"Demand-Dependent Decompensation During Febrile Catabolic Stress\", \"target\": \"Cardiomyocyte Translational Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The decompensation manifests most dangerously in the heart, with acute ventricular failure.\"}, {\"source\": \"L-serine supplementation\", \"target\": \"Deficient Serylation of tRNA-Ser\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"L-serine supplementation\", \"target\": \"Demand-Dependent Decompensation During Febrile Catabolic Stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"L-serine supplementation\", \"target\": \"Cardiomyopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Emergency protocol for febrile illness\", \"target\": \"Demand-Dependent Decompensation During Febrile Catabolic Stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SARS1\", \"target\": \"Damaging SARS1 Alleles in the Catalytic Core\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SARS1\", \"target\": \"Deficient Serylation of tRNA-Ser\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SARS1\", \"target\": \"Dominant-Negative Poisoning of the SerRS Homodimer\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SARS1\", \"target\": \"Loss of Non-Canonical Nuclear SerRS Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SARS1\", \"target\": \"Reduced SerRS Protein Stability and Steady-State Abundance\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SARS1 c.514G\u003eA p.Asp172Asn\", \"target\": \"SARS1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SARS1 c.638G\u003eT p.Arg213Leu\", \"target\": \"SARS1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SARS1 c.1196C\u003eT p.Thr399Met\", \"target\": \"SARS1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SARS1 de novo splice-site deletion causing a five-residue in-frame insertion\", \"target\": \"SARS1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cardiomyocyte Translational Insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiomyopathy is part of the SARS1 phenotype in the presentation reported from Nancy and is the feature that determines survival. In the documented decompensation episode the left ventricular ejection fraction fell to 20%, requiring mechanical ventilation and vasopressor support, with myocardial oedema that resolved on follow-up echocardiography; a subsequent febrile crisis produced severe biventricular dysfunction and fatal cardiogenic shock. Cardiac muscle is a plausible target for a charging-capacity defect because it combines high protein turnover with an inability to reduce workload during fever - the opposite of skeletal muscle, which can rest. The reversibility of the myocardial oedema between crises argues that the cardiac lesion is at least in part an acute, demand-driven failure superimposed on a chronic cardiomyopathy rather than fixed structural damage alone.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"cytoplasmic translation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiomyopathy is the feature that determines survival in SARS1 deficiency and the one the MONDO label gives no hint of. It is chronic at baseline and catastrophically decompensating during febrile illness, with left ventricular ejection fraction falling to 20% in the documented episode and biventricular failure with fatal cardiogenic shock in a later one. Any child given a molecular diagnosis of SARS1 deficiency needs cardiac surveillance regardless of which presentation they were ascertained through, because the cardiac risk has not been shown to be allele-restricted - only to be, so far, allele-associated.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001638\"}}, {\"id\": \"Cellular Senescence with a Senescence-Associated Secretory Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The only cell-autonomous phenotype demonstrated in human SARS1 patient cells. Fibroblasts from the patient with the de novo dominant-negative allele showed abnormal cell shape, arrested division, increased beta-galactosidase staining, and a senescence-associated secretory phenotype with raised interleukin-6, p21, p16 and p53. The authors read this as revealing a role for SARS1 in the regulation of cell growth, division and senescence. There are two ways this could arise and they are not mutually exclusive: a translational ceiling is itself a proliferation constraint and chronically stalled growth engages p53/p21-dependent arrest; alternatively, the senescence could reflect loss of a non-canonical SerRS activity, since SerRS binds telomeric DNA and cooperates with the shelterin protein POT1 to regulate telomere length and senescence. Distinguishing these would require testing whether senescence is rescued by restoring serylation alone.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"patient-derived dermal fibroblast\"], \"biological_processes\": [\"cellular senescence\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Cerebellar and Cerebral Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Structural neuroimaging in the Turkish NEDMAS families showed bilateral cerebral AND cerebellar diffuse atrophy. The cerebellar component is the anatomical substrate of the ataxia that names the disorder, and its presence alongside cerebral atrophy indicates that the lesion is not confined to a developmental failure of head growth but includes ongoing tissue loss. That combination - a small brain that also atrophies - is characteristic of the recessive ARS deficiencies generally, and it is the reason the disorder is curated as neurodevelopmental with a neurodegenerative component rather than as static.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cerebellar Purkinje cell\", \"neuron\"], \"biological_processes\": [\"brain development\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Damaging SARS1 Alleles in the Catalytic Core\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is damage to SARS1 at 1p13.3, reported against transcript NM_006513.4. What is striking about the allelic series is its positional consistency: the founding homozygous missense c.514G\u003eA (p.Asp172Asn) was described as affecting the enzymatic core domain; the variant reported by Bogershausen and colleagues was mapped structurally to a position directly within the enzyme\u0027s active site; the de novo splice-site deletion reported by Verdura and colleagues produces a five-residue in-frame insertion near the active site. Every allele reported in the clinical literature with a published structural position therefore converges on the aminoacylation machinery rather than on the tRNA-binding domain, the dimer interface or the vertebrate-specific UNE-S appendage. This is the single most important structural observation in the entry, because it is what licenses reading the disorder as a charging defect rather than as a defect of one of SerRS\u0027s non-canonical activities.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"SARS1\"], \"gene_terms\": [{\"label\": \"SARS1\", \"id\": \"hgnc:10537\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Deficient Serylation of tRNA-Ser\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent molecular defect. SerRS is a homodimeric class II synthetase that catalyses aminoacylation in two steps - serine is first activated by ATP to form enzyme-bound serine-adenylate, then the seryl moiety is transferred to the 3\u0027 end of the cognate tRNA to give Ser-tRNA-Ser for delivery to the ribosome. Its recognition strategy is unusual and relevant here: unlike most synthetases SerRS does not read the anticodon but recognises the long variable arm unique to tRNA-Ser, and each subunit\u0027s N-terminal tRNA-binding domain directs the tRNA 3\u0027-CCA end into the active site of the OTHER subunit, so the functional unit is the dimer rather than the monomer. Motifs 2 and 3 of the class II fold carry the active-site residues; motif 1 forms the dimer interface. Patient-derived material shows the predicted outcome: serylation assays in patient fibroblasts were used to demonstrate loss of function, and the founding report inferred reduced cytoplasmic tRNA-Ser charging directly from the impaired enzymatic activity of the mutant.\", \"meta\": {\"evidence_count\": 7, \"cell_types\": [\"patient-derived dermal fibroblast\"], \"biological_processes\": [\"seryl-tRNA aminoacylation\", \"tRNA aminoacylation for protein translation\"], \"molecular_functions\": [\"serine-tRNA ligase activity\"], \"genes\": [\"SARS1\"], \"gene_terms\": [{\"label\": \"SARS1\", \"id\": \"hgnc:10537\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Demand-Dependent Decompensation During Febrile Catabolic Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The most clinically consequential node in the entry and the clearest test of the demand-capacity model. In the SARS1 family reported from Nancy, febrile illness precipitated acute metabolic decompensation that was fatal; three siblings of the surviving proband died during similar febrile episodes. Fever raises basal metabolic rate, drives protein catabolism, and increases the demand for de novo protein synthesis for the acute-phase response and for tissue repair - precisely the demand that a hypomorphic synthetase cannot meet. The decompensation is multi-system, presenting with vomiting, hypotonia and seizures, and its lethal component is cardiac. The clinical corollary inverts standard metabolic-crisis management: rather than restricting protein, these patients need more of the limiting amino acid, and escalation of L-serine was associated with survival of an episode that had killed the patient\u0027s untreated siblings.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"cytoplasmic translation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Dominant-Negative Poisoning of the SerRS Homodimer\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An allele-specific route to the same endpoint. The de novo splice-site deletion reported in the spastic paraplegia patient yields a five-residue in-frame insertion near the active site, and complementation and serylation assays established that this allele is not simply inactive but dominant negative - that is, its presence reduces the activity attainable by the wild-type allele in the same cell. This node exists separately from the loss-of-abundance node because the two predict different things. Under simple haploinsufficiency a carrier of one null allele would be unaffected, which is what is observed for the recessive families; under dimer poisoning a single allele suffices, which is what is observed here.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"patient-derived dermal fibroblast\"], \"molecular_functions\": [\"serine-tRNA ligase activity\"], \"genes\": [\"SARS1\"], \"gene_terms\": [{\"label\": \"SARS1\", \"id\": \"hgnc:10537\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Emergency protocol for febrile illness\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because febrile illness is the trigger for lethal decompensation, anticipatory management of intercurrent fever is the central chronic-care task in this disorder: early presentation, aggressive escalation of L-serine, and cardiac and haemodynamic monitoring during the episode. The 2026 report explicitly frames early, aggressive escalation as a viable strategy while noting that no guidelines exist. It also records the limit of the approach: the patient died in a subsequent crisis despite having an emergency protocol in place, so a protocol reduces but does not remove the risk.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Impaired Neural Progenitor Proliferation and Brain Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The causal step from a translation defect to the cardinal phenotype. Brain growth in the second and third trimesters and the first postnatal years is among the most protein-synthesis-intensive processes in human development; a ceiling on charged-tRNA supply constrains progenitor proliferation and the accretion of neuronal and glial mass, producing microcephaly. This is the single feature that unites the SARS1 families with the recessive WARS1 families reported alongside them, and it is the reason the two were described together as an emerging disease group of ARS-related developmental disorders with or without microcephaly. The microcephaly is not an isolated head-size measurement: it is accompanied by intellectual disability, developmental delay and structural brain anomalies in the same individuals.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"brain development\", \"cytoplasmic translation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Impaired Selenocysteine Incorporation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A predicted second consequence of the same enzyme deficit, included because it is a specific, testable prediction that the aminoacylation literature makes and the clinical literature has never examined. Selenoprotein synthesis in all domains of life begins with SerRS serylating the selenocysteine-specific tRNA-Sec; the serylated intermediate is then converted to selenocysteinyl-tRNA-Sec for co-translational insertion of the 21st amino acid. A hypomorphic SerRS therefore throttles the supply of the obligatory precursor for every selenoprotein. Which selenoproteins would be rate-limited first, and whether any of them are the antioxidant enzymes usually invoked, is not addressed by any source cached for this entry. If this arm operates, it would predict oxidative vulnerability that worsens under febrile stress and would give SARS1 deficiency a pathophysiological component that other ARS deficiencies do not have.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"selenocysteine incorporation\", \"conversion of seryl-tRNA(Sec) to selenocysteinyl-tRNA(Sec)\"], \"molecular_functions\": [\"serine-tRNA ligase activity\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Insufficient Aminoacylation Capacity for Translational Demand\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organising hypothesis of the whole recessive ARS deficiency family, and the reason this disorder\u0027s phenotype is not arbitrary. Aminoacylation is the committed first step of protein synthesis: the synthetase ligates the amino acid to its cognate tRNA, and the resulting aminoacyl-tRNA is handed to ribosome elongation factors. A hypomorphic synthetase leaves a cell able to translate at rest but unable to scale, so the deficit manifests wherever and whenever translational demand is highest - in the tissues with the highest amino-acid incorporation rates and during the periods of highest demand, which are early growth and intercurrent illness. Fuchs and colleagues reached this formulation from the whole recessive ARS cohort, in which SARS was one of the thirteen synthetase deficiencies analysed, and drew from it the clinically consequential corollary that patients need adequate protein and amino acid supply rather than the traditional protein restriction of metabolic disease.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"cytoplasmic translation\", \"tRNA aminoacylation for protein translation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"L-serine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only disease-specific intervention reported, and its rationale follows directly from the mechanism. If the lesion is insufficient charging capacity for the demand, then raising the intracellular concentration of the substrate amino acid should drive the residual hypomorphic enzyme harder - a mass-action rescue rather than a correction of the defect. Chronic supplementation is described as established practice in SARS1 deficiency. What was new in 2026 is acute management: during a febrile decompensation with an ejection fraction of 20%, the patient\u0027s L-serine dose was progressively tripled alongside standard supportive care and he survived, where three untreated siblings had died of comparable episodes. That is the first documented survival of a SARS1 metabolic crisis. It is also, honestly, an n-of-1 with a fatal outcome a year later despite an emergency protocol - so the intervention is reported here as promising and mechanistically coherent, not as established efficacy.\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"L-serine\"]}}, {\"id\": \"Loss of Non-Canonical Nuclear SerRS Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vertebrate SerRS is not only a synthetase. It acquired a C-terminal UNE-S domain in the lineage that developed closed circulatory systems; UNE-S carries a nuclear localisation signal that directs SerRS into the nucleus, where it attenuates VEGFA expression, acting through a complex with the transcription factor YY1 that binds distal cis-regulatory elements of the vegfa promoter and competes with activating factors. Genetically, this is not a minor embellishment: zebrafish sars mutants isolated in a vascular screen show dilated aortic arch vessels and aberrant hindbrain capillary patterning in a Vegf-dependent manner, and human SerRS alleles that disrupt nuclear localisation cause abnormal vasculature and premature death in fish. The question for this entry is whether any of this contributes to the human disease. The honest answer is that it is not known, and this node exists to say so precisely rather than to leave the moonlighting literature quietly attached to the mechanism.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"negative regulation of vascular endothelial growth factor production\", \"telomere maintenance\"], \"genes\": [\"SARS1\"], \"gene_terms\": [{\"label\": \"SARS1\", \"id\": \"hgnc:10537\"}], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Reduced SerRS Protein Stability and Steady-State Abundance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two independently reported missense alleles reduce the amount of SerRS in the cell rather than only its per-molecule activity. The founding p.Asp172Asn allele was predicted to be unstable and this was substantiated for ectopically expressed mutant protein in transfected HEK293T cells; the p.Arg213Leu allele was shown to cause protein instability with a consequent fall in both protein level and enzymatic activity. Instability is the commonest single mechanism across the recessive ARS deficiencies and it has a specific consequence for this disease: the deficit is in total cellular charging CAPACITY, which is exactly the quantity that a rise in translational demand can outstrip.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"patient-derived dermal fibroblast\"], \"molecular_functions\": [\"serine-tRNA ligase activity\"], \"genes\": [\"SARS1\"], \"gene_terms\": [{\"label\": \"SARS1\", \"id\": \"hgnc:10537\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"SARS1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SARS1\"], \"gene_terms\": [{\"label\": \"SARS1\", \"id\": \"hgnc:10537\"}], \"association\": \"Biallelic missense and splice variants in the catalytic core cause autosomal recessive disease; one de novo, dominant-negative in-frame insertion allele has been reported\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"SARS1 c.1196C\u003eT p.Thr399Met\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Reported as a novel missense variant in unrelated Turkish families with the NEDMAS phenotype, in individuals whose main manifestations were severe developmental delay and intellectual disability, thin body habitus and severe hypotonia, with bilateral cerebral and cerebellar diffuse atrophy on imaging. No functional assay has been published for this allele and no structural mapping is available, so its mechanism is assumed rather than shown.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SARS1\"], \"gene_terms\": [{\"label\": \"SARS1\", \"id\": \"hgnc:10537\"}], \"variant_type\": \"missense variant\", \"clinical_significance\": \"UNCERTAIN_SIGNIFICANCE\"}}, {\"id\": \"SARS1 c.514G\u003eA p.Asp172Asn\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The founding allele, homozygous in an Iranian family with autosomal recessive intellectual disability; the abstract reports the family as Iranian and does not state whether it is consanguineous. It lies in the enzymatic core domain, impairs enzymatic activity, and destabilises the protein - a combined activity-and-abundance hit rather than a pure catalytic lesion. The authors inferred from the activity loss that cytoplasmic tRNA-Ser charging is reduced.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SARS1\"], \"gene_terms\": [{\"label\": \"SARS1\", \"id\": \"hgnc:10537\"}], \"variant_type\": \"missense variant\"}}, {\"id\": \"SARS1 c.638G\u003eT p.Arg213Leu\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The allele of the deafness-cardiomyopathy-febrile-decompensation presentation, biallelic in a consanguineous Turkish family. Functionally it behaves as a destabilising allele: reduced protein level with consequently reduced enzymatic activity. This is the only SARS1 allele so far associated with fatal metabolic crises, and the only one for which a treatment response has been documented.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SARS1\"], \"gene_terms\": [{\"label\": \"SARS1\", \"id\": \"hgnc:10537\"}], \"variant_type\": \"missense variant\"}}, {\"id\": \"SARS1 de novo splice-site deletion causing a five-residue in-frame insertion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The single reported de novo, monoallelic, dominant-negative SARS1 allele. A splice-site deletion yields a five-amino-acid in-frame insertion near the active site; complementation in yeast and serylation assays in yeast and in the patient\u0027s fibroblasts established a loss-of-function, dominant-negative effect. Clinically it produced complex spastic paraplegia with ataxia, intellectual disability, developmental delay and seizures, explicitly WITHOUT microcephaly - the one published SARS1 phenotype that the MONDO label would actively mislead a clinician about.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SARS1\"], \"gene_terms\": [{\"label\": \"SARS1\", \"id\": \"hgnc:10537\"}], \"variant_type\": \"splice site variant\"}}], \"edges\": [{\"source\": \"Damaging SARS1 Alleles in the Catalytic Core\", \"target\": \"Reduced SerRS Protein Stability and Steady-State Abundance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The abundance arm. Both the p.Asp172Asn and the p.Arg213Leu missense alleles were shown to destabilise the protein, so less enzyme is present before any question of per-molecule catalytic competence arises.\"}, {\"source\": \"Damaging SARS1 Alleles in the Catalytic Core\", \"target\": \"Deficient Serylation of tRNA-Ser\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The catalytic arm. Active-site alleles reduce the specific activity of the enzyme that is present, independently of how much of it there is.\"}, {\"source\": \"Damaging SARS1 Alleles in the Catalytic Core\", \"target\": \"Dominant-Negative Poisoning of the SerRS Homodimer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The allele-specific arm. The de novo in-frame insertion acts dominant negatively, which is a property of the allele rather than a consequence of reduced total protein, and so branches directly from the variant node.\"}, {\"source\": \"Reduced SerRS Protein Stability and Steady-State Abundance\", \"target\": \"Deficient Serylation of tRNA-Ser\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Less enzyme present means less serine charged per unit time, regardless of the intrinsic catalytic competence of each molecule.\"}, {\"source\": \"Deficient Serylation of tRNA-Ser\", \"target\": \"Insufficient Aminoacylation Capacity for Translational Demand\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A smaller pool of charged tRNA-Ser sets a ceiling on the rate at which the cytoplasmic ribosome can elongate serine-containing nascent chains.\"}, {\"source\": \"Deficient Serylation of tRNA-Ser\", \"target\": \"Impaired Selenocysteine Incorporation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A second, parallel and untested consequence: tRNA-Sec must be serylated by the same enzyme before it can be converted to selenocysteinyl-tRNA-Sec.\"}, {\"source\": \"Dominant-Negative Poisoning of the SerRS Homodimer\", \"target\": \"Insufficient Aminoacylation Capacity for Translational Demand\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dimer poisoning lowers total cellular serylation capacity by the same final common route as biallelic hypomorphism.\"}, {\"source\": \"Dominant-Negative Poisoning of the SerRS Homodimer\", \"target\": \"Cellular Senescence with a Senescence-Associated Secretory Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Patient fibroblasts carrying this allele arrest and senesce, which is the only cell-autonomous consequence of a SARS1 variant demonstrated in human patient cells to date.\"}, {\"source\": \"Insufficient Aminoacylation Capacity for Translational Demand\", \"target\": \"Impaired Neural Progenitor Proliferation and Brain Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A translational ceiling constrains the proliferative expansion of neural progenitors during fetal and early postnatal brain growth.\"}, {\"source\": \"Insufficient Aminoacylation Capacity for Translational Demand\", \"target\": \"Cerebellar and Cerebral Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic translational insufficiency in post-mitotic neurons underlies progressive tissue loss rather than a purely developmental deficit.\"}, {\"source\": \"Insufficient Aminoacylation Capacity for Translational Demand\", \"target\": \"Demand-Dependent Decompensation During Febrile Catabolic Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An acute rise in translational and catabolic demand exceeds the residual charging capacity.\"}, {\"source\": \"Insufficient Aminoacylation Capacity for Translational Demand\", \"target\": \"Cardiomyocyte Translational Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac muscle has a high protein turnover and is one of the organs in which the capacity ceiling becomes symptomatic.\"}, {\"source\": \"Impaired Neural Progenitor Proliferation and Brain Growth\", \"target\": \"Cerebellar and Cerebral Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced brain growth and ongoing neuronal attrition are seen together on imaging in the same individuals.\"}, {\"source\": \"Cerebellar and Cerebral Atrophy\", \"target\": \"Demand-Dependent Decompensation During Febrile Catabolic Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Not a causal edge from atrophy to crisis, but the clinical observation that a brain already compromised structurally is where the acute decompensations declare themselves neurologically, with hypotonia and seizures.\"}, {\"source\": \"Demand-Dependent Decompensation During Febrile Catabolic Stress\", \"target\": \"Cardiomyocyte Translational Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The decompensation manifests most dangerously in the heart, with acute ventricular failure.\"}, {\"source\": \"L-serine supplementation\", \"target\": \"Deficient Serylation of tRNA-Ser\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"L-serine supplementation\", \"target\": \"Demand-Dependent Decompensation During Febrile Catabolic Stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"L-serine supplementation\", \"target\": \"Cardiomyopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Emergency protocol for febrile illness\", \"target\": \"Demand-Dependent Decompensation During Febrile Catabolic Stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SARS1\", \"target\": \"Damaging SARS1 Alleles in the Catalytic Core\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SARS1\", \"target\": \"Deficient Serylation of tRNA-Ser\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SARS1\", \"target\": \"Dominant-Negative Poisoning of the SerRS Homodimer\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SARS1\", \"target\": \"Loss of Non-Canonical Nuclear SerRS Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SARS1\", \"target\": \"Reduced SerRS Protein Stability and Steady-State Abundance\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SARS1 c.514G\u003eA p.Asp172Asn\", \"target\": \"SARS1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SARS1 c.638G\u003eT p.Arg213Leu\", \"target\": \"SARS1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SARS1 c.1196C\u003eT p.Thr399Met\", \"target\": \"SARS1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SARS1 de novo splice-site deletion causing a five-residue in-frame insertion\", \"target\": \"SARS1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7554,9 +7811,9 @@ This pathophysiological event involves nucleus (GO:0005634). GO:0005634 is a cel
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(8)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7594,6 +7851,9 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
                     </div>
 
 
+
+
+
                     <div class="item-desc">The generic HP:0001638 (Cardiomyopathy) is bound rather than HP:0001644 (Dilated cardiomyopathy) or a hypertrophic term, because no cached source states the morphological subtype; the reported findings are a depressed ejection fraction, myocardial oedema, and biventricular dysfunction, which constrain function but not morphology. Reported in one family (with the 2026 case report describing what is on internal evidence a member of that same family), so the frequency across the disorder is unknown and no band is asserted.</div>
 
 
@@ -7613,6 +7873,8 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7636,6 +7898,8 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7695,6 +7959,9 @@ This clinical feature is Central deafness, annotated with Hearing impairment (HP
                     </div>
 
 
+
+
+
                     <div class="item-desc">Term-binding decision, recorded because it is a deliberate loss of specificity. The source says &#34;central deafness&#34;. HPO has no &#34;central hearing impairment&#34; term - searched 2026-08-01 with `runoak -i sqlite:obo:hp search &#34;l~central hearing&#34;` (no results) and `t~auditory neuropathy` (no results) - and binding HP:0000407 (Sensorineural hearing impairment) would assert a cochlear or eighth-nerve localisation that the source explicitly contradicts. The generic parent HP:0000365 is therefore bound with the clinical localisation preserved in `preferred_term`. Reported in one family only.</div>
 
 
@@ -7714,6 +7981,8 @@ This clinical feature is Central deafness, annotated with Hearing impairment (HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7737,6 +8006,8 @@ This clinical feature is Central deafness, annotated with Hearing impairment (HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7796,6 +8067,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">HPO annotation for OMIM:617709 records HP:0000252 at 4/4, sourced to PMID:28236339 (retrieved 2026-08-01 from https://ontology.jax.org/api/network/annotation/OMIM:617709). That denominator is the single founding family. No FrequencyEnum band is asserted; see the entry-level notes.</div>
 
 
@@ -7815,6 +8089,8 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7840,6 +8116,8 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7853,14 +8131,16 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36041817" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36041817" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36041817" target="_blank">PMID:36041817</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7920,6 +8200,9 @@ This clinical feature is Pes planus (HP:0001763). HP:0001763 is a phenotype from
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated entirely from the HPO annotation set for OMIM:617709, which records HP:0001763 at 2/4 sourced to PMID:28236339 (retrieved 2026-08-01) - a minority finding in a single family. No evidence item is attached because the cached abstract does not mention it. The attribution to hypotonia is reasoning, not a reported analysis.</div>
 
 
@@ -7965,6 +8248,9 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
                     </div>
 
 
+
+
+
                     <div class="item-desc">HPO annotation for OMIM:617709 records HP:0001324 at 4/4, sourced to PMID:28236339 (retrieved 2026-08-01). Whether the weakness is myopathic, neurogenic or central has not been determined in any published SARS1 patient - no muscle biopsy, EMG or creatine kinase result appears in the cached abstracts.</div>
 
 
@@ -7984,6 +8270,8 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8007,6 +8295,8 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8057,6 +8347,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Not in the HPO annotation set for OMIM:617709. Curated from the two quoted sources. HP:0001252 (Hypotonia) is bound rather than a severity-qualified or central/peripheral child term, because the sources give severity but not localisation.</div>
 
 
@@ -8076,6 +8369,8 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8099,6 +8394,8 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8149,6 +8446,9 @@ This clinical feature is Spastic paraplegia (HP:0001258). HP:0001258 is a phenot
                     </div>
 
 
+
+
+
                     <div class="item-desc">Reported in exactly one patient, with a genotype and inheritance mode different from every other reported individual. It is curated as a phenotype of this MONDO entity because MONDO gives SARS1 no second term, not because it is a typical feature. Not in the HPO annotation set for OMIM:617709.</div>
 
 
@@ -8168,6 +8468,8 @@ This clinical feature is Spastic paraplegia (HP:0001258). HP:0001258 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8199,8 +8501,132 @@ This clinical feature is Spastic paraplegia (HP:0001258). HP:0001258 is a phenot
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">7</span>
+                    <span class="cat-count">8</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-moderate-intellectual-disability" data-dismech-node="Moderate intellectual disability" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Moderate intellectual disability
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002342" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002342</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Moderate intellectual disability (HP:0002342). HP:0002342 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">HPO annotation for OMIM:617709 records HP:0002342 (Moderate intellectual disability) at 4/4, sourced to PMID:28236339 (retrieved 2026-08-01). The term bound here is the graded child HP:0002342 rather than the parent HP:0001249 (Intellectual disability), because the sources state the grade explicitly. The countervailing observation that a different series reported SEVERE developmental delay and intellectual disability is recorded in the description and quoted below, so the grade is not presented as settled. Binding the parent instead was considered and rejected: HP:0002342 is a descendant of HP:0001249, so any query over the parent already retrieves this entry by subsumption, whereas demoting the binding would delete from the machine-readable layer the one grade that HPOA and two independent papers actually state. The moderate-versus-severe spread is therefore carried by the description and by the PARTIAL evidence item rather than by weakening the term.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36004946" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36004946" target="_blank">PMID:36004946</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Neurodevelopmental disorder with microcephaly, ataxia, and seizures (NEDMAS) syndrome is a rare neurodevelopmental disorder characterized by moderate intellectual disability (ID), thin body habitus, microcephaly, seizures, ataxia, muscle weakness, and speech impairment"</div>
+
+
+                <div class="evidence-explanation">States moderate intellectual disability as a defining feature of the syndrome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34570399" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34570399" target="_blank">PMID:34570399</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"SARS1 deficiency has already been associated with moderate intellectual disability, ataxia, muscle weakness, and seizure in one family."</div>
+
+
+                <div class="evidence-explanation">Independent restatement of the moderate grade in the first-described family.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36004946" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36004946" target="_blank">PMID:36004946</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The main manifestations of the probands are severe developmental delay and ID, thin body habitus, and severe hypotonia."</div>
+
+
+                <div class="evidence-explanation">Marked PARTIAL because it supports the presence of intellectual disability but contradicts the &#34;moderate&#34; grade bound in the term, describing the same syndrome&#39;s probands as severely affected. Recorded rather than suppressed.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -8216,15 +8642,18 @@ This clinical feature is Spastic paraplegia (HP:0001258). HP:0001258 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">HPO annotation for OMIM:617709 records HP:0001263 at 4/4, sourced to PMID:28236339 (retrieved 2026-08-01).</div>
@@ -8248,6 +8677,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8269,6 +8700,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8308,15 +8741,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001251</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">HPO annotation for OMIM:617709 records HP:0001251 at 4/4, sourced to PMID:28236339 (retrieved 2026-08-01). The generic HP:0001251 is bound rather than a specific cerebellar-ataxia child term, because the published descriptions do not distinguish cerebellar from sensory ataxia and the imaging (diffuse cerebellar atrophy) is suggestive but not diagnostic of the mechanism.</div>
@@ -8340,6 +8776,8 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8361,6 +8799,8 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8402,15 +8842,18 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0002069</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0002069</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The specific term HP:0002069 (Bilateral tonic-clonic seizure) is bound rather than the parent HP:0001250 (Seizure) because the HPO annotation set for OMIM:617709 records HP:0002069 at 4/4 with onset annotated as HP:0003593 (Infantile onset), sourced to PMID:28236339 (retrieved 2026-08-01). The cached abstracts say only &#34;seizure&#34; or &#34;seizures&#34;, so the semiology comes from the annotation set and not from a quotable sentence; the snippets below therefore support the presence of seizures rather than their bilateral tonic-clonic character.</div>
@@ -8434,6 +8877,8 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8455,6 +8900,8 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8494,15 +8941,18 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0002059</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0002059</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Not present in the HPO annotation set for OMIM:617709, which derives entirely from PMID:28236339 and predates the imaging series. Curated here from the quoted imaging finding in PMID:36004946.</div>
@@ -8524,6 +8974,8 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8563,15 +9015,18 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001272</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001272</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the imaging finding in PMID:36004946. Whether the cerebellar atrophy is congenital hypoplasia mislabelled as atrophy, or genuine progressive loss, cannot be determined from cross-sectional imaging in a small series and no serial imaging has been published.</div>
@@ -8593,6 +9048,8 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8632,15 +9089,18 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0000750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0000750</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Not in the HPO annotation set for OMIM:617709. Curated from the syndrome description quoted below, which says &#34;speech impairment&#34;. HP:0000750 is bound as the closest developmental term; a dysarthria or apraxia term is NOT bound, because no published source characterises the speech disorder.</div>
@@ -8662,6 +9122,8 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8701,15 +9163,18 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0000718</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0000718</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated entirely from the HPO annotation set for OMIM:617709, which records HP:0000718 at 4/4 sourced to PMID:28236339 (retrieved 2026-08-01). The cached abstract does not mention behaviour, so this phenotype deliberately carries no evidence item rather than a snippet that does not support it. It has not been reported in any family other than the founding one.</div>
@@ -8728,124 +9193,9 @@ This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a pheno
             <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
+                    Growth
+                    <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-moderate-intellectual-disability" data-dismech-node="Moderate intellectual disability" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Moderate intellectual disability
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002342" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0002342</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Moderate intellectual disability (HP:0002342). HP:0002342 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">HPO annotation for OMIM:617709 records HP:0002342 (Moderate intellectual disability) at 4/4, sourced to PMID:28236339 (retrieved 2026-08-01). The term bound here is the graded child HP:0002342 rather than the parent HP:0001249 (Intellectual disability), because the sources state the grade explicitly. The countervailing observation that a different series reported SEVERE developmental delay and intellectual disability is recorded in the description and quoted below, so the grade is not presented as settled. Binding the parent instead was considered and rejected: HP:0002342 is a descendant of HP:0001249, so any query over the parent already retrieves this entry by subsumption, whereas demoting the binding would delete from the machine-readable layer the one grade that HPOA and two independent papers actually state. The moderate-versus-severe spread is therefore carried by the description and by the PARTIAL evidence item rather than by weakening the term.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (3 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36004946" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36004946" target="_blank">PMID:36004946</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Neurodevelopmental disorder with microcephaly, ataxia, and seizures (NEDMAS) syndrome is a rare neurodevelopmental disorder characterized by moderate intellectual disability (ID), thin body habitus, microcephaly, seizures, ataxia, muscle weakness, and speech impairment"</div>
-
-
-                <div class="evidence-explanation">States moderate intellectual disability as a defining feature of the syndrome.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34570399" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34570399" target="_blank">PMID:34570399</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"SARS1 deficiency has already been associated with moderate intellectual disability, ataxia, muscle weakness, and seizure in one family."</div>
-
-
-                <div class="evidence-explanation">Independent restatement of the moderate grade in the first-described family.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36004946" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36004946" target="_blank">PMID:36004946</a>
-                    </span>
-
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The main manifestations of the probands are severe developmental delay and ID, thin body habitus, and severe hypotonia."</div>
-
-
-                <div class="evidence-explanation">Marked PARTIAL because it supports the presence of intellectual disability but contradicts the &#34;moderate&#34; grade bound in the term, describing the same syndrome&#39;s probands as severely affected. Recorded rather than suppressed.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-slender-build" data-dismech-node="Slender build" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -8872,6 +9222,9 @@ This clinical feature is Slender build (HP:0001533). HP:0001533 is a phenotype f
                     </div>
 
 
+
+
+
                     <div class="item-desc">HPO annotation for OMIM:617709 records HP:0001533 (Slender build) at 2/4, sourced to PMID:28236339 (retrieved 2026-08-01) - a minority finding in the founding family even though the later descriptive summary lists thin body habitus as characteristic. HP:0001533 is bound because it is the term HPOA itself uses for this feature in this disease; the literature phrase is &#34;thin body habitus&#34;.</div>
 
 
@@ -8891,6 +9244,8 @@ This clinical feature is Slender build (HP:0001533). HP:0001533 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8990,6 +9345,9 @@ This disease-associated gene is SARS1 (hgnc:10537). hgnc:10537 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9004,6 +9362,8 @@ This disease-associated gene is SARS1 (hgnc:10537). hgnc:10537 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9029,6 +9389,8 @@ This disease-associated gene is SARS1 (hgnc:10537). hgnc:10537 is a gene from th
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9050,6 +9412,8 @@ This disease-associated gene is SARS1 (hgnc:10537). hgnc:10537 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9093,6 +9457,7 @@ This disease-associated gene is SARS1 (hgnc:10537). hgnc:10537 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9112,11 +9477,17 @@ This variant is in SARS1 (hgnc:10537). hgnc:10537 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The founding allele, homozygous in an Iranian family with autosomal recessive intellectual disability; the abstract reports the family as Iranian and does not state whether it is consanguineous. It lies in the enzymatic core domain, impairs enzymatic activity, and destabilises the protein - a combined activity-and-abundance hit rather than a pure catalytic lesion. The authors inferred from the activity loss that cytoplasmic tRNA-Ser charging is reduced.</div>
@@ -9207,6 +9578,8 @@ This variant is in SARS1 (hgnc:10537). hgnc:10537 is a gene from the HUGO Gene N
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9228,6 +9601,8 @@ This variant is in SARS1 (hgnc:10537). hgnc:10537 is a gene from the HUGO Gene N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9260,6 +9635,7 @@ This variant is in SARS1 (hgnc:10537). hgnc:10537 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9279,11 +9655,17 @@ This variant is in SARS1 (hgnc:10537). hgnc:10537 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The allele of the deafness-cardiomyopathy-febrile-decompensation presentation, biallelic in a consanguineous Turkish family. Functionally it behaves as a destabilising allele: reduced protein level with consequently reduced enzymatic activity. This is the only SARS1 allele so far associated with fatal metabolic crises, and the only one for which a treatment response has been documented.</div>
@@ -9355,6 +9737,8 @@ This variant is in SARS1 (hgnc:10537). hgnc:10537 is a gene from the HUGO Gene N
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9376,6 +9760,8 @@ This variant is in SARS1 (hgnc:10537). hgnc:10537 is a gene from the HUGO Gene N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9410,6 +9796,7 @@ This variant is in SARS1 (hgnc:10537). hgnc:10537 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9429,11 +9816,17 @@ This variant is in SARS1 (hgnc:10537). hgnc:10537 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Reported as a novel missense variant in unrelated Turkish families with the NEDMAS phenotype, in individuals whose main manifestations were severe developmental delay and intellectual disability, thin body habitus and severe hypotonia, with bilateral cerebral and cerebellar diffuse atrophy on imaging. No functional assay has been published for this allele and no structural mapping is available, so its mechanism is assumed rather than shown.</div>
@@ -9462,6 +9855,8 @@ This variant is in SARS1 (hgnc:10537). hgnc:10537 is a gene from the HUGO Gene N
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9483,6 +9878,8 @@ This variant is in SARS1 (hgnc:10537). hgnc:10537 is a gene from the HUGO Gene N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9515,6 +9912,7 @@ This variant is in SARS1 (hgnc:10537). hgnc:10537 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9534,11 +9932,17 @@ This variant is in SARS1 (hgnc:10537). hgnc:10537 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">splice site variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The single reported de novo, monoallelic, dominant-negative SARS1 allele. A splice-site deletion yields a five-amino-acid in-frame insertion near the active site; complementation in yeast and serylation assays in yeast and in the patient&#39;s fibroblasts established a loss-of-function, dominant-negative effect. Clinically it produced complex spastic paraplegia with ataxia, intellectual disability, developmental delay and seizures, explicitly WITHOUT microcephaly - the one published SARS1 phenotype that the MONDO label would actively mislead a clinician about.</div>
@@ -9610,6 +10014,8 @@ This variant is in SARS1 (hgnc:10537). hgnc:10537 is a gene from the HUGO Gene N
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9631,6 +10037,8 @@ This variant is in SARS1 (hgnc:10537). hgnc:10537 is a gene from the HUGO Gene N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9735,6 +10143,31 @@ This treatment uses L-serine (CHEBI:17115). CHEBI:17115 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The only disease-specific intervention reported, and its rationale follows directly from the mechanism. If the lesion is insufficient charging capacity for the demand, then raising the intracellular concentration of the substrate amino acid should drive the residual hypomorphic enzyme harder - a mass-action rescue rather than a correction of the defect. Chronic supplementation is described as established practice in SARS1 deficiency. What was new in 2026 is acute management: during a febrile decompensation with an ejection fraction of 20%, the patient&#39;s L-serine dose was progressively tripled alongside standard supportive care and he survived, where three untreated siblings had died of comparable episodes. That is the first documented survival of a SARS1 metabolic crisis. It is also, honestly, an n-of-1 with a fatal outcome a year later despite an emergency protocol - so the intervention is reported here as promising and mechanistically coherent, not as established efficacy.</div>
 
 
@@ -9811,6 +10244,8 @@ This treatment targets Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9834,6 +10269,8 @@ This treatment targets Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9855,6 +10292,8 @@ This treatment targets Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9922,6 +10361,31 @@ This treatment is acute decompensation emergency protocol, annotated with Suppor
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Because febrile illness is the trigger for lethal decompensation, anticipatory management of intercurrent fever is the central chronic-care task in this disorder: early presentation, aggressive escalation of L-serine, and cardiac and haemodynamic monitoring during the episode. The 2026 report explicitly frames early, aggressive escalation as a viable strategy while noting that no guidelines exist. It also records the limit of the approach: the patient died in a subsequent crisis despite having an emergency protocol in place, so a protocol reduces but does not remove the risk.</div>
 
 
@@ -9963,6 +10427,8 @@ This treatment is acute decompensation emergency protocol, annotated with Suppor
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9976,14 +10442,16 @@ This treatment is acute decompensation emergency protocol, annotated with Suppor
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42158840" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42158840" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42158840" target="_blank">PMID:42158840</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10013,6 +10481,402 @@ This treatment is acute decompensation emergency protocol, annotated with Suppor
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-exome-or-genome-sequencing-with-sars1-variant-interpretation">
+                <div class="item-name">
+                    Exome or genome sequencing with SARS1 variant interpretation
+
+                </div>
+
+                <div class="item-desc">Molecular diagnosis rests on identifying SARS1 variants against transcript NM_006513.4 by exome or genome sequencing. Three interpretation points follow from the published allelic series. First, do not filter for biallelic hits only: one reported patient carried a de novo monoallelic dominant-negative allele, and a laboratory applying a strict recessive filter would have discarded it. Second, expect the ClinVar evidence to be weaker than the OMIM entry implies - the allele published as causal in the Turkish series is currently a variant of uncertain significance in ClinVar - so a SARS1 candidate will often need functional support rather than database endorsement. Third, since the two named genes SARS1 and SARS2 differ only by a digit and share the legacy symbol SARS, confirm from the transcript accession, not the symbol, which enzyme has been reported.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28236339" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28236339" target="_blank">PMID:28236339</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we identified a homozygous missense mutation (c.514G&gt;A, p.Asp172Asn) in the cytoplasmic seryl-tRNA synthetase (SARS) gene"</div>
+
+
+                <div class="evidence-explanation">Establishes that the diagnosis is made by sequencing and that the gene of interest is the cytoplasmic, not the mitochondrial, seryl-tRNA synthetase.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36041817" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36041817" target="_blank">PMID:36041817</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A de novo splice site deletion in SARS1 was identified in our patient, resulting in a 5-amino acid in-frame insertion near its active site."</div>
+
+
+                <div class="evidence-explanation">Supports the specific warning that a monoallelic de novo SARS1 event can be causal and must not be filtered out.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-serylation-aminoacylation-assay-in-patient-fibroblasts">
+                <div class="item-name">
+                    Serylation (aminoacylation) assay in patient fibroblasts
+
+                </div>
+
+                <div class="item-desc">The functional confirmatory test for a candidate SARS1 variant. Serylation activity measured in patient-derived fibroblasts, alongside yeast complementation, is what established pathogenicity for the dominant-negative allele and is the assay that distinguishes a true hypomorph from an incidental rare missense change. In the published SARS1 cases it was performed in a research setting; this entry makes no claim about where it is available as a clinical service, because no cached source addresses that. Its value is highest precisely where the genomic evidence is weakest, which for this gene is most of the time.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36041817" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36041817" target="_blank">PMID:36041817</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Complementation assays in S. cerevisiae and serylation assays in both yeast strains and patient fibroblasts proved a loss-of-function, dominant negative effect."</div>
+
+
+                <div class="evidence-explanation">Documents the assay pair that was used to establish variant pathogenicity in patient material.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34570399" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34570399" target="_blank">PMID:34570399</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This missense variant was shown to lead to protein instability, resulting in reduced protein level and enzymatic activity."</div>
+
+
+                <div class="evidence-explanation">Shows that both protein level and enzyme activity are informative readouts for a candidate SARS1 allele.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-brain-mri">
+                <div class="item-name">
+                    Brain MRI
+
+                </div>
+
+                <div class="item-desc">Brain MRI documents the structural correlates - bilateral diffuse cerebral and cerebellar atrophy - and supports the diagnosis in a child with microcephaly and ataxia. It does not distinguish SARS1 disease from the other recessive ARS deficiencies or from the many other causes of microcephaly with cerebellar atrophy, so its role is corroborative rather than discriminating.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36004946" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36004946" target="_blank">PMID:36004946</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Brain imaging revealed bilateral cerebral and cerebellar diffuse atrophy."</div>
+
+
+                <div class="evidence-explanation">Names the specific imaging findings to be expected.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-cardiac-assessment-with-echocardiography">
+                <div class="item-name">
+                    Cardiac assessment with echocardiography
+
+                </div>
+
+                <div class="item-desc">Echocardiography with ejection fraction, together with cardiac biomarkers, is the surveillance test that matters most for prognosis in this disorder, and it is also the monitoring test during a febrile crisis. In the documented episode the ejection fraction fell to 20%, cardiac biomarkers normalised over about twenty days, and follow-up echocardiography at one month showed complete resolution of myocardial oedema - so serial imaging, not a single baseline study, is what captures the disease.</div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">The specific follow-up timings (biomarker normalisation within 20 days, echocardiographic resolution at 1 month) are stated in the cached abstract of PMID:42158840 and are quoted below only in part; the recommendation to perform surveillance echocardiography in all SARS1 patients is a curatorial inference from the reported course and is not itself a published guideline. No surveillance protocol has been published for this disorder.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42158840" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42158840" target="_blank">PMID:42158840</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The clinical course rapidly progressed to metabolic decompensation and severe acute cardiac failure, characterised by a left ventricular ejection fraction of 20%, necessitating mechanical ventilation and vasopressor support"</div>
+
+
+                <div class="evidence-explanation">Establishes the measurement (ejection fraction) that defines the acute cardiac emergency in this disorder.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Not yet documented</span>
+
+                </div>
+
+                <div class="item-notes">No prevalence or incidence estimate of any kind has been published for this disorder, and MONDO:0060577 carries no Orphanet xref, so there is no source to band and `rate_per_100000` is deliberately empty. `NOT_YET_DOCUMENTED` is used rather than a qualitative ultra-rare band for that reason. A total published case count is also deliberately not asserted: see the entry-level notes for why the individual reports cannot be summed from cached abstracts without double-counting. What can be said, and is quoted below, is that as of mid-2022 only two families had been reported, and that the reported families are Iranian and Turkish kindreds, the Turkish ones described as consanguineous - which reflects ascertainment through consanguinity-enriched autosomal-recessive intellectual-disability cohorts and must NOT be read as population restriction.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36004946" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36004946" target="_blank">PMID:36004946</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"So far, only two families with NEDMAS have been reported."</div>
+
+
+                <div class="evidence-explanation">Establishes the scale of the published experience as of 2022, which is the basis for treating the disorder as ultra-rare and for declining to band a prevalence.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35790048" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35790048" target="_blank">PMID:35790048</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Seryl-tRNA synthetase 1 (SARS1) has rarely been implicated in an autosomal recessive developmental disorder."</div>
+
+
+                <div class="evidence-explanation">Independent characterisation of the disorder as rarely reported, supporting NOT_YET_DOCUMENTED rather than any numeric estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -10134,6 +10998,8 @@ This treatment is acute decompensation emergency protocol, annotated with Suppor
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10155,6 +11021,8 @@ This treatment is acute decompensation emergency protocol, annotated with Suppor
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10235,6 +11103,8 @@ This treatment is acute decompensation emergency protocol, annotated with Suppor
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10313,6 +11183,8 @@ This treatment is acute decompensation emergency protocol, annotated with Suppor
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10386,6 +11258,8 @@ This treatment is acute decompensation emergency protocol, annotated with Suppor
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10407,6 +11281,8 @@ This treatment is acute decompensation emergency protocol, annotated with Suppor
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10565,6 +11441,8 @@ This experimental model concerns SARS1 (hgnc:10537). hgnc:10537 is a gene from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10588,6 +11466,8 @@ This experimental model concerns SARS1 (hgnc:10537). hgnc:10537 is a gene from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10601,14 +11481,16 @@ This experimental model concerns SARS1 (hgnc:10537). hgnc:10537 is a gene from t
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:19423847" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:19423847" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19423847" target="_blank">PMID:19423847</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -11640,7 +12522,7 @@ pathophysiology:
     explanation: The authors&#39; own framing of SARS1 as a regulator of growth, division and senescence, which is the interpretive claim this node records.
   - reference: PMID:38255739
     reference_title: &#34;Protein-Protein Interactions of Seryl-tRNA Synthetases with Emphasis on Human Counterparts and Their Connection to Health and Disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Additionally, SerRS binds telomeric DNA and cooperates with the shelterin protein POT1 to regulate telomere length and cellular senescence.&#34;
     explanation: &gt;-
@@ -11776,7 +12658,7 @@ pathophysiology:
     explanation: Shows the nuclear function is essential at the organism level in a vertebrate, which is why it cannot simply be dismissed as an in vitro curiosity.
   - reference: PMID:27913726
     reference_title: &#34;Competitive binding between Seryl-tRNA synthetase/YY1 complex and NFKB1 at the distal segment results in differential regulation of human vegfa promoter activity during angiogenesis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;we found that the catalytic domain of Seryl-tRNA synthetase (SerRS) interacted with transcription factor Yin Yang 1 (YY1) to form a SerRS/YY1 complex that negatively controls vegfa promoter activity&#34;
     explanation: &gt;-
@@ -12057,7 +12939,7 @@ phenotypes:
     explanation: Independent confirmation of microcephaly in a further SARS1 report, and the basis for treating it as a class feature of cytoplasmic ARS deficiency.
   - reference: PMID:36041817
     reference_title: &#34;Loss of seryl-tRNA synthetase (SARS1) causes complex spastic paraplegia and cellular senescence.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We used exome sequencing to identify the causal variant in a patient affected by complex spastic paraplegia with ataxia, intellectual disability, developmental delay and seizures, but without microcephaly.&#34;
     explanation: &gt;-
@@ -12111,7 +12993,7 @@ phenotypes:
     explanation: Independent restatement of the moderate grade in the first-described family.
   - reference: PMID:36004946
     reference_title: &#34;Neurodevelopmental disorder with microcephaly, ataxia, and seizures syndrome: expansion of the clinical spectrum.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The main manifestations of the probands are severe developmental delay and ID, thin body habitus, and severe hypotonia.&#34;
     explanation: &gt;-
@@ -12862,7 +13744,7 @@ treatments:
     explanation: The efficacy observation, stated as a within-family comparison, which is the strongest available evidence and is still n-of-1.
   - reference: PMID:42158840
     reference_title: &#34;High-Dose L-Serine Supplementation During Febrile Decompensation in SARS1 Deficiency: A Case Report and Review of the Literature.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;However, a year later, the patient presented with another febrile crisis at 10 years old, and despite an emergency protocol, the patient developed severe biventricular dysfunction progressing to fatal cardiogenic shock.&#34;
     explanation: &gt;-
@@ -12913,7 +13795,7 @@ treatments:
     explanation: The authors&#39; explicit recommendation, which is the basis for treating anticipatory febrile management as a therapeutic action.
   - reference: PMID:42158840
     reference_title: &#34;High-Dose L-Serine Supplementation During Febrile Decompensation in SARS1 Deficiency: A Case Report and Review of the Literature.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This constitutes the first documented survival of a SARS1-related metabolic crisis managed with high-dose L-serine.&#34;
     explanation: &gt;-
@@ -12967,7 +13849,7 @@ animal_models:
     explanation: Shows the mutant phenotype is Vegf-dependent, which is why the model speaks to the non-canonical rather than the translational function.
   - reference: PMID:19423847
     reference_title: &#34;Genetic evidence for a noncanonical function of seryl-tRNA synthetase in vascular development.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;These analyses of zebrafish and human endothelial cells reveal a new noncanonical function of Sars in endothelial development&#34;
     explanation: &gt;-
@@ -13450,6 +14332,104 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Post-review triage of PR 7852 reviewer suggestions</strong> · 2026-08-02T05:32:08Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/SARS1-Related_Neurodevelopmental_Disorder/2026-08-02T053208Z-claude-code-3e2b63.yaml">View source</a></p>
+                        <p class="research-review-text">Second adversarial-review pass on PR #7852. The reviewer&#39;s single IMPORTANT
+finding (no deep-research artifact in research/) is being handled separately
+at batch level and was not addressed here. The three SUGGESTION items were
+triaged individually; two were adopted, one was rejected with evidence.
+
+ADOPTED - suggestion 1, residual family-count phrasing. The `genetic`
+evidence explanation for c.1196C&gt;T read &#34;Adds a second recurrent allele to
+the series, in independent Turkish families&#34;. &#34;Recurrent&#34; and &#34;independent&#34;
+are not established by the quoted snippet (&#34;both patients carried a novel
+missense variant&#34;), and the abstract calls the variant novel. Reworded to
+&#34;Adds a further missense allele to the series, reported in unrelated Turkish
+families&#34;, which matches both the `variants:` block for the same allele and
+the abstract&#39;s own phrase &#34;three unrelated Turkish families&#34;.
+
+ADOPTED - suggestion 3, animal-model cross-link. The Danio rerio
+`animal_models` description now points explicitly at the
+`sars1-no-disease-model` HUMAN_MODEL_MISMATCH discussion and names the two
+experiments it proposes, so a reader landing on either finds the other.
+
+REJECTED - suggestion 2, rebinding HP:0002342 (Moderate intellectual
+disability) to the parent HP:0001249 (Intellectual disability). HP:0002342
+is an is_a descendant of HP:0001249 (checked: runoak -i sqlite:obo:hp
+ancestors -p i HP:0002342 returns HP:0001249), so any query over the parent
+already retrieves this entry by subsumption, whereas demoting the binding
+would delete from the machine-readable layer the one grade that sources
+actually state. HPOA for OMIM:617709 annotates HP:0002342 at 4/4 sourced to
+PMID:28236339 (re-verified live against
+https://ontology.jax.org/api/network/annotation/OMIM:617709 on 2026-08-02),
+and PMID:36004946 and PMID:34570399 both state &#34;moderate intellectual
+disability&#34; in their abstracts. The moderate-versus-severe spread stays
+where the schema provides for it: the PARTIAL evidence item quoting &#34;severe
+developmental delay and ID&#34;. What WAS fixed is the genuine internal
+contradiction the reviewer&#39;s point exposed - the description previously said
+the &#34;moderate&#34; qualifier &#34;should not be applied to the entity as a whole&#34;
+while the entity-level term did exactly that. The description and notes now
+state the binding rationale and record that the parent was considered and
+why it was not used.
+
+ADDITIONAL FIXES found by re-applying the issue #7791 unchecked-prose audit
+(snippet checkers read only evidence[].snippet, never description: or
+notes:), which turned up two residues of the same countable/unsourced
+phrasing class that commit 6bd9b60e was cleaning up:
+
+- The disease `description` said the published literature is &#34;a handful of
+  families - the Turkish kindreds explicitly consanguineous&#34;. Plural
+  over-claim: consanguinity is stated only in PMID:34570399 (&#34;a
+  consanguineous Turkish family&#34;); PMID:36004946 calls its Turkish families
+  unrelated and says nothing about consanguinity. Scoped to the singular
+  family, with the negative stated.
+- The `genetic` &#34;not asserted, deliberately&#34; block said &#34;consanguinity is
+  stated in the source only for the Turkish kindreds&#34;. Rewritten to name
+  PMID:34570399 as the only source that states it and to record explicitly
+  that PMID:36004946 and PMID:28236339 do not.
+- The `description` asserts that a ClinVar likely-pathogenic in-frame
+  insertion (p.Ala497_Arg498insAla) sits inside the C-terminal UNE-S
+  appendage. That domain assignment was not traceable from the entry. The
+  ClinVar audit note now records that UNE-S is given as residues 470-514 in
+  the cached FULL TEXT of PMID:22353712 (content_type: full_text_pdf, so the
+  range is quotable from the repo) and that the assignment is arithmetic on
+  that range rather than a claim from any SARS1 clinical paper.
+
+Abstract-only-versus-full-text audit re-run: the entry&#39;s own manifest of
+which references are abstract-only (PMID:28236339, 36004946, 34570399,
+35790048, 36041817, 42158840, 38255739) versus full text (PMID:24095058,
+29875423, 22353712, 19423847, 27913726) was checked against the
+content_type: frontmatter of each cached file and is correct. No prose claim
+was found that depends on full text of an abstract-only cache entry.
+
+Other verification claims spot-checked rather than trusted: the notes assert
+that runoak -i sqlite:obo:hp search &#34;l~central hearing&#34; and &#34;t~auditory
+neuropathy&#34; return no results, justifying the deliberate loss of specificity
+from &#34;central deafness&#34; to HP:0000365. Both searches were re-run and both
+return nothing, so the note is honest. Every HPOA fraction quoted in a
+phenotype note (Microcephaly 4/4, Global developmental delay 4/4, Ataxia
+4/4, Bilateral tonic-clonic seizure 4/4 with Infantile onset, Muscle
+weakness 4/4, Aggressive behavior 4/4, Slender build 2/4, Pes planus 2/4)
+was re-checked against the live HPOA API and all match.
+
+Validation after the edits: schema &#34;No issues found&#34;; term validation
+passed; reference validation &#34;Snippets checked: 103/103 verified against
+cached references&#34;; check_snippets_verbatim 103 verified / 0 failed;
+check_folded_hyphens clean; check_snippet_length --against-ref origin/main
+reports no new snippets under 5 words; pytest tests/test_data.py 16891
+passed. The ~7,600 references_cache/ rewrites that `just validate` produces
+(issue #7507) were reverted with git checkout -- references_cache/; no cache
+file was added or genuinely changed by this pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -13887,7 +14867,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "SARS1-Related Neurodevelopmental Disorder", "mondoId": "MONDO:0060577", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "SARS1-Related_Neurodevelopmental_Disorder", "yamlRevision": "4dc53905ba45"};
+        const OS_CONFIG = {"diseaseName": "SARS1-Related Neurodevelopmental Disorder", "mondoId": "MONDO:0060577", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "SARS1-Related_Neurodevelopmental_Disorder", "yamlRevision": "27ca5918ae07"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

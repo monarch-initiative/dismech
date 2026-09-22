@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -289,6 +290,16 @@
             border: 1px solid var(--teal-light);
         }
 
+        /* Study-area category pills. Colour comes from ModuleCategoryEnum via
+           the renderer, so only the shape is set here. */
+        .badge-study-area {
+            border: 1px solid;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 5px 13px;
+            cursor: help;
+        }
+
         .badge-module {
             background: #e0f2fe;
             color: #0369a1;
@@ -457,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -634,9 +657,7 @@
             font-weight: 600;
         }
         .support-SUPPORT { background: #d1fae5; color: #065f46; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
-        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
@@ -974,6 +995,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -982,7 +1017,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -1022,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1037,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1091,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1104,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1262,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1272,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1313,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1519,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1552,9 +1626,10 @@
         <header class="page-header">
             <h1>Atherogenesis Module</h1>
             <div class="header-meta">
+                
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">atherogenesis</span>
-                <span class="badge badge-count">8 disorders</span>
+                <span class="badge badge-count">9 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
                 
@@ -1839,11 +1914,13 @@ This mechanism module involves increased extracellular matrix organization (GO:0
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">8</span>
+                <span class="card-count">9</span>
             </div>
             
             <div class="crosslink-list">
@@ -1877,6 +1954,21 @@ This mechanism module involves increased extracellular matrix organization (GO:0
                         , 
                         
                         Plaque Rupture, Thrombosis, and Ischemic Events
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Autosomal_Recessive_Hypercholesterolemia.html">Autosomal Recessive Hypercholesterolemia</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Premature Atherosclerotic Cardiovascular Disease → Plaque Rupture, Thrombosis, and Ischemic Events
                         
                         
                     </span>
@@ -2127,11 +2219,13 @@ This mechanism module involves increased extracellular matrix organization (GO:0
             
             <div class="item-box anchor-target" id="module-pathophysiology-endothelial-dysfunction-and-subendothelial-ldl-retention" data-dismech-node="Endothelial Dysfunction and Subendothelial LDL Retention" data-dismech-type="pathophysiology">
                 <div class="item-name">Endothelial Dysfunction and Subendothelial LDL Retention</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The proximal trigger of atherogenesis. Endothelial dysfunction - from disturbed flow, hypercholesterolemia, hypertension, smoking, or hyperglycemia - increases arterial-wall permeability and alters the subendothelial matrix, permitting infiltration and retention of apoB-containing lipoproteins (LDL) in the intima. Retained LDL is oxidatively and enzymatically modified, becoming a pro-inflammatory stimulus. This subendothelial lipoprotein retention is the critical initiating event of the plaque; the disease-specific driver differs but the retained-LDL trigger is shared.</div>
                 
@@ -2282,11 +2376,13 @@ This pathophysiological event involves dysregulated cholesterol homeostasis (GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-monocyte-recruitment-and-macrophage-foam-cell-formation" data-dismech-node="Monocyte Recruitment and Macrophage Foam Cell Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Monocyte Recruitment and Macrophage Foam Cell Formation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Retained, modified LDL and activated endothelium recruit circulating monocytes into the intima, where they differentiate into macrophages and internalize the lipoproteins through scavenger receptors, becoming lipid-laden foam cells - the hallmark of the fatty streak. Foam-cell macrophage inflammation amplifies oxidative stress and cytokine secretion, driving further LDL oxidation, endothelial activation, and monocyte recruitment in a feed-forward loop. This is the amplifying step of atherogenesis.</div>
                 
@@ -2456,11 +2552,13 @@ This pathophysiological event involves increased inflammatory response (GO:00069
             
             <div class="item-box anchor-target" id="module-pathophysiology-smooth-muscle-cell-switching-and-fibrofatty-plaque-formation" data-dismech-node="Smooth Muscle Cell Switching and Fibrofatty Plaque Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Smooth Muscle Cell Switching and Fibrofatty Plaque Formation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The rate-limiting central effector of atheroma formation. In the inflamed, lipid-rich intima, vascular smooth muscle cells undergo phenotypic switching from a contractile to a synthetic/migratory state, migrate into the intima, proliferate, and secrete extracellular matrix. Together with foam cells and a growing lipid/necrotic core, this builds the organized fibrofatty plaque capped by a smooth-muscle- and matrix-rich fibrous cap. This SMC-driven plaque assembly is the disorder-agnostic step that converts a fatty streak into an atheroma and is the key conformance target of the module.</div>
                 
@@ -2627,11 +2725,13 @@ This pathophysiological event involves increased extracellular matrix organizati
             
             <div class="item-box anchor-target" id="module-pathophysiology-advanced-atheroma-with-necrotic-core-and-fibrous-cap" data-dismech-node="Advanced Atheroma with Necrotic Core and Fibrous Cap" data-dismech-type="pathophysiology">
                 <div class="item-name">Advanced Atheroma with Necrotic Core and Fibrous Cap</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Continued lipid accumulation, foam-cell death, and matrix remodeling enlarge the plaque into an advanced atheroma with a soft necrotic lipid core walled off by a fibrous cap. Local microenvironmental changes - neovascularization from the vasa vasorum, intraplaque hemorrhage, and necrotic-core expansion - promote the transition from a stable to an unstable (vulnerable) atheroma. This is the mature pathological structure the module produces.</div>
                 
@@ -2764,11 +2864,13 @@ This pathophysiological event involves increased extracellular matrix organizati
             
             <div class="item-box anchor-target" id="module-pathophysiology-plaque-rupture-thrombosis-and-ischemic-events" data-dismech-node="Plaque Rupture, Thrombosis, and Ischemic Events" data-dismech-type="pathophysiology">
                 <div class="item-name">Plaque Rupture, Thrombosis, and Ischemic Events</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The clinical end state of the module. Fibrous-cap rupture (or endothelial erosion) of an unstable atheroma exposes the thrombogenic necrotic core and subendothelial matrix to flowing blood, triggering luminal thrombosis (see the thrombogenesis module). The resulting thrombotic vascular occlusion causes acute ischemic events - acute coronary syndrome, myocardial infarction, and ischemic stroke - the consequence of the conserved atherogenesis chain.</div>
                 
@@ -2786,6 +2888,13 @@ This pathophysiological event involves increased extracellular matrix organizati
                         
                         <div class="crosslink-item">
                             <a href="../disorders/Autosomal_Dominant_Hypercholesterolemia_3.html">Autosomal Dominant Hypercholesterolemia 3</a>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Autosomal_Recessive_Hypercholesterolemia.html">Autosomal Recessive Hypercholesterolemia</a>
+                            
+                            <span class="crosslink-desc">as Premature Atherosclerotic Cardiovascular Disease</span>
                             
                         </div>
                         
@@ -2819,6 +2928,129 @@ This pathophysiological event involves increased extracellular matrix organizati
                 </div>
                 
 
+                
+            </div>
+            
+        </div>
+        
+
+        
+        
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box" data-dismech-node="LDL-Lowering Therapy (Statin)" data-dismech-type="treatment">
+                <div class="item-name">LDL-Lowering Therapy (Statin)</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        Pharmacotherapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-19">NCIT:C15986</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        atorvastatin
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CHEBI_39548" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-20">CHEBI:39548</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses atorvastatin (CHEBI:39548). CHEBI:39548 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+                    
+                </div>
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Small molecule</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">Statins (HMG-CoA reductase inhibitors, e.g., atorvastatin) lower circulating LDL cholesterol, the apoB-containing lipoprotein retained in the artery wall. By reducing the retained-LDL substrate that initiates and fuels the plaque, LDL-lowering therapy slows atheroma formation and progression and reduces atherosclerotic cardiovascular events. Represents the atherogenesis drug-target design pattern for conforming disorders, acting on the LDL-retention trigger rather than on the established plaque.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">INHIBITS</span>
+                        
+                        
+                        <a href="#module-pathophysiology-endothelial-dysfunction-and-subendothelial-ldl-retention"><strong>Endothelial Dysfunction and Subendothelial LDL Retention</strong></a>
+                        
+                        <span> — Lowering circulating LDL reduces the apoB-lipoprotein substrate retained in the subendothelial space, blunting the initiating trigger of plaque formation.</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 2</span>
+                </div>
+                
                 
             </div>
             

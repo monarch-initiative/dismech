@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4119,6 +4226,33 @@
 
         <!-- Comorbidities -->
 
+        <div class="card" id="comorbidities">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">C</div>
+                <h2 class="card-title">Comorbidities</h2>
+            </div>
+            <div class="mapping-section">
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        <a href="../comorbidities/com_Hypermobile_Ehlers-Danlos_Syndrome__Generalized_Anxiety_Disorder.html">Hypermobile Ehlers-Danlos Syndrome &lt;-&gt; Generalized Anxiety Disorder</a>
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-parent">Disease B</span>
+
+
+                        <span class="tag tag-classification">UNKNOWN</span>
+
+
+                        <span class="tag tag-mechanistic">CANDIDATE</span>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
 
         <!-- Mechanistic Hypotheses -->
 
@@ -4266,6 +4400,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-amygdala-hyperactivity" data-dismech-node="Amygdala Hyperactivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Amygdala Hyperactivity</div>
 
+
                 <div class="item-desc">Exaggerated amygdala response to perceived threats leads to excessive fear and anxiety. Reduced prefrontal cortex regulation of amygdala activity.
 </div>
 
@@ -4361,14 +4496,16 @@ This pathophysiological event involves Fear Response (GO:0042596). GO:0042596 is
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38865810" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38865810" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38865810" target="_blank">PMID:38865810</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4391,6 +4528,7 @@ This pathophysiological event involves Fear Response (GO:0042596). GO:0042596 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gaba-system-dysfunction" data-dismech-node="GABA System Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">GABA System Dysfunction</div>
+
 
                 <div class="item-desc">Reduced GABAergic inhibition contributes to neuronal hyperexcitability and anxiety. Benzodiazepines enhance GABA function.
 </div>
@@ -4533,14 +4671,16 @@ This pathophysiological event involves GABAergic Transmission, annotated with sy
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38865810" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38865810" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38865810" target="_blank">PMID:38865810</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4554,14 +4694,16 @@ This pathophysiological event involves GABAergic Transmission, annotated with sy
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38865810" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38865810" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38865810" target="_blank">PMID:38865810</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4583,6 +4725,8 @@ This pathophysiological event involves GABAergic Transmission, annotated with sy
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
 
 
                 </div>
@@ -4607,6 +4751,7 @@ This pathophysiological event involves GABAergic Transmission, annotated with sy
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-serotonin-dysregulation" data-dismech-node="Serotonin Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Serotonin Dysregulation</div>
+
 
                 <div class="item-desc">Altered serotonin signaling, particularly in raphe-prefrontal circuits, contributes to anxiety. SSRIs are first-line treatment.
 </div>
@@ -4736,14 +4881,16 @@ This pathophysiological event involves Serotonin Signaling, annotated with chemi
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24936175" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:24936175" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24936175" target="_blank">PMID:24936175</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4757,14 +4904,16 @@ This pathophysiological event involves Serotonin Signaling, annotated with chemi
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24936175" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:24936175" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24936175" target="_blank">PMID:24936175</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4786,6 +4935,8 @@ This pathophysiological event involves Serotonin Signaling, annotated with chemi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4810,6 +4961,7 @@ This pathophysiological event involves Serotonin Signaling, annotated with chemi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hpa-axis-dysregulation" data-dismech-node="HPA Axis Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">HPA Axis Dysregulation</div>
+
 
                 <div class="item-desc">Chronic activation of the stress response system with elevated cortisol contributes to sustained anxiety and physical symptoms.
 </div>
@@ -4882,6 +5034,8 @@ This pathophysiological event involves Stress Response, annotated with response 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Generalized anxiety disorder (GAD) is a common disorder in older adults, which has been linked to hyperactivity of the hypothalamic-pituitary-adrenal (HPA) axis in this age group."</div>
@@ -4901,6 +5055,8 @@ This pathophysiological event involves Stress Response, annotated with response 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4923,6 +5079,7 @@ This pathophysiological event involves Stress Response, annotated with response 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-noradrenergic-hyperactivity" data-dismech-node="Noradrenergic Hyperactivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Noradrenergic Hyperactivity</div>
+
 
                 <div class="item-desc">Elevated norepinephrine activity in locus coeruleus contributes to hyperarousal and somatic symptoms of anxiety.
 </div>
@@ -4985,6 +5142,7 @@ This pathophysiological event involves Noradrenergic Neuron (CL:0008025). CL:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress" data-dismech-node="Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative Stress</div>
 
+
                 <div class="item-desc">Increased oxidative stress markers and reduced antioxidant enzyme activity in GAD patients. Elevated malondialdehyde and reduced superoxide dismutase correlate with symptom severity.
 </div>
 
@@ -5022,6 +5180,8 @@ This pathophysiological event involves Noradrenergic Neuron (CL:0008025). CL:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"The 8-OHdG values of the GAD group were determined to be statistically significantly higher than those of the control group (p=0.028)."</div>
@@ -5041,6 +5201,8 @@ This pathophysiological event involves Noradrenergic Neuron (CL:0008025). CL:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5063,6 +5225,7 @@ This pathophysiological event involves Noradrenergic Neuron (CL:0008025). CL:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epigenetic-alterations" data-dismech-node="Epigenetic Alterations" data-dismech-type="pathophysiology">
                 <div class="item-name">Epigenetic Alterations</div>
+
 
                 <div class="item-desc">DNA methylation changes in anxiety-related genes, particularly in monocytes and granulocytes. Methylation sites identified in genes involved in neurogenesis and fear memory.
 </div>
@@ -5155,14 +5318,16 @@ This pathophysiological event involves Granulocyte (CL:0000094). CL:0000094 is a
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37542162" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37542162" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37542162" target="_blank">PMID:37542162</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5176,14 +5341,16 @@ This pathophysiological event involves Granulocyte (CL:0000094). CL:0000094 is a
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37542162" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37542162" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37542162" target="_blank">PMID:37542162</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5250,11 +5417,9 @@ This pathophysiological event involves Granulocyte (CL:0000094). CL:0000094 is a
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(5)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Constitutional<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5303,6 +5468,9 @@ This clinical feature is Muscle Tension, annotated with Muscle stiffness (HP:000
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -5311,7 +5479,7 @@ This clinical feature is Muscle Tension, annotated with Muscle stiffness (HP:000
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-excessive-worry" data-dismech-node="Excessive Worry" data-dismech-type="phenotype">
@@ -5343,6 +5511,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
                     </div>
 
 
+
+
+
                     <div class="item-desc">Persistent, difficult to control</div>
 
 
@@ -5362,6 +5533,8 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
 
 
                 </div>
@@ -5419,6 +5592,50 @@ This clinical feature is Restlessness (HP:0000711). HP:0000711 is a phenotype fr
 
 
 
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-difficulty-concentrating" data-dismech-node="Difficulty Concentrating" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Difficulty Concentrating
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Short attention span</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000736" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000736</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Poor Concentration, annotated with Short attention span (HP:0000736). HP:0000736 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-disturbance" data-dismech-node="Sleep Disturbance" data-dismech-type="phenotype">
@@ -5437,15 +5654,18 @@ This clinical feature is Restlessness (HP:0000711). HP:0000711 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002360</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002360</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Insomnia, annotated with Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Difficulty falling or staying asleep</div>
@@ -5475,15 +5695,18 @@ This clinical feature is Insomnia, annotated with Sleep disturbance (HP:0002360)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000737" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000737</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000737" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000737</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5520,10 +5743,10 @@ This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0012378</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0012378</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5532,50 +5755,6 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
-
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-difficulty-concentrating" data-dismech-node="Difficulty Concentrating" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Difficulty Concentrating
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Short attention span</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000736" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000736</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Poor Concentration, annotated with Short attention span (HP:0000736). HP:0000736 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
 
 
 
@@ -5661,6 +5840,9 @@ This disease-associated gene is SLC6A4 (hgnc:11050). hgnc:11050 is a gene from t
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-comt" data-dismech-node="COMT" data-dismech-type="genetic">
@@ -5692,6 +5874,9 @@ This disease-associated gene is COMT (hgnc:2228). hgnc:2228 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -5735,6 +5920,9 @@ This disease-associated gene is CRHR1 (hgnc:2357). hgnc:2357 is a gene from the 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-npy" data-dismech-node="NPY" data-dismech-type="genetic">
@@ -5766,6 +5954,9 @@ This disease-associated gene is NPY (hgnc:7955). hgnc:7955 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
 
@@ -5854,6 +6045,20 @@ This treatment uses escitalopram (CHEBI:36791). CHEBI:36791 is a therapeutic age
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">First-line pharmacotherapy (escitalopram, sertraline, paroxetine).</div>
 
 
@@ -5923,6 +6128,20 @@ This treatment uses venlafaxine (CHEBI:9943). CHEBI:9943 is a therapeutic agent 
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5998,6 +6217,20 @@ This treatment uses buspirone (CHEBI:3223). CHEBI:3223 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Non-benzodiazepine anxiolytic, no dependence risk.</div>
 
 
@@ -6067,6 +6300,20 @@ This treatment uses benzodiazepine (NCIT:C1012). NCIT:C1012 is a therapeutic age
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6142,6 +6389,20 @@ This treatment uses pregabalin (CHEBI:64356). CHEBI:64356 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Effective in GAD, approved in Europe.</div>
 
 
@@ -6187,6 +6448,20 @@ This treatment is Cognitive Behavior Therapy (NCIT:C64345). NCIT:C64345 is a cli
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6242,6 +6517,20 @@ This treatment is Relaxation Therapy (NCIT:C15316). NCIT:C15316 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Progressive muscle relaxation, breathing exercises.</div>
 
 
@@ -6287,6 +6576,20 @@ This treatment is Mindfulness Relaxation (NCIT:C93327). NCIT:C93327 is a clinica
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6366,6 +6669,8 @@ This environmental factor is psychological stress, annotated with stress (XCO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6439,6 +6744,8 @@ This environmental factor is psychological stress, annotated with stress (XCO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6487,6 +6794,8 @@ This environmental factor is psychological stress, annotated with stress (XCO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6562,6 +6871,8 @@ This environmental factor is caffeine exposure, annotated with exposure to caffe
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6630,6 +6941,33 @@ This environmental factor is caffeine exposure, annotated with exposure to caffe
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6817,6 +7155,8 @@ This environmental factor is caffeine exposure, annotated with exposure to caffe
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6856,6 +7196,8 @@ This environmental factor is caffeine exposure, annotated with exposure to caffe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6935,6 +7277,8 @@ This environmental factor is caffeine exposure, annotated with exposure to caffe
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6985,14 +7329,16 @@ This environmental factor is caffeine exposure, annotated with exposure to caffe
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:19643124" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:19643124" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19643124" target="_blank">PMID:19643124</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7026,14 +7372,16 @@ This environmental factor is caffeine exposure, annotated with exposure to caffe
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:19643124" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:19643124" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19643124" target="_blank">PMID:19643124</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7184,6 +7532,8 @@ This environmental factor is caffeine exposure, annotated with exposure to caffe
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7223,6 +7573,8 @@ This environmental factor is caffeine exposure, annotated with exposure to caffe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7373,6 +7725,8 @@ This environmental factor is caffeine exposure, annotated with exposure to caffe
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7412,6 +7766,8 @@ This environmental factor is caffeine exposure, annotated with exposure to caffe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7491,6 +7847,8 @@ This environmental factor is caffeine exposure, annotated with exposure to caffe
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7530,6 +7888,8 @@ This environmental factor is caffeine exposure, annotated with exposure to caffe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7618,7 +7978,7 @@ pathophysiology:
   evidence:
   - reference: PMID:38865810
     reference_title: &#34;GABAergic implications in anxiety and related disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;Evidence indicates that anxiety disorders arise from an imbalance in
       the functioning of brain circuits that govern the modulation of emotional responses
       to possibly threatening stimuli. The circuits under consideration in this context
@@ -7646,7 +8006,7 @@ pathophysiology:
   evidence:
   - reference: PMID:38865810
     reference_title: &#34;GABAergic implications in anxiety and related disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;A decrease in GABAergic activity is present in both anxiety disorders
       and severe depression. Research on cerebral functional imaging in depressive
       individuals has shown reduced levels of GABA within the cortical regions. Additionally,
@@ -7657,7 +8017,7 @@ pathophysiology:
       that decreased GABA receptor expression leads to anxiety-like behavior.
   - reference: PMID:38865810
     reference_title: &#34;GABAergic implications in anxiety and related disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;The amygdala consists of inhibitory networks composed of GABAergic interneurons,
       responsible for modulating anxiety responses in both normal and pathological
       conditions. The GABAA receptor has allosteric sites (e.g., α/γ, γ/β, and α/β)
@@ -7709,7 +8069,7 @@ pathophysiology:
   evidence:
   - reference: PMID:24936175
     reference_title: &#34;Serotonin-prefrontal cortical circuitry in anxiety and depression phenotypes: pivotal role of pre- and post-synaptic 5-HT1A receptor expression.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;Decreased serotonergic activity has been implicated in anxiety and major
       depression, and antidepressants directly or indirectly increase the long-term
       activity of the serotonin system. A key component of serotonin circuitry is
@@ -7720,7 +8080,7 @@ pathophysiology:
       serotonin system activity.
   - reference: PMID:24936175
     reference_title: &#34;Serotonin-prefrontal cortical circuitry in anxiety and depression phenotypes: pivotal role of pre- and post-synaptic 5-HT1A receptor expression.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;In addition, 5-HT1A heteroreceptors are abundantly expressed post-synaptically
       in the prefrontal cortex (PFC), amygdala, and hippocampus to mediate serotonin
       actions on fear, anxiety, stress, and cognition.&#34;
@@ -7815,7 +8175,7 @@ pathophysiology:
   evidence:
   - reference: PMID:37542162
     reference_title: &#34;Methylome-wide association study of anxiety disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;Applying an enrichment-based sequencing approach covering nearly 28
       million autosomal CpG sites, we conducted a methylome-wide association study
       (MWAS) of lifetime ANX in 1132 participants (618 cases/514 controls) from the
@@ -7828,7 +8188,7 @@ pathophysiology:
       supporting the role of epigenetic mechanisms in GAD pathophysiology.
   - reference: PMID:37542162
     reference_title: &#34;Methylome-wide association study of anxiety disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;In monocytes, two specific sites in the FZR1 gene showed significant
       replication after Bonferroni correction with an additional 15 nominally replicated
       sites in monocytes and 4 in T-cells. FZR1 regulates neurogenesis in the hippocampus,
@@ -8236,7 +8596,7 @@ animal_models:
       evidence:
       - reference: PMID:19643124
         reference_title: &#34;Buspirone, chlordiazepoxide and diazepam effects in a zebrafish model of anxiety.&#34;
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: MODEL_ORGANISM
         snippet: &#34;In contrast, chlordiazepoxide, a benzodiazepine anxiolytic drug,
           which is an effective agonist at GABA-A receptors, did not produce signs
@@ -8247,7 +8607,7 @@ animal_models:
     evidence:
     - reference: PMID:19643124
       reference_title: &#34;Buspirone, chlordiazepoxide and diazepam effects in a zebrafish model of anxiety.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;The zebrafish novel tank diving task can be useful in discriminating
         anxiolytic drugs of several classes (serotonergic, benzodiazepines and nicotinic).&#34;
@@ -8737,6 +9097,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9040,7 +9402,7 @@ Current evidence places GAD within a polygenic, circuit-level disorder of inhibi
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Generalized Anxiety Disorder", "mondoId": "MONDO:0001942", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Generalized_Anxiety_Disorder", "yamlRevision": "0ee95f4847d0"};
+        const OS_CONFIG = {"diseaseName": "Generalized Anxiety Disorder", "mondoId": "MONDO:0001942", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Generalized_Anxiety_Disorder", "yamlRevision": "e44c37c8b483"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

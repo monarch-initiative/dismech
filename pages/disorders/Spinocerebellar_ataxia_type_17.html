@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4230,6 +4337,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4251,6 +4360,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4299,6 +4410,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polyglutamine-expanded-tbp-disrupts-transcriptional-programs" data-dismech-node="Polyglutamine-expanded TBP disrupts transcriptional programs" data-dismech-type="pathophysiology">
                 <div class="item-name">Polyglutamine-expanded TBP disrupts transcriptional programs</div>
+
 
                 <div class="item-desc">Expanded CAG/CAA repeats in exon 3 of TBP lengthen the polyglutamine tract of a general transcription factor. Mutant TBP remains nuclear and perturbs gene expression through abnormal interactions with other transcriptional regulators, linking a ubiquitously expressed protein to selective neuronal dysfunction.</div>
 
@@ -4468,6 +4580,8 @@ This pathophysiological event involves regulation of transcription by RNA polyme
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4489,6 +4603,8 @@ This pathophysiological event involves regulation of transcription by RNA polyme
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4514,6 +4630,8 @@ This pathophysiological event involves regulation of transcription by RNA polyme
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4536,6 +4654,7 @@ This pathophysiological event involves regulation of transcription by RNA polyme
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-inpp5a-loss-drives-purkinje-cell-vulnerability" data-dismech-node="Cerebellar INPP5A loss drives Purkinje cell vulnerability" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar INPP5A loss drives Purkinje cell vulnerability</div>
+
 
                 <div class="item-desc">Cerebellar neurons are particularly vulnerable to mutant TBP. In the cerebellum, mutant TBP suppresses SP1-dependent INPP5A expression, perturbing IP3-linked calcium signaling in a region enriched for INPP5A and promoting Purkinje cell degeneration.</div>
 
@@ -4711,6 +4830,8 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4732,6 +4853,8 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4757,6 +4880,8 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4779,6 +4904,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-astrocyte-mediated-nf-kappab-neuroinflammation-amplifies-neuronal-injury" data-dismech-node="Astrocyte-mediated NF-kappaB neuroinflammation amplifies neuronal injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Astrocyte-mediated NF-kappaB neuroinflammation amplifies neuronal injury</div>
+
 
                 <div class="item-desc">Astrocytic mutant TBP contributes non-cell-autonomously to neuronal loss. Severe degeneration requires mutant TBP in both neurons and glia, and inflammatory signaling in astrocytes, particularly NF-kappaB pathway activation, augments neurotoxicity. In SCA17 transgenic cerebellum, activation of MAPK/ERK in astrocytes and Bergmann glia precedes Purkinje cell loss, indicating that gliosis-driven signaling is an upstream contributor to neuronal apoptosis rather than a late reactive response.</div>
 
@@ -5049,6 +5175,8 @@ This pathophysiological event involves ERK1/ERK2 cascade activation in glia, ann
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5070,6 +5198,8 @@ This pathophysiological event involves ERK1/ERK2 cascade activation in glia, ann
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5094,6 +5224,7 @@ This pathophysiological event involves ERK1/ERK2 cascade activation in glia, ann
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-calpain-mediated-tbp-fragmentation" data-dismech-node="Calpain-mediated TBP fragmentation" data-dismech-type="pathophysiology">
                 <div class="item-name">Calpain-mediated TBP fragmentation</div>
+
 
                 <div class="item-desc">Calcium-dependent calpain proteolysis cleaves expanded TBP, generating C-terminal fragments that mislocalize to the cytoplasm and create aggregation-prone TBP species.</div>
 
@@ -5180,6 +5311,8 @@ This pathophysiological event involves proteolysis (GO:0006508). GO:0006508 is a
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5201,6 +5334,8 @@ This pathophysiological event involves proteolysis (GO:0006508). GO:0006508 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5225,6 +5360,7 @@ This pathophysiological event involves proteolysis (GO:0006508). GO:0006508 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-proteostasis-promotes-mutant-tbp-aggregation" data-dismech-node="Impaired proteostasis promotes mutant TBP aggregation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired proteostasis promotes mutant TBP aggregation</div>
+
 
                 <div class="item-desc">Limited chaperone and autophagy capacity permits accumulation of aggregation-prone mutant TBP species, whereas boosting proteostasis pathways enhances aggregate clearance and improves survival.</div>
 
@@ -5371,6 +5507,8 @@ This pathophysiological event involves protein folding (GO:0006457). GO:0006457 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5392,6 +5530,8 @@ This pathophysiological event involves protein folding (GO:0006457). GO:0006457 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5416,6 +5556,7 @@ This pathophysiological event involves protein folding (GO:0006457). GO:0006457 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tbp-nfy-interference-impairs-chaperone-expression" data-dismech-node="TBP-NFY interference impairs chaperone expression" data-dismech-type="pathophysiology">
                 <div class="item-name">TBP-NFY interference impairs chaperone expression</div>
+
 
                 <div class="item-desc">Mutant TBP binds the CCAAT-binding transcription factor NFY more tightly, sequestering NFYA into mutant TBP aggregates and blocking NFY occupancy of chaperone gene promoters. The result is reduced Hsp70, Hsp25, and HspA5 expression and a blunted heat shock / unfolded protein response. With age, a constitutive decline in Hsc70 chaperone activity compounds this deficit and contributes to late-onset selective neuronal vulnerability.</div>
 
@@ -5596,6 +5737,8 @@ This pathophysiological event involves regulation of transcription by RNA polyme
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5617,6 +5760,8 @@ This pathophysiological event involves regulation of transcription by RNA polyme
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5641,6 +5786,7 @@ This pathophysiological event involves regulation of transcription by RNA polyme
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tbp-xbp1s-interference-reduces-manf-expression" data-dismech-node="TBP-XBP1s interference reduces MANF expression" data-dismech-type="pathophysiology">
                 <div class="item-name">TBP-XBP1s interference reduces MANF expression</div>
+
 
                 <div class="item-desc">Mutant TBP shows decreased association with the unfolded protein response transcription factor XBP1s, reducing transcription of the Purkinje-enriched neurotrophic factor MANF. Loss of this cell-type-specific neuroprotective signal contributes directly to the selective vulnerability of cerebellar Purkinje cells; restoring chaperone (Hsc70) activity or overexpressing MANF rescues Purkinje cell degeneration via PKC-dependent signaling.</div>
 
@@ -5812,6 +5958,8 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5833,6 +5981,8 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5857,6 +6007,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polyglutamine-driven-purkinje-cell-selective-vulnerability" data-dismech-node="Polyglutamine-driven Purkinje cell selective vulnerability" data-dismech-type="pathophysiology">
                 <div class="item-name">Polyglutamine-driven Purkinje cell selective vulnerability</div>
+
 
                 <div class="item-desc">Despite ubiquitous TBP expression, polyglutamine expansion preferentially causes cerebellar neurodegeneration because adult cerebellar neurons are more vulnerable to mutant TBP than striatal or cortical neurons. The selective vulnerability of Purkinje cells emerges from the convergent toxic effects of mutant TBP on tissue-enriched cerebellar proteins and pathways — including INPP5A-dependent calcium homeostasis, Purkinje-enriched MANF neurotrophic support, and glial NF-kB inflammatory amplification — that are disproportionately concentrated in the cerebellum.</div>
 
@@ -6002,6 +6153,8 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6024,6 +6177,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-purkinje-cell-degeneration" data-dismech-node="Cerebellar Purkinje cell degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar Purkinje cell degeneration</div>
+
 
                 <div class="item-desc">Convergent target of the cerebellar arm of SCA17 pathophysiology. Selective loss of cerebellar Purkinje cells, with accompanying basket and stellate cell pathology and granule layer thinning, produces the cerebellar atrophy seen on imaging and the cerebellar motor syndrome of SCA17 (gait ataxia, appendicular ataxia, and cerebellar dysarthria). Multiple upstream mechanisms - INPP5A loss, MANF/chaperone deficit, glial inflammatory signaling, and impaired proteostasis - converge on intrinsic apoptotic death of Purkinje neurons. Restoring any one upstream node (Inpp5a, chaperone activity, MANF, or NF-kappaB blockade) is partially protective.</div>
 
@@ -6210,6 +6364,8 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6231,6 +6387,8 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6256,6 +6414,8 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6278,6 +6438,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-striatal-and-caudate-degeneration" data-dismech-node="Striatal and caudate degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Striatal and caudate degeneration</div>
+
 
                 <div class="item-desc">Parallel to the cerebellar arm, mutant TBP also drives degeneration of the caudate-putamen circuit, which underlies the extrapyramidal and cognitive components of SCA17 (chorea, dystonia, parkinsonism, dementia). Striatal medium spiny neurons show postsynaptic dopaminergic dysfunction with reduced D2 receptor binding and decreased striatal glucose metabolism, and these abnormalities are detectable in presymptomatic mutation carriers, indicating that striatal vulnerability is an early and intrinsic feature rather than a late consequence of cerebellar disease.</div>
 
@@ -6451,6 +6612,8 @@ This pathophysiological event occurs in caudate nucleus (UBERON:0001873). UBERON
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6472,6 +6635,8 @@ This pathophysiological event occurs in caudate nucleus (UBERON:0001873). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6567,6 +6732,9 @@ This clinical feature is gait ataxia (HP:0002066). HP:0002066 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6581,6 +6749,8 @@ This clinical feature is gait ataxia (HP:0002066). HP:0002066 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6604,6 +6774,8 @@ This clinical feature is gait ataxia (HP:0002066). HP:0002066 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6657,6 +6829,9 @@ This clinical feature is cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6671,6 +6846,8 @@ This clinical feature is cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6724,6 +6901,9 @@ This clinical feature is dementia (HP:0000726). HP:0000726 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6738,6 +6918,8 @@ This clinical feature is dementia (HP:0000726). HP:0000726 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6791,6 +6973,9 @@ This clinical feature is chorea (HP:0002072). HP:0002072 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6805,6 +6990,8 @@ This clinical feature is chorea (HP:0002072). HP:0002072 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6858,6 +7045,9 @@ This clinical feature is dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6872,6 +7062,8 @@ This clinical feature is dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6925,6 +7117,9 @@ This clinical feature is parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6939,6 +7134,8 @@ This clinical feature is parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6992,6 +7189,9 @@ This clinical feature is dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7006,6 +7206,8 @@ This clinical feature is dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7059,6 +7261,9 @@ This clinical feature is depression (HP:0000716). HP:0000716 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7073,6 +7278,8 @@ This clinical feature is depression (HP:0000716). HP:0000716 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7126,6 +7333,9 @@ This clinical feature is psychosis (HP:0000709). HP:0000709 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7140,6 +7350,8 @@ This clinical feature is psychosis (HP:0000709). HP:0000709 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7195,6 +7407,9 @@ This clinical feature is seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7209,6 +7424,8 @@ This clinical feature is seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7280,6 +7497,9 @@ This disease-associated gene is TBP (hgnc:11588). hgnc:11588 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (7 references)
@@ -7294,6 +7514,8 @@ This disease-associated gene is TBP (hgnc:11588). hgnc:11588 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7319,6 +7541,8 @@ This disease-associated gene is TBP (hgnc:11588). hgnc:11588 is a gene from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7340,6 +7564,8 @@ This disease-associated gene is TBP (hgnc:11588). hgnc:11588 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7424,6 +7650,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Multidisciplinary symptomatic management with physical therapy, speech therapy, mobility aids, swallow support, and psychiatric/cognitive care remains the standard of care.</div>
 
 
@@ -7484,6 +7724,8 @@ This treatment targets dysarthria (HP:0001260). HP:0001260 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7569,6 +7811,20 @@ This treatment uses filgrastim (NCIT:C1474). NCIT:C1474 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Preclinical disease-modifying candidate that improved neurologic function and reduced Purkinje cell pathology in transgenic SCA17 mice. This remains experimental and has not been established as human therapy.</div>
 
 
@@ -7599,6 +7855,8 @@ This treatment uses filgrastim (NCIT:C1474). NCIT:C1474 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7643,6 +7901,8 @@ This treatment uses filgrastim (NCIT:C1474). NCIT:C1474 is a therapeutic agent f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7664,6 +7924,8 @@ This treatment uses filgrastim (NCIT:C1474). NCIT:C1474 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7693,6 +7955,389 @@ This treatment uses filgrastim (NCIT:C1474). NCIT:C1474 is a therapeutic agent f
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-tbp-repeat-expansion-testing">
+                <div class="item-name">
+                    TBP repeat expansion testing
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Positive)</span>
+
+                </div>
+
+                <div class="item-desc">Molecular confirmation is obtained by sizing or sequencing the glutamine-encoding CAG/CAA repeat tract in TBP, with repeat length interpreted in the context of reduced penetrance for smaller expanded alleles.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23475385" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23475385" target="_blank">PMID:23475385</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"More than 41 CAG/CAA repeats are considered diagnostic of SCA17, with more than 49 being associated with full penetrance."</div>
+
+
+                <div class="evidence-explanation">Supports molecular repeat sizing as the central diagnostic test.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34031796" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34031796" target="_blank">PMID:34031796</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A number of repeats higher than 49 are full penetrance-expanded. The range between 41 and 49 repeats is characterized by decreased penetrance, and it is usually referred to as &#34;small.&#34;"</div>
+
+
+                <div class="evidence-explanation">Clarifies the interpretation of small expanded alleles during diagnostic workup.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-brain-mri-and-pet-markers-of-early-neurodegeneration">
+                <div class="item-name">
+                    Brain MRI and PET markers of early neurodegeneration
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Positive in manifest and presymptomatic mutation carriers)</span>
+
+                </div>
+
+                <div class="item-desc">Structural MRI and functional PET can show cerebellar and caudate atrophy together with striatal metabolic or dopaminergic abnormalities even before overt symptoms.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22653791" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22653791" target="_blank">PMID:22653791</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CONCLUSION: MRI volumetry, as well as (11)C-raclopride and (18)F-FDG PET, reveal neuronal dysfunction and neurodegeneration even in the presymptomatic stage and may serve as markers for disease activity in upcoming interventional trials on SCA17."</div>
+
+
+                <div class="evidence-explanation">Supports imaging biomarkers for early detection and disease monitoring.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-prodromal-and-onset">
+                <div class="item-name">Prodromal and onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood to late adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Age at onset is highly variable and decreases as repeat length increases. Presymptomatic mutation carriers can already show cerebellar and caudate atrophy with functional imaging abnormalities.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30532692" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30532692" target="_blank">PMID:30532692</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The disease presents with various clinical symptoms at a broad range of ages at onset (3–75 years) (Stevanin and Brice, 2008)."</div>
+
+
+                <div class="evidence-explanation">Supports the exceptionally broad onset window for SCA17.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22653791" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22653791" target="_blank">PMID:22653791</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MRI volumetry revealed atrophy of the cerebellum and caudate nucleus in manifesting patients (P = 0.04 and 0.05, respectively) and in presymptomatic mutation carriers (P = 0.04 and 0.01, respectively)."</div>
+
+
+                <div class="evidence-explanation">Demonstrates structural neurodegeneration before overt clinical disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-manifest-disease">
+                <div class="item-name">Manifest disease</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Usually adult-onset, but can begin earlier</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Progressive motor and cognitive decline leads to increasing disability. Extrapyramidal and psychiatric manifestations may accompany or follow the ataxic syndrome.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39614971" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39614971" target="_blank">PMID:39614971</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Spinocerebellar ataxia type 17 (SCA17) is a hereditary neurodegenerative disorder characterized by progressive motor and cognitive decline, leading to severe disability and death."</div>
+
+
+                <div class="evidence-explanation">Summarizes the progressive disabling natural history of manifest SCA17.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-north-east-england">
+                <div class="item-name">North East England</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        0.16 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 1,000,000</span>
+
+                </div>
+
+                <div class="item-notes">Minimum observed prevalence in a regional ascertainment study. SCA17 is considered globally very rare, and fully penetrant pathogenic alleles were also rare in a large United Kingdom diagnostic cohort.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16223509" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16223509" target="_blank">PMID:16223509</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The minimum prevalence of SCA17 in the north east of England was 0.16/100,000 (upper 95% confidence interval 0.31/100,000)."</div>
+
+
+                <div class="evidence-explanation">Provides the clearest population-based prevalence estimate identified for SCA17.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7779,6 +8424,8 @@ This treatment uses filgrastim (NCIT:C1474). NCIT:C1474 is a therapeutic agent f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7800,6 +8447,8 @@ This treatment uses filgrastim (NCIT:C1474). NCIT:C1474 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7884,6 +8533,8 @@ This treatment uses filgrastim (NCIT:C1474). NCIT:C1474 is a therapeutic agent f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7905,6 +8556,8 @@ This treatment uses filgrastim (NCIT:C1474). NCIT:C1474 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7989,6 +8642,8 @@ This treatment uses filgrastim (NCIT:C1474). NCIT:C1474 is a therapeutic agent f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8010,6 +8665,8 @@ This treatment uses filgrastim (NCIT:C1474). NCIT:C1474 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9145,8 +9802,8 @@ diagnosis:
 - name: TBP repeat expansion testing
   presence: Positive
   description: &gt;-
-    Molecular confirmation is obtained by sizing or sequencing the glutamine-
-    encoding CAG/CAA repeat tract in TBP, with repeat length interpreted in
+    Molecular confirmation is obtained by sizing or sequencing the glutamine-encoding
+    CAG/CAA repeat tract in TBP, with repeat length interpreted in
     the context of reduced penetrance for smaller expanded alleles.
   evidence:
   - reference: PMID:23475385
@@ -9260,7 +9917,7 @@ genetic:
       alleles are more likely to present as parkinsonism, while larger ones
       give the classical mixed ataxic/extrapyramidal/cognitive picture.
   - reference: PMID:39125760
-    reference_title: &#34;The New Face of Dynamic Mutation - The CAA[CAG]n CAA CAG Motif as a Mutable Unit in the TBP Gene Causative for Spinocerebellar Ataxia Type 17.&#34;
+    reference_title: &#34;The New Face of Dynamic Mutation-The CAA [CAG]n CAA CAG Motif as a Mutable Unit in the TBP Gene Causative for Spino-Cerebellar Ataxia Type 17.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9483,6 +10140,66 @@ mappings:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: Spinocerebellar ataxia type 17 (Changes required)</strong> · 2026-05-31T03:02:01Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Spinocerebellar_Ataxia_Type_17/2026-05-31T030201Z-github-review-3584.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3584
+Issue state: OPEN
+Issue created: 2026-05-31T03:02:01Z
+Issue updated: 2026-05-31T03:02:01Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: review
+
+## Completed curation review
+
+- Disease: **Spinocerebellar ataxia type 17**
+- Entry: `kb/disorders/Spinocerebellar_Ataxia_Type_17.yaml`
+- Selection basis: #116 of the least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema, ontology-term, and reference validation pass; this is a biological/clinical/content review.
+
+## Findings
+
+1. Actionable baseline check: a `diagnosis` section exists, but no top-level GeneReviews tag was detected in the YAML. For this Mendelian entry, confirm whether a GeneReviews article exists and either add/tag it or record why no GeneReviews baseline applies.
+2. Research-artifact consumption: matching deep-research artifact(s) exist and should be treated as first-class review inputs. Compare the YAML against the artifact(s), especially for central mechanisms, subtype-specific features, treatments/trials, and diagnostic/surveillance details rather than only schema-valid content.
+3. Disease-boundary check: no subtypes are modeled. Confirm this is intentionally a single pathomechanism entry and not a spectrum that should expose subtypes, genotype classes, or clinically distinct forms.
+4. Pathophysiology review: the main modeled mechanisms include Polyglutamine-expanded TBP disrupts transcriptional programs, Cerebellar INPP5A loss drives Purkinje cell vulnerability, Astrocyte-mediated NF-kappaB neuroinflammation amplifies neuronal injury, Calpain-mediated TBP fragmentation. Check that each is an atomic event with direct evidence and that downstream edges do not encode multi-step chains or unsupported causal leaps from gene/product defect to organ-level phenotype.
+5. Treatment modeling: treatments are present (Supportive and rehabilitative care, Granulocyte-colony stimulating factor (preclinical)). Check therapeutic agents, subtype applicability, evidence strength, and surveillance/supportive-care needs; avoid broad treatment claims that are not tied to the relevant phenotype or disease stage.
+6. Evidence/reference check: top references include PMID:30532692, PMID:15989694, PMID:16223509, PMID:22653791. Spot-check that snippets directly support the specific claim, frequency, and evidence_source classification, especially where the same PMID is reused across phenotype, mechanism, and treatment assertions.
+
+## Content-Completeness Checklist
+
+- Phenotype coverage: phenotype list needs manual review for disease-defining features.
+- Subtype completeness: N/A or not modeled; confirm no required subtype split.
+- Pathophysiology depth: mechanisms present but require atomicity/evidence review.
+- Treatments and trials: present; verify standard-vs-investigational scope.
+- Genetics: genetic section present; verify inheritance, variant classes, and genotype-phenotype claims.
+- Biomarkers/diagnostics: diagnosis present but should be checked against baseline sources.
+- References/research consumption: compare the YAML against listed sources and local research artifacts; do not treat retrieval-heavy papers as issues unless they are disease-specific and directly modelable.
+
+## Suggested Remediation
+
+Resolve the blocking diagnostic/baseline gaps first, then tighten subtype-specific claims, pathophysiology atomicity, treatment/trial scope, and evidence-to-claim alignment. Keep deterministic schema/term/reference validation separate from this biological review.
+
+## Sources Used
+
+- Local research artifact: `research/Spinocerebellar_Ataxia_Type_17-deep-research-falcon.md`
+- PMID:30532692: https://pubmed.ncbi.nlm.nih.gov/30532692/
+- PMID:15989694: https://pubmed.ncbi.nlm.nih.gov/15989694/
+- PMID:16223509: https://pubmed.ncbi.nlm.nih.gov/16223509/
+- PMID:22653791: https://pubmed.ncbi.nlm.nih.gov/22653791/
+
+No YAML files or `references_cache/*.md` files were edited for this review.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9920,7 +10637,7 @@ mappings:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Spinocerebellar ataxia type 17", "mondoId": "MONDO:0011781", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Spinocerebellar_ataxia_type_17", "yamlRevision": "fdfc3968c0fb"};
+        const OS_CONFIG = {"diseaseName": "Spinocerebellar ataxia type 17", "mondoId": "MONDO:0011781", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Spinocerebellar_ataxia_type_17", "yamlRevision": "f6441a10fdbb"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

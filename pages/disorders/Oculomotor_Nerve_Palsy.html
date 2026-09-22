@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4297,6 +4404,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4318,6 +4427,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4391,6 +4502,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4412,6 +4525,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4522,6 +4637,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4543,6 +4660,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4606,6 +4725,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4627,6 +4748,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4690,6 +4813,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4711,6 +4836,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4774,6 +4901,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4795,6 +4924,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4858,6 +4989,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4881,6 +5014,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4902,6 +5037,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4965,6 +5102,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4986,6 +5125,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5080,6 +5221,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5103,6 +5246,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5124,6 +5269,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5189,14 +5336,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:11756854" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:11756854" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11756854" target="_blank">PMID:11756854</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5319,6 +5468,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5340,6 +5491,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5417,6 +5570,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5451,6 +5606,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatotopic-segregation-of-pupillomotor-and-somatic-motor-fibres" data-dismech-node="Somatotopic Segregation of Pupillomotor and Somatic Motor Fibres" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatotopic Segregation of Pupillomotor and Somatic Motor Fibres</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Cranial nerve III carries two functionally distinct fibre populations that are not intermingled. The preganglionic parasympathetic pupillomotor and accommodative fibres travel superficially, at the periphery of the nerve; the somatic motor fibres to levator palpebrae superioris and the four extraocular muscles travel deeper. This anatomical arrangement is the single fact from which the entire pupil-involving versus pupil-sparing clinical axis follows: an insult applied from outside the nerve reaches the superficial fibres first, whereas an insult arising within the nerve&#39;s substance reaches the deeper fibres first. Nothing about the fibres themselves confers differential vulnerability - it is their position.</div>
 
@@ -5566,6 +5728,8 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5587,6 +5751,8 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5612,6 +5778,8 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5634,6 +5802,13 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extrinsic-compression-of-the-cisternal-oculomotor-nerve" data-dismech-node="Extrinsic Compression of the Cisternal Oculomotor Nerve" data-dismech-type="pathophysiology">
                 <div class="item-name">Extrinsic Compression of the Cisternal Oculomotor Nerve</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">A posterior communicating artery aneurysm, tumour, or herniating uncus presses on the nerve in the subarachnoid space between the midbrain and the cavernous sinus. Mass effect is transmitted from the outside inwards, so the superficial pupillomotor fibres bear the injury first and most heavily. The same compression usually produces pain, and in the aneurysmal case it signals a lesion that may be about to rupture.</div>
 
@@ -5838,6 +6013,8 @@ This pathophysiological event occurs in subarachnoid space (UBERON:0000315). UBE
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5859,6 +6036,8 @@ This pathophysiological event occurs in subarachnoid space (UBERON:0000315). UBE
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5884,6 +6063,8 @@ This pathophysiological event occurs in subarachnoid space (UBERON:0000315). UBE
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5906,6 +6087,13 @@ This pathophysiological event occurs in subarachnoid space (UBERON:0000315). UBE
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-transtentorial-herniation-compressing-cranial-nerve-iii" data-dismech-node="Transtentorial Herniation Compressing Cranial Nerve III" data-dismech-type="pathophysiology">
                 <div class="item-name">Transtentorial Herniation Compressing Cranial Nerve III</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">When rising intracranial pressure displaces the uncus through the tentorial incisura, cranial nerve III is one of the structures trapped in that aperture. The resulting ipsilateral third nerve palsy, classically beginning as a dilating pupil, is a bedside marker of a life-threatening intracranial emergency rather than an isolated ocular motor problem.</div>
 
@@ -5996,6 +6184,8 @@ This pathophysiological event occurs in cerebral peduncle (UBERON:0002623). UBER
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6017,6 +6207,8 @@ This pathophysiological event occurs in cerebral peduncle (UBERON:0002623). UBER
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6041,6 +6233,13 @@ This pathophysiological event occurs in cerebral peduncle (UBERON:0002623). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endoneurial-microvascular-ischaemia-of-the-oculomotor-nerve-core" data-dismech-node="Endoneurial Microvascular Ischaemia of the Oculomotor Nerve Core" data-dismech-type="pathophysiology">
                 <div class="item-name">Endoneurial Microvascular Ischaemia of the Oculomotor Nerve Core</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">In diabetes, hypertension, dyslipidaemia, and smoking, small-vessel disease of the nerve&#39;s own blood supply produces ischaemic injury concentrated in the nerve&#39;s interior. Because the somatic motor fibres occupy that interior while the pupillomotor fibres lie superficially, the resulting palsy is typically diffuse across all cranial nerve III muscles yet leaves the pupil working - the pupil-sparing pattern. Sparing is a statistical tendency produced by geometry, not a guarantee.</div>
 
@@ -6220,6 +6419,8 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6241,6 +6442,8 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6265,6 +6468,13 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-superficial-pupillomotor-fibre-injury" data-dismech-node="Superficial Pupillomotor Fibre Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Superficial Pupillomotor Fibre Injury</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Damage to the peripherally placed preganglionic parasympathetic fibres interrupts the efferent limb of the pupillary light reflex and of accommodation. The iris sphincter and ciliary muscle lose their excitatory drive, so the pupil dilates and stops constricting to light. This is internal ophthalmoplegia, the pupil-involving pattern.</div>
 
@@ -6461,6 +6671,8 @@ This pathophysiological event occurs in ciliary body (UBERON:0001775). UBERON:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6482,6 +6694,8 @@ This pathophysiological event occurs in ciliary body (UBERON:0001775). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6506,6 +6720,13 @@ This pathophysiological event occurs in ciliary body (UBERON:0001775). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preserved-superficial-pupillomotor-function" data-dismech-node="Preserved Superficial Pupillomotor Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Preserved Superficial Pupillomotor Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The counterpart node to pupillomotor injury: when the insult originates inside the nerve rather than outside it, the superficial parasympathetic fibres continue to conduct, the pupil reacts normally to light, and the palsy is described as pupil-sparing. Curated as a positive mechanistic state, not as the mere absence of a finding, because it is the observable consequence of where the insult was applied.</div>
 
@@ -6598,6 +6819,8 @@ This pathophysiological event occurs in iris (UBERON:0001769). UBERON:0001769 is
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6619,6 +6842,8 @@ This pathophysiological event occurs in iris (UBERON:0001769). UBERON:0001769 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6643,6 +6868,13 @@ This pathophysiological event occurs in iris (UBERON:0001769). UBERON:0001769 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-motor-fibre-conduction-failure" data-dismech-node="Somatic Motor Fibre Conduction Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic Motor Fibre Conduction Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Loss of conduction in the deeper somatic motor fibres denervates levator palpebrae superioris and the superior, medial, and inferior recti and the inferior oblique. The eye is left under the unopposed action of the lateral rectus and superior oblique, producing the classic down-and-out position, with ptosis and binocular diplopia. This node is shared by every aetiological subtype - it is the final common motor deficit.</div>
 
@@ -6798,6 +7030,8 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6819,6 +7053,8 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6843,6 +7079,13 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-traumatic-stretch-injury-of-the-oculomotor-nerve-at-fixed-tether-points" data-dismech-node="Traumatic Stretch Injury of the Oculomotor Nerve at Fixed Tether Points" data-dismech-type="pathophysiology">
                 <div class="item-name">Traumatic Stretch Injury of the Oculomotor Nerve at Fixed Tether Points</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Head injury displaces the brain relative to the skull base while the nerve remains anchored where it passes the posterior petroclinoid ligament and the tentorial edge. The nerve is stretched or contused at those tether points. Because the injury is a longitudinal stretch rather than a focal external mass, it does not respect the superficial-to-deep gradient in the way compression does, and pupil-sparing traumatic palsies are described.</div>
 
@@ -6956,6 +7199,8 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6969,14 +7214,16 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:16978866" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:16978866" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16978866" target="_blank">PMID:16978866</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7001,6 +7248,13 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-congenital-oculomotor-nerve-hypoplasia-or-aplasia" data-dismech-node="Congenital Oculomotor Nerve Hypoplasia or Aplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Congenital Oculomotor Nerve Hypoplasia or Aplasia</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">In congenital palsy the nerve itself is maldeveloped rather than injured. High-resolution MRI shows thinning of the nerve along its whole course, thinning confined to its distal segment, or complete agenesis, with secondary atrophy of the extraocular muscles that the missing fibres would have supplied. The deficit is therefore a developmental one, present before any pupil-involving-versus-sparing logic applies, and in children pupillary signs lose their localizing value altogether.</div>
 
@@ -7118,6 +7372,8 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7139,6 +7395,8 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7164,6 +7422,8 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7186,6 +7446,13 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-focal-oculomotor-nerve-inflammation-with-blood-nerve-barrier-breakdown" data-dismech-node="Focal Oculomotor Nerve Inflammation with Blood-Nerve Barrier Breakdown" data-dismech-type="pathophysiology">
                 <div class="item-name">Focal Oculomotor Nerve Inflammation with Blood-Nerve Barrier Breakdown</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">The proposed mechanism of recurrent painful ophthalmoplegic neuropathy. Attacks are accompanied by focal thickening and gadolinium enhancement of the cisternal nerve or its root entry zone, which indicates local breakdown of the blood-nerve barrier. Whether the primary event is ischaemic, inflammatory, demyelinating, or compressive is unresolved, and this node is curated as hypothetical for that reason.</div>
 
@@ -7297,6 +7564,8 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7310,14 +7579,16 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24567117" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:24567117" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24567117" target="_blank">PMID:24567117</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7333,14 +7604,16 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36694449" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36694449" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36694449" target="_blank">PMID:36694449</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7365,6 +7638,13 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-regeneration-of-the-oculomotor-nerve" data-dismech-node="Aberrant Regeneration of the Oculomotor Nerve" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Regeneration of the Oculomotor Nerve</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">After severe axonal injury, regrowing fibres can reach the wrong target, so attempted adduction or downgaze elevates the eyelid or constricts the pupil. Clinically this matters twice over: it is a marker of structural (usually compressive or traumatic) rather than ischaemic injury, and a misdirected pupillomotor fibre can make an involved pupil look normal at rest, producing apparent pupil sparing.</div>
 
@@ -7502,6 +7782,8 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7523,6 +7805,8 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7570,7 +7854,7 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Regeneration of the Oculomotor Nerve\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After severe axonal injury, regrowing fibres can reach the wrong target, so attempted adduction or downgaze elevates the eyelid or constricts the pupil. Clinically this matters twice over: it is a marker of structural (usually compressive or traumatic) rather than ischaemic injury, and a misdirected pupillomotor fibre can make an involved pupil look normal at rest, producing apparent pupil sparing.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"peripheral nervous system neuron\", \"Schwann cell\"], \"locations\": [\"oculomotor nerve\"]}}, {\"id\": \"Amblyopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure of normal visual acuity development in the affected eye when the palsy occurs during the amblyogenic period, driven by misalignment and by lid occlusion from ptosis.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Congenital\"], \"term_id\": \"HP:0000646\"}}, {\"id\": \"Amblyopia Therapy in Childhood Palsy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In children within the amblyogenic period, occlusion therapy for the sound eye protects visual development, which is a different and often more consequential target than the ocular motor deficit itself.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Anisocoria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unequal pupil size when only one third nerve is affected. In the setting of rising intracranial pressure it is the \\\"blown pupil\\\" that signals uncal herniation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009916\"}}, {\"id\": \"Botulinum Toxin Injection for Acute Ocular Misalignment\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Chemodenervation of the antagonist muscle reduces the deviation and the diplopia during the acute phase. It is symptomatic: it does not act on the nerve lesion, and its benefit over expectant management is confined to acute palsy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"botulinum toxin type A\"]}}, {\"id\": \"Congenital Oculomotor Nerve Hypoplasia or Aplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In congenital palsy the nerve itself is maldeveloped rather than injured. High-resolution MRI shows thinning of the nerve along its whole course, thinning confined to its distal segment, or complete agenesis, with secondary atrophy of the extraocular muscles that the missing fibres would have supplied. The deficit is therefore a developmental one, present before any pupil-involving-versus-sparing logic applies, and in children pupillary signs lose their localizing value altogether.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"oculomotor nerve development\"], \"locations\": [\"oculomotor nerve\"]}}, {\"id\": \"Diplopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Binocular double vision from ocular misalignment; it resolves when either eye is covered and is often the presenting complaint.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000651\"}}, {\"id\": \"Endoneurial Microvascular Ischaemia of the Oculomotor Nerve Core\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In diabetes, hypertension, dyslipidaemia, and smoking, small-vessel disease of the nerve\u0027s own blood supply produces ischaemic injury concentrated in the nerve\u0027s interior. Because the somatic motor fibres occupy that interior while the pupillomotor fibres lie superficially, the resulting palsy is typically diffuse across all cranial nerve III muscles yet leaves the pupil working - the pupil-sparing pattern. Sparing is a statistical tendency produced by geometry, not a guarantee.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"peripheral nervous system neuron\", \"Schwann cell\"], \"biological_processes\": [\"response to ischemia\"], \"locations\": [\"oculomotor nerve\"]}}, {\"id\": \"Endovascular Coiling of a Posterior Communicating Artery Aneurysm\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Endovascular occlusion of the aneurysm sac secures the lesion against rupture and, less directly than clipping, reduces the pulsatile mass effect on the nerve. Nerve recovery is slower than after clipping but comparable by 18 to 24 months, and older patients may do relatively better with it.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Exotropia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Outward deviation of the affected eye produced by the unopposed lateral rectus once medial rectus function is lost.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000577\"}}, {\"id\": \"Extrinsic Compression of the Cisternal Oculomotor Nerve\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A posterior communicating artery aneurysm, tumour, or herniating uncus presses on the nerve in the subarachnoid space between the midbrain and the cavernous sinus. Mass effect is transmitted from the outside inwards, so the superficial pupillomotor fibres bear the injury first and most heavily. The same compression usually produces pain, and in the aneurysmal case it signals a lesion that may be about to rupture.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"peripheral nervous system neuron\", \"Schwann cell\"], \"biological_processes\": [\"response to mechanical stimulus\"], \"locations\": [\"oculomotor nerve\", \"subarachnoid space\"]}}, {\"id\": \"Focal Oculomotor Nerve Inflammation with Blood-Nerve Barrier Breakdown\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proposed mechanism of recurrent painful ophthalmoplegic neuropathy. Attacks are accompanied by focal thickening and gadolinium enhancement of the cisternal nerve or its root entry zone, which indicates local breakdown of the blood-nerve barrier. Whether the primary event is ischaemic, inflammatory, demyelinating, or compressive is unresolved, and this node is curated as hypothetical for that reason.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"neuroinflammatory response\"], \"locations\": [\"oculomotor nerve\"]}}, {\"id\": \"Head trauma\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Blunt head injury, typically from road traffic collision or fall, displaces the brain relative to the skull base and stretches the nerve where it is tethered. This is the initiating exposure of the traumatic subtype and the leading cause in inpatient and paediatric series.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Headache or periorbital pain accompanies most aneurysmal palsies and a majority of diabetic microvascular palsies, and is integral to the RPON attack.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002315\"}}, {\"id\": \"Microsurgical Clipping of a Posterior Communicating Artery Aneurysm\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Open neurosurgical clipping of the aneurysm removes the mass compressing the cisternal nerve. Because the mechanism of injury is mass effect, relieving it early is what gives the nerve a chance to recover, and clipping produces faster recovery than endovascular treatment in the first year even though long-term rates converge.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Mydriasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dilated, poorly reactive pupil from denervation of the iris sphincter. The hallmark of the pupil-involving pattern and of compressive aetiology.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Compressive\"], \"term_id\": \"HP:0011499\"}}, {\"id\": \"Ophthalmoplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weakness of the extraocular muscles supplied by cranial nerve III, leaving the eye deviated down and out under the unopposed lateral rectus and superior oblique.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000602\"}}, {\"id\": \"Preserved Superficial Pupillomotor Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The counterpart node to pupillomotor injury: when the insult originates inside the nerve rather than outside it, the superficial parasympathetic fibres continue to conduct, the pupil reacts normally to light, and the palsy is described as pupil-sparing. Curated as a positive mechanistic state, not as the mere absence of a finding, because it is the observable consequence of where the insult was applied.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"smooth muscle cell of sphincter of pupil\"], \"locations\": [\"iris\"]}}, {\"id\": \"Ptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Drooping of the upper eyelid from denervation of levator palpebrae superioris. May be partial or complete, and in complete palsy can occlude the eye and mask the diplopia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000508\"}}, {\"id\": \"Somatic Motor Fibre Conduction Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of conduction in the deeper somatic motor fibres denervates levator palpebrae superioris and the superior, medial, and inferior recti and the inferior oblique. The eye is left under the unopposed action of the lateral rectus and superior oblique, producing the classic down-and-out position, with ptosis and binocular diplopia. This node is shared by every aetiological subtype - it is the final common motor deficit.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"peripheral nervous system neuron\"], \"biological_processes\": [\"regulation of skeletal muscle contraction\"], \"locations\": [\"oculomotor nerve\"]}}, {\"id\": \"Somatotopic Segregation of Pupillomotor and Somatic Motor Fibres\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cranial nerve III carries two functionally distinct fibre populations that are not intermingled. The preganglionic parasympathetic pupillomotor and accommodative fibres travel superficially, at the periphery of the nerve; the somatic motor fibres to levator palpebrae superioris and the four extraocular muscles travel deeper. This anatomical arrangement is the single fact from which the entire pupil-involving versus pupil-sparing clinical axis follows: an insult applied from outside the nerve reaches the superficial fibres first, whereas an insult arising within the nerve\u0027s substance reaches the deeper fibres first. Nothing about the fibres themselves confers differential vulnerability - it is their position.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"peripheral nervous system neuron\"], \"locations\": [\"oculomotor nerve\"]}}, {\"id\": \"Strabismus and Ptosis Surgery for Residual Deficit\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Once recovery has plateaued, surgery addresses the mechanical consequences rather than the nerve: muscle shortening or lengthening, transposition, globe fixation, and ptosis repair, usually in combination. The aim is alignment, field of single vision, and appearance, not reinnervation.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Superficial Pupillomotor Fibre Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Damage to the peripherally placed preganglionic parasympathetic fibres interrupts the efferent limb of the pupillary light reflex and of accommodation. The iris sphincter and ciliary muscle lose their excitatory drive, so the pupil dilates and stops constricting to light. This is internal ophthalmoplegia, the pupil-involving pattern.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"smooth muscle cell of sphincter of pupil\", \"ciliary muscle cell\"], \"biological_processes\": [\"smooth muscle contraction\"], \"locations\": [\"iris\", \"ciliary body\"]}}, {\"id\": \"Tobacco smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Smoking is one of the vascular risk factors whose presence is required by the operational definition of microvascular oculomotor nerve palsy, acting through small-vessel disease of the nerve\u0027s own blood supply rather than through any nerve-specific toxicity.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Transtentorial Herniation Compressing Cranial Nerve III\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When rising intracranial pressure displaces the uncus through the tentorial incisura, cranial nerve III is one of the structures trapped in that aperture. The resulting ipsilateral third nerve palsy, classically beginning as a dilating pupil, is a bedside marker of a life-threatening intracranial emergency rather than an isolated ocular motor problem.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"oculomotor nerve\", \"cerebral peduncle\"]}}, {\"id\": \"Traumatic Stretch Injury of the Oculomotor Nerve at Fixed Tether Points\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Head injury displaces the brain relative to the skull base while the nerve remains anchored where it passes the posterior petroclinoid ligament and the tentorial edge. The nerve is stretched or contused at those tether points. Because the injury is a longitudinal stretch rather than a focal external mass, it does not respect the superficial-to-deep gradient in the way compression does, and pupil-sparing traumatic palsies are described.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to mechanical stimulus\"], \"locations\": [\"oculomotor nerve\"]}}, {\"id\": \"Vascular Risk Factor Management in Microvascular Palsy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no treatment directed at the ischaemic nerve itself. Management is optimisation of glycaemic control and of the other vascular risk factors, plus observation, since the natural history is spontaneous recovery.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Somatotopic Segregation of Pupillomotor and Somatic Motor Fibres\", \"target\": \"Extrinsic Compression of the Cisternal Oculomotor Nerve\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the pupillomotor fibres lie at the surface, an extrinsic mass contacts them before it reaches the motor core.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatotopic Segregation of Pupillomotor and Somatic Motor Fibres\", \"target\": \"Endoneurial Microvascular Ischaemia of the Oculomotor Nerve Core\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the somatic motor fibres occupy the core, an ischaemic insult to the nerve\u0027s internal blood supply damages them while the superficially placed pupillomotor fibres are relatively protected.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Extrinsic Compression of the Cisternal Oculomotor Nerve\", \"target\": \"Superficial Pupillomotor Fibre Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"External pressure damages the peripherally placed parasympathetic fibres, producing pupil involvement in almost all aneurysmal palsies.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Extrinsic Compression of the Cisternal Oculomotor Nerve\", \"target\": \"Somatic Motor Fibre Conduction Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continued or severe compression penetrates to the deeper motor fibres, adding ptosis and ophthalmoplegia to the pupillary sign.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Extrinsic Compression of the Cisternal Oculomotor Nerve\", \"target\": \"Aberrant Regeneration of the Oculomotor Nerve\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe compressive injury that transects axons is followed, weeks to months later, by misdirected regrowth. Aberrant regeneration therefore marks a structural lesion and is not seen after purely ischaemic palsy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Transtentorial Herniation Compressing Cranial Nerve III\", \"target\": \"Superficial Pupillomotor Fibre Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Herniation compresses the nerve from outside, so the pupil dilates first, which is why the \\\"blown pupil\\\" is watched for in raised intracranial pressure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endoneurial Microvascular Ischaemia of the Oculomotor Nerve Core\", \"target\": \"Preserved Superficial Pupillomotor Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ischaemia of the nerve core leaves the peripherally placed parasympathetic fibres largely intact, which is the mechanistic content of \\\"pupil-sparing\\\".\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endoneurial Microvascular Ischaemia of the Oculomotor Nerve Core\", \"target\": \"Somatic Motor Fibre Conduction Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Core ischaemia damages the somatic motor fibres, and when the palsy is incomplete the weakness is characteristically diffuse across all the muscles of cranial nerve III rather than focal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Superficial Pupillomotor Fibre Injury\", \"target\": \"Mydriasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Superficial Pupillomotor Fibre Injury\", \"target\": \"Anisocoria\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic Motor Fibre Conduction Failure\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic Motor Fibre Conduction Failure\", \"target\": \"Ophthalmoplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic Motor Fibre Conduction Failure\", \"target\": \"Diplopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Traumatic Stretch Injury of the Oculomotor Nerve at Fixed Tether Points\", \"target\": \"Somatic Motor Fibre Conduction Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Traumatic Stretch Injury of the Oculomotor Nerve at Fixed Tether Points\", \"target\": \"Aberrant Regeneration of the Oculomotor Nerve\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Traumatic axonal disruption, like compression, is followed by regrowth that can reach the wrong target, so synkinesis after head injury is a late marker of the severity of the original axonal injury.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Congenital Oculomotor Nerve Hypoplasia or Aplasia\", \"target\": \"Somatic Motor Fibre Conduction Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Congenital Oculomotor Nerve Hypoplasia or Aplasia\", \"target\": \"Amblyopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A congenital palsy during the amblyogenic period leaves the affected eye misaligned and often ptotic, so it is deprived of a clear, aligned image and fails to develop normal acuity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Focal Oculomotor Nerve Inflammation with Blood-Nerve Barrier Breakdown\", \"target\": \"Somatic Motor Fibre Conduction Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Focal Oculomotor Nerve Inflammation with Blood-Nerve Barrier Breakdown\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Regeneration of the Oculomotor Nerve\", \"target\": \"Preserved Superficial Pupillomotor Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This is the counterexample to the entry\u0027s central axis. A pupillomotor fibre that regrows into a somatic motor pathway can hold the pupil at near-normal size at rest, so a genuinely pupil-involving structural palsy is misread as pupil-sparing. The sparing here is apparent, not true, and it is produced by the repair process rather than by the site of the original insult.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Tobacco smoking\", \"target\": \"Endoneurial Microvascular Ischaemia of the Oculomotor Nerve Core\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Smoking predisposes to the endoneurial small-vessel disease that produces ischaemic injury to the core of the nerve; it is not itself the injury.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Head trauma\", \"target\": \"Traumatic Stretch Injury of the Oculomotor Nerve at Fixed Tether Points\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Head trauma is the direct initiating event of the stretch injury; the palsy is dated from it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Microsurgical Clipping of a Posterior Communicating Artery Aneurysm\", \"target\": \"Extrinsic Compression of the Cisternal Oculomotor Nerve\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Endovascular Coiling of a Posterior Communicating Artery Aneurysm\", \"target\": \"Extrinsic Compression of the Cisternal Oculomotor Nerve\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vascular Risk Factor Management in Microvascular Palsy\", \"target\": \"Endoneurial Microvascular Ischaemia of the Oculomotor Nerve Core\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Botulinum Toxin Injection for Acute Ocular Misalignment\", \"target\": \"Diplopia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Strabismus and Ptosis Surgery for Residual Deficit\", \"target\": \"Ptosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Strabismus and Ptosis Surgery for Residual Deficit\", \"target\": \"Exotropia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Strabismus and Ptosis Surgery for Residual Deficit\", \"target\": \"Diplopia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Amblyopia Therapy in Childhood Palsy\", \"target\": \"Amblyopia\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Regeneration of the Oculomotor Nerve\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After severe axonal injury, regrowing fibres can reach the wrong target, so attempted adduction or downgaze elevates the eyelid or constricts the pupil. Clinically this matters twice over: it is a marker of structural (usually compressive or traumatic) rather than ischaemic injury, and a misdirected pupillomotor fibre can make an involved pupil look normal at rest, producing apparent pupil sparing.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"peripheral nervous system neuron\", \"Schwann cell\"], \"locations\": [\"oculomotor nerve\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Amblyopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure of normal visual acuity development in the affected eye when the palsy occurs during the amblyogenic period, driven by misalignment and by lid occlusion from ptosis.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Congenital\"], \"term_id\": \"HP:0000646\"}}, {\"id\": \"Amblyopia Therapy in Childhood Palsy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In children within the amblyogenic period, occlusion therapy for the sound eye protects visual development, which is a different and often more consequential target than the ocular motor deficit itself.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Anisocoria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unequal pupil size when only one third nerve is affected. In the setting of rising intracranial pressure it is the \\\"blown pupil\\\" that signals uncal herniation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009916\"}}, {\"id\": \"Botulinum Toxin Injection for Acute Ocular Misalignment\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Chemodenervation of the antagonist muscle reduces the deviation and the diplopia during the acute phase. It is symptomatic: it does not act on the nerve lesion, and its benefit over expectant management is confined to acute palsy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"botulinum toxin type A\"]}}, {\"id\": \"Congenital Oculomotor Nerve Hypoplasia or Aplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In congenital palsy the nerve itself is maldeveloped rather than injured. High-resolution MRI shows thinning of the nerve along its whole course, thinning confined to its distal segment, or complete agenesis, with secondary atrophy of the extraocular muscles that the missing fibres would have supplied. The deficit is therefore a developmental one, present before any pupil-involving-versus-sparing logic applies, and in children pupillary signs lose their localizing value altogether.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"oculomotor nerve development\"], \"locations\": [\"oculomotor nerve\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Diplopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Binocular double vision from ocular misalignment; it resolves when either eye is covered and is often the presenting complaint.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000651\"}}, {\"id\": \"Endoneurial Microvascular Ischaemia of the Oculomotor Nerve Core\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In diabetes, hypertension, dyslipidaemia, and smoking, small-vessel disease of the nerve\u0027s own blood supply produces ischaemic injury concentrated in the nerve\u0027s interior. Because the somatic motor fibres occupy that interior while the pupillomotor fibres lie superficially, the resulting palsy is typically diffuse across all cranial nerve III muscles yet leaves the pupil working - the pupil-sparing pattern. Sparing is a statistical tendency produced by geometry, not a guarantee.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"peripheral nervous system neuron\", \"Schwann cell\"], \"biological_processes\": [\"response to ischemia\"], \"locations\": [\"oculomotor nerve\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Endovascular Coiling of a Posterior Communicating Artery Aneurysm\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Endovascular occlusion of the aneurysm sac secures the lesion against rupture and, less directly than clipping, reduces the pulsatile mass effect on the nerve. Nerve recovery is slower than after clipping but comparable by 18 to 24 months, and older patients may do relatively better with it.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Exotropia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Outward deviation of the affected eye produced by the unopposed lateral rectus once medial rectus function is lost.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000577\"}}, {\"id\": \"Extrinsic Compression of the Cisternal Oculomotor Nerve\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A posterior communicating artery aneurysm, tumour, or herniating uncus presses on the nerve in the subarachnoid space between the midbrain and the cavernous sinus. Mass effect is transmitted from the outside inwards, so the superficial pupillomotor fibres bear the injury first and most heavily. The same compression usually produces pain, and in the aneurysmal case it signals a lesion that may be about to rupture.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"peripheral nervous system neuron\", \"Schwann cell\"], \"biological_processes\": [\"response to mechanical stimulus\"], \"locations\": [\"oculomotor nerve\", \"subarachnoid space\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Focal Oculomotor Nerve Inflammation with Blood-Nerve Barrier Breakdown\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proposed mechanism of recurrent painful ophthalmoplegic neuropathy. Attacks are accompanied by focal thickening and gadolinium enhancement of the cisternal nerve or its root entry zone, which indicates local breakdown of the blood-nerve barrier. Whether the primary event is ischaemic, inflammatory, demyelinating, or compressive is unresolved, and this node is curated as hypothetical for that reason.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"neuroinflammatory response\"], \"locations\": [\"oculomotor nerve\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Head trauma\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Blunt head injury, typically from road traffic collision or fall, displaces the brain relative to the skull base and stretches the nerve where it is tethered. This is the initiating exposure of the traumatic subtype and the leading cause in inpatient and paediatric series.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Headache or periorbital pain accompanies most aneurysmal palsies and a majority of diabetic microvascular palsies, and is integral to the RPON attack.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002315\"}}, {\"id\": \"Microsurgical Clipping of a Posterior Communicating Artery Aneurysm\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Open neurosurgical clipping of the aneurysm removes the mass compressing the cisternal nerve. Because the mechanism of injury is mass effect, relieving it early is what gives the nerve a chance to recover, and clipping produces faster recovery than endovascular treatment in the first year even though long-term rates converge.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Mydriasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dilated, poorly reactive pupil from denervation of the iris sphincter. The hallmark of the pupil-involving pattern and of compressive aetiology.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Compressive\"], \"term_id\": \"HP:0011499\"}}, {\"id\": \"Ophthalmoplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weakness of the extraocular muscles supplied by cranial nerve III, leaving the eye deviated down and out under the unopposed lateral rectus and superior oblique.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000602\"}}, {\"id\": \"Preserved Superficial Pupillomotor Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The counterpart node to pupillomotor injury: when the insult originates inside the nerve rather than outside it, the superficial parasympathetic fibres continue to conduct, the pupil reacts normally to light, and the palsy is described as pupil-sparing. Curated as a positive mechanistic state, not as the mere absence of a finding, because it is the observable consequence of where the insult was applied.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"smooth muscle cell of sphincter of pupil\"], \"locations\": [\"iris\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Ptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Drooping of the upper eyelid from denervation of levator palpebrae superioris. May be partial or complete, and in complete palsy can occlude the eye and mask the diplopia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000508\"}}, {\"id\": \"Somatic Motor Fibre Conduction Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of conduction in the deeper somatic motor fibres denervates levator palpebrae superioris and the superior, medial, and inferior recti and the inferior oblique. The eye is left under the unopposed action of the lateral rectus and superior oblique, producing the classic down-and-out position, with ptosis and binocular diplopia. This node is shared by every aetiological subtype - it is the final common motor deficit.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"peripheral nervous system neuron\"], \"biological_processes\": [\"regulation of skeletal muscle contraction\"], \"locations\": [\"oculomotor nerve\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Somatotopic Segregation of Pupillomotor and Somatic Motor Fibres\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cranial nerve III carries two functionally distinct fibre populations that are not intermingled. The preganglionic parasympathetic pupillomotor and accommodative fibres travel superficially, at the periphery of the nerve; the somatic motor fibres to levator palpebrae superioris and the four extraocular muscles travel deeper. This anatomical arrangement is the single fact from which the entire pupil-involving versus pupil-sparing clinical axis follows: an insult applied from outside the nerve reaches the superficial fibres first, whereas an insult arising within the nerve\u0027s substance reaches the deeper fibres first. Nothing about the fibres themselves confers differential vulnerability - it is their position.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"peripheral nervous system neuron\"], \"locations\": [\"oculomotor nerve\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Strabismus and Ptosis Surgery for Residual Deficit\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Once recovery has plateaued, surgery addresses the mechanical consequences rather than the nerve: muscle shortening or lengthening, transposition, globe fixation, and ptosis repair, usually in combination. The aim is alignment, field of single vision, and appearance, not reinnervation.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Superficial Pupillomotor Fibre Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Damage to the peripherally placed preganglionic parasympathetic fibres interrupts the efferent limb of the pupillary light reflex and of accommodation. The iris sphincter and ciliary muscle lose their excitatory drive, so the pupil dilates and stops constricting to light. This is internal ophthalmoplegia, the pupil-involving pattern.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"smooth muscle cell of sphincter of pupil\", \"ciliary muscle cell\"], \"biological_processes\": [\"smooth muscle contraction\"], \"locations\": [\"iris\", \"ciliary body\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Tobacco smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Smoking is one of the vascular risk factors whose presence is required by the operational definition of microvascular oculomotor nerve palsy, acting through small-vessel disease of the nerve\u0027s own blood supply rather than through any nerve-specific toxicity.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Transtentorial Herniation Compressing Cranial Nerve III\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When rising intracranial pressure displaces the uncus through the tentorial incisura, cranial nerve III is one of the structures trapped in that aperture. The resulting ipsilateral third nerve palsy, classically beginning as a dilating pupil, is a bedside marker of a life-threatening intracranial emergency rather than an isolated ocular motor problem.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"oculomotor nerve\", \"cerebral peduncle\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Traumatic Stretch Injury of the Oculomotor Nerve at Fixed Tether Points\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Head injury displaces the brain relative to the skull base while the nerve remains anchored where it passes the posterior petroclinoid ligament and the tentorial edge. The nerve is stretched or contused at those tether points. Because the injury is a longitudinal stretch rather than a focal external mass, it does not respect the superficial-to-deep gradient in the way compression does, and pupil-sparing traumatic palsies are described.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to mechanical stimulus\"], \"locations\": [\"oculomotor nerve\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Vascular Risk Factor Management in Microvascular Palsy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no treatment directed at the ischaemic nerve itself. Management is optimisation of glycaemic control and of the other vascular risk factors, plus observation, since the natural history is spontaneous recovery.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Somatotopic Segregation of Pupillomotor and Somatic Motor Fibres\", \"target\": \"Extrinsic Compression of the Cisternal Oculomotor Nerve\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the pupillomotor fibres lie at the surface, an extrinsic mass contacts them before it reaches the motor core.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatotopic Segregation of Pupillomotor and Somatic Motor Fibres\", \"target\": \"Endoneurial Microvascular Ischaemia of the Oculomotor Nerve Core\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the somatic motor fibres occupy the core, an ischaemic insult to the nerve\u0027s internal blood supply damages them while the superficially placed pupillomotor fibres are relatively protected.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Extrinsic Compression of the Cisternal Oculomotor Nerve\", \"target\": \"Superficial Pupillomotor Fibre Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"External pressure damages the peripherally placed parasympathetic fibres, producing pupil involvement in almost all aneurysmal palsies.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Extrinsic Compression of the Cisternal Oculomotor Nerve\", \"target\": \"Somatic Motor Fibre Conduction Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continued or severe compression penetrates to the deeper motor fibres, adding ptosis and ophthalmoplegia to the pupillary sign.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Extrinsic Compression of the Cisternal Oculomotor Nerve\", \"target\": \"Aberrant Regeneration of the Oculomotor Nerve\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe compressive injury that transects axons is followed, weeks to months later, by misdirected regrowth. Aberrant regeneration therefore marks a structural lesion and is not seen after purely ischaemic palsy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Transtentorial Herniation Compressing Cranial Nerve III\", \"target\": \"Superficial Pupillomotor Fibre Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Herniation compresses the nerve from outside, so the pupil dilates first, which is why the \\\"blown pupil\\\" is watched for in raised intracranial pressure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endoneurial Microvascular Ischaemia of the Oculomotor Nerve Core\", \"target\": \"Preserved Superficial Pupillomotor Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ischaemia of the nerve core leaves the peripherally placed parasympathetic fibres largely intact, which is the mechanistic content of \\\"pupil-sparing\\\".\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endoneurial Microvascular Ischaemia of the Oculomotor Nerve Core\", \"target\": \"Somatic Motor Fibre Conduction Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Core ischaemia damages the somatic motor fibres, and when the palsy is incomplete the weakness is characteristically diffuse across all the muscles of cranial nerve III rather than focal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Superficial Pupillomotor Fibre Injury\", \"target\": \"Mydriasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Superficial Pupillomotor Fibre Injury\", \"target\": \"Anisocoria\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic Motor Fibre Conduction Failure\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic Motor Fibre Conduction Failure\", \"target\": \"Ophthalmoplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic Motor Fibre Conduction Failure\", \"target\": \"Diplopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Traumatic Stretch Injury of the Oculomotor Nerve at Fixed Tether Points\", \"target\": \"Somatic Motor Fibre Conduction Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Traumatic Stretch Injury of the Oculomotor Nerve at Fixed Tether Points\", \"target\": \"Aberrant Regeneration of the Oculomotor Nerve\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Traumatic axonal disruption, like compression, is followed by regrowth that can reach the wrong target, so synkinesis after head injury is a late marker of the severity of the original axonal injury.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Congenital Oculomotor Nerve Hypoplasia or Aplasia\", \"target\": \"Somatic Motor Fibre Conduction Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Congenital Oculomotor Nerve Hypoplasia or Aplasia\", \"target\": \"Amblyopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A congenital palsy during the amblyogenic period leaves the affected eye misaligned and often ptotic, so it is deprived of a clear, aligned image and fails to develop normal acuity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Focal Oculomotor Nerve Inflammation with Blood-Nerve Barrier Breakdown\", \"target\": \"Somatic Motor Fibre Conduction Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Focal Oculomotor Nerve Inflammation with Blood-Nerve Barrier Breakdown\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Regeneration of the Oculomotor Nerve\", \"target\": \"Preserved Superficial Pupillomotor Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This is the counterexample to the entry\u0027s central axis. A pupillomotor fibre that regrows into a somatic motor pathway can hold the pupil at near-normal size at rest, so a genuinely pupil-involving structural palsy is misread as pupil-sparing. The sparing here is apparent, not true, and it is produced by the repair process rather than by the site of the original insult.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Tobacco smoking\", \"target\": \"Endoneurial Microvascular Ischaemia of the Oculomotor Nerve Core\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Smoking predisposes to the endoneurial small-vessel disease that produces ischaemic injury to the core of the nerve; it is not itself the injury.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Head trauma\", \"target\": \"Traumatic Stretch Injury of the Oculomotor Nerve at Fixed Tether Points\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Head trauma is the direct initiating event of the stretch injury; the palsy is dated from it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Microsurgical Clipping of a Posterior Communicating Artery Aneurysm\", \"target\": \"Extrinsic Compression of the Cisternal Oculomotor Nerve\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Endovascular Coiling of a Posterior Communicating Artery Aneurysm\", \"target\": \"Extrinsic Compression of the Cisternal Oculomotor Nerve\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vascular Risk Factor Management in Microvascular Palsy\", \"target\": \"Endoneurial Microvascular Ischaemia of the Oculomotor Nerve Core\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Botulinum Toxin Injection for Acute Ocular Misalignment\", \"target\": \"Diplopia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Strabismus and Ptosis Surgery for Residual Deficit\", \"target\": \"Ptosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Strabismus and Ptosis Surgery for Residual Deficit\", \"target\": \"Exotropia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Strabismus and Ptosis Surgery for Residual Deficit\", \"target\": \"Diplopia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Amblyopia Therapy in Childhood Palsy\", \"target\": \"Amblyopia\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7589,11 +7873,11 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(8)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7602,8 +7886,89 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Cardiovascular
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-posterior-communicating-artery-aneurysm" data-dismech-node="Posterior communicating artery aneurysm" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Posterior communicating artery aneurysm
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031773" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0031773</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Posterior communicating artery aneurysm (HP:0031773). HP:0031773 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33845117" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33845117" target="_blank">PMID:33845117</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Posterior communicating artery aneurysms (PCoAA) usually present with brain hemorrhage, but they might present with oculomotor nerve palsy (ONP) in about one out of five patients."</div>
+
+
+                <div class="evidence-explanation">Directly links the aneurysm to third nerve palsy as a presenting syndrome and quantifies how often.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-ptosis" data-dismech-node="Ptosis" data-dismech-type="phenotype">
@@ -7620,15 +7985,18 @@ This pathophysiological event occurs in oculomotor nerve (UBERON:0001643). UBERO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7650,6 +8018,8 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7658,6 +8028,78 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
                 <div class="evidence-explanation">Establishes ptosis as one of the two cardinal features of the syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ophthalmoplegia" data-dismech-node="Ophthalmoplegia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Ophthalmoplegia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000602" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000602</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ophthalmoplegia (HP:0000602). HP:0000602 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30252368" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30252368" target="_blank">PMID:30252368</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Typical presentation includes ptosis, ophthalmoplegia, diplopia, and variable pupillary involvement, resulting in the characteristic down-and-out eye position in complete palsy."</div>
+
+
+                <div class="evidence-explanation">Names ophthalmoplegia and the down-and-out position as the typical motor presentation.</div>
 
 
 
@@ -7687,15 +8129,18 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000651</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000651</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Diplopia (HP:0000651). HP:0000651 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7717,6 +8162,8 @@ This clinical feature is Diplopia (HP:0000651). HP:0000651 is a phenotype from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7725,181 +8172,6 @@ This clinical feature is Diplopia (HP:0000651). HP:0000651 is a phenotype from t
 
 
                 <div class="evidence-explanation">Establishes diplopia as the other cardinal feature alongside ptosis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-headache" data-dismech-node="Headache" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Headache
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002315</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21059515" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21059515" target="_blank">PMID:21059515</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"painful onset occurred with 94% of aneurysm and 69% of diabetic cases."</div>
-
-
-                <div class="evidence-explanation">Quantifies painful onset in both the compressive and the microvascular subtypes.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26021754" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26021754" target="_blank">PMID:26021754</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Ophthalmoplegic migraine (OM)/recurrent painful ophthalmoplegic neuropathy (RPON) is a rare disease consisting of recurrent unilateral headache accompanied or followed by ipsilateral ophthalmoplegia."</div>
-
-
-                <div class="evidence-explanation">Supports headache as a defining component of the RPON attack.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">7</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ophthalmoplegia" data-dismech-node="Ophthalmoplegia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ophthalmoplegia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000602" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000602</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ophthalmoplegia (HP:0000602). HP:0000602 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30252368" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30252368" target="_blank">PMID:30252368</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Typical presentation includes ptosis, ophthalmoplegia, diplopia, and variable pupillary involvement, resulting in the characteristic down-and-out eye position in complete palsy."</div>
-
-
-                <div class="evidence-explanation">Names ophthalmoplegia and the down-and-out position as the typical motor presentation.</div>
 
 
 
@@ -7943,6 +8215,9 @@ This clinical feature is Mydriasis (HP:0011499). HP:0011499 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7957,6 +8232,8 @@ This clinical feature is Mydriasis (HP:0011499). HP:0011499 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7980,6 +8257,8 @@ This clinical feature is Mydriasis (HP:0011499). HP:0011499 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8033,6 +8312,9 @@ This clinical feature is Anisocoria (HP:0009916). HP:0009916 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8047,6 +8329,8 @@ This clinical feature is Anisocoria (HP:0009916). HP:0009916 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8100,6 +8384,9 @@ This clinical feature is Abnormal pupillary light reflex (HP:0007695). HP:000769
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8114,6 +8401,8 @@ This clinical feature is Abnormal pupillary light reflex (HP:0007695). HP:000769
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8167,6 +8456,9 @@ This clinical feature is Exotropia (HP:0000577). HP:0000577 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8181,6 +8473,8 @@ This clinical feature is Exotropia (HP:0000577). HP:0000577 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8234,6 +8528,9 @@ This clinical feature is Amblyopia (HP:0000646). HP:0000646 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8248,6 +8545,8 @@ This clinical feature is Amblyopia (HP:0000646). HP:0000646 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8273,9 +8572,18 @@ This clinical feature is Amblyopia (HP:0000646). HP:0000646 is a phenotype from 
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-posterior-communicating-artery-aneurysm" data-dismech-node="Posterior communicating artery aneurysm" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-headache" data-dismech-node="Headache" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Posterior communicating artery aneurysm
+                        Headache
 
 
 
@@ -8287,12 +8595,12 @@ This clinical feature is Amblyopia (HP:0000646). HP:0000646 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031773" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0031773</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002315</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Posterior communicating artery aneurysm (HP:0031773). HP:0031773 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8301,30 +8609,60 @@ This clinical feature is Posterior communicating artery aneurysm (HP:0031773). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33845117" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:21059515" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33845117" target="_blank">PMID:33845117</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21059515" target="_blank">PMID:21059515</a>
                     </span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Posterior communicating artery aneurysms (PCoAA) usually present with brain hemorrhage, but they might present with oculomotor nerve palsy (ONP) in about one out of five patients."</div>
+                <div class="evidence-snippet">"painful onset occurred with 94% of aneurysm and 69% of diabetic cases."</div>
 
 
-                <div class="evidence-explanation">Directly links the aneurysm to third nerve palsy as a presenting syndrome and quantifies how often.</div>
+                <div class="evidence-explanation">Quantifies painful onset in both the compressive and the microvascular subtypes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26021754" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26021754" target="_blank">PMID:26021754</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ophthalmoplegic migraine (OM)/recurrent painful ophthalmoplegic neuropathy (RPON) is a rare disease consisting of recurrent unilateral headache accompanied or followed by ipsilateral ophthalmoplegia."</div>
+
+
+                <div class="evidence-explanation">Supports headache as a defining component of the RPON attack.</div>
 
 
 
@@ -8429,6 +8767,31 @@ This treatment is neurosurgical procedure (NCIT:C15656). NCIT:C15656 is a clinic
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Open neurosurgical clipping of the aneurysm removes the mass compressing the cisternal nerve. Because the mechanism of injury is mass effect, relieving it early is what gives the nerve a chance to recover, and clipping produces faster recovery than endovascular treatment in the first year even though long-term rates converge.</div>
 
 
@@ -8459,6 +8822,8 @@ This treatment is neurosurgical procedure (NCIT:C15656). NCIT:C15656 is a clinic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8503,6 +8868,8 @@ This treatment is neurosurgical procedure (NCIT:C15656). NCIT:C15656 is a clinic
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8516,14 +8883,16 @@ This treatment is neurosurgical procedure (NCIT:C15656). NCIT:C15656 is a clinic
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39692993" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39692993" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39692993" target="_blank">PMID:39692993</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8587,6 +8956,31 @@ This treatment is embolization therapy (NCIT:C15230). NCIT:C15230 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Endovascular occlusion of the aneurysm sac secures the lesion against rupture and, less directly than clipping, reduces the pulsatile mass effect on the nerve. Nerve recovery is slower than after clipping but comparable by 18 to 24 months, and older patients may do relatively better with it.</div>
 
 
@@ -8609,14 +9003,16 @@ This treatment is embolization therapy (NCIT:C15230). NCIT:C15230 is a clinical 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39692993" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39692993" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39692993" target="_blank">PMID:39692993</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8651,14 +9047,16 @@ This treatment is embolization therapy (NCIT:C15230). NCIT:C15230 is a clinical 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30455133" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30455133" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30455133" target="_blank">PMID:30455133</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8722,6 +9120,31 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">There is no treatment directed at the ischaemic nerve itself. Management is optimisation of glycaemic control and of the other vascular risk factors, plus observation, since the natural history is spontaneous recovery.</div>
 
 
@@ -8752,6 +9175,8 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8794,6 +9219,8 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8878,6 +9305,31 @@ This treatment uses botulinum toxin type A (CHEBI:3160). CHEBI:3160 is a therape
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Chemodenervation of the antagonist muscle reduces the deviation and the diplopia during the acute phase. It is symptomatic: it does not act on the nerve lesion, and its benefit over expectant management is confined to acute palsy.</div>
 
 
@@ -8923,6 +9375,8 @@ This treatment targets Diplopia (HP:0000651). HP:0000651 is a phenotype from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8936,14 +9390,16 @@ This treatment targets Diplopia (HP:0000651). HP:0000651 is a phenotype from the
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38112391" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38112391" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38112391" target="_blank">PMID:38112391</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9002,6 +9458,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -9086,6 +9567,8 @@ This treatment targets Diplopia (HP:0000651). HP:0000651 is a phenotype from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9107,6 +9590,8 @@ This treatment targets Diplopia (HP:0000651). HP:0000651 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9170,6 +9655,31 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">In Tolosa-Hunt syndrome and other steroid-responsive inflammatory third nerve palsies, high-dose corticosteroids shorten the symptomatic episode and the total treatment course. The prognosis is favourable but recurrence during or after tapering is common, so response is not the same as cure.</div>
 
 
@@ -9193,6 +9703,8 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9206,14 +9718,16 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37853245" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37853245" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37853245" target="_blank">PMID:37853245</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9277,6 +9791,31 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">In children within the amblyogenic period, occlusion therapy for the sound eye protects visual development, which is a different and often more consequential target than the ocular motor deficit itself.</div>
 
 
@@ -9320,6 +9859,8 @@ This treatment targets Amblyopia (HP:0000646). HP:0000646 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9406,6 +9947,8 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9454,6 +9997,8 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9511,6 +10056,8 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9561,6 +10108,8 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9589,6 +10138,790 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-mri-of-the-oculomotor-nerve-with-vascular-imaging">
+                <div class="item-name">
+                    MRI of the oculomotor nerve with vascular imaging
+
+                </div>
+
+                <div class="item-desc">Because the syndrome is defined by the affected nerve rather than by a single lesion, imaging is what assigns the aetiological subtype. MRI evaluates the nerve along its course from midbrain to orbit; vascular imaging is directed at the aneurysm that must not be missed. In children, where pupillary signs carry no localizing value, imaging is not optional.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36116851" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36116851" target="_blank">PMID:36116851</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Magnetic resonance imaging (MRI) is the best imaging exam to evaluate patients with clinical signs of third cranial nerve palsy."</div>
+
+
+                <div class="evidence-explanation">Establishes MRI as the primary imaging modality for evaluating third cranial nerve palsy.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16391633" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16391633" target="_blank">PMID:16391633</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Children with oculomotor nerve palsy require neuroimaging."</div>
+
+
+                <div class="evidence-explanation">Supports imaging as mandatory in children, where the pupil cannot be used to triage compressive causes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">6</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-acute-onset">
+                <div class="item-name">Acute onset</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-subtype">Microvascular</span>
+
+
+
+
+                </div>
+
+                <div class="item-notes">Microvascular palsy begins abruptly, often with periorbital pain, and reaches its deficit over hours to days.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39510537" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39510537" target="_blank">PMID:39510537</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinical manifestations often include ptosis, diplopia, and periorbital pain."</div>
+
+
+                <div class="evidence-explanation">Records the acute symptom triad with which diabetic ocular motor mononeuropathy presents.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-spontaneous-recovery">
+                <div class="item-name">Spontaneous recovery</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-subtype">Microvascular</span>
+
+
+
+
+                </div>
+
+                <div class="item-notes">The defining prognostic feature of the microvascular subtype is spontaneous resolution, typically within weeks to a few months, without directed treatment of the nerve itself.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39510537" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39510537" target="_blank">PMID:39510537</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Spontaneous recovery is seen in many cases."</div>
+
+
+                <div class="evidence-explanation">Supports spontaneous recovery as the expected course of diabetic ocular motor mononeuropathy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-post-treatment-recovery">
+                <div class="item-name">Post-treatment recovery</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-subtype">Compressive</span>
+
+
+
+
+                </div>
+
+                <div class="item-notes">After treatment of a posterior communicating artery aneurysm, recovery of the nerve depends chiefly on how severe the palsy was and how long it was left untreated, which is the mechanistic argument for early intervention.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30455133" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30455133" target="_blank">PMID:30455133</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"initial palsy severity and preoperative palsy times are important predictors for ONP recovery, early treatment is recommended to achieve complete recovery of ONP, regardless of the presence or absence of SAH"</div>
+
+
+                <div class="evidence-explanation">Identifies severity and delay as the determinants of nerve recovery after aneurysm treatment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-attack-and-remission-cycle">
+                <div class="item-name">Attack and remission cycle</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-subtype">RPON</span>
+
+
+
+
+                </div>
+
+                <div class="item-notes">RPON runs as discrete attacks with full recovery between them in most patients, although repeated attacks can leave permanent deficit.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35659705" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35659705" target="_blank">PMID:35659705</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In the majority of cases, there is a full recovery within days or weeks."</div>
+
+
+                <div class="evidence-explanation">Supports the relapsing-remitting course with usual full recovery that characterizes RPON.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-prognostic-determinants-of-recovery">
+                <div class="item-name">Prognostic determinants of recovery</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Across aetiologies, the two factors that predict good long-term recovery are a short symptom onset (under one week) and involvement of the third nerve alone rather than several cranial nerves. Recovery also differs sharply by cause, being best for inflammatory and worst for compressive palsies in one tertiary series.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38352051" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38352051" target="_blank">PMID:38352051</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The onset of symptoms in less than 1 week and isolated nerve involvement were associated with better prognosis in subjects with third, fourth, and sixth cranial nerve palsy."</div>
+
+
+                <div class="evidence-explanation">Identifies the two independent prognostic factors for recovery, adjusted for age, sex, and vascular risk factors.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38352051" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38352051" target="_blank">PMID:38352051</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our study revealed that ischemic and compressive lesions were the most common etiology of oculomotor nerve palsy, comprising 24.6% each."</div>
+
+
+                <div class="evidence-explanation">Independent tertiary-hospital series confirming ischaemic and compressive causes as the two dominant aetiologies of third nerve palsy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-amblyopia-risk-in-childhood">
+                <div class="item-name">Amblyopia risk in childhood</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-subtype">Congenital</span>
+
+
+
+
+                </div>
+
+                <div class="item-notes">In children the palsy competes with visual development, so the clinically dominant late outcome is amblyopia and loss of binocularity rather than the ocular motor deficit itself.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16391633" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16391633" target="_blank">PMID:16391633</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Amblyopia developed in 7 (39%) children and was successfully treated in 5 of the 7 (71%)."</div>
+
+
+                <div class="evidence-explanation">Quantifies amblyopia as a frequent and largely treatable sequela of childhood third nerve palsy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-patients-with-isolated-oculomotor-nerve-palsy-referral-based-university-hospital-all-departments-south-korea">
+                <div class="item-name">Patients with isolated oculomotor nerve palsy, referral-based university hospital, all departments, South Korea</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Period Prevalence</span>
+
+
+
+                    <span class="tag">Unknown</span>
+
+                    <span class="tag tag-subtype">Microvascular</span>
+
+                </div>
+
+                <div class="item-notes">Aetiological share, not a population rate: microvascular ischaemia accounted for 168/633 (26.5%) of isolated oculomotor nerve palsy cases ascertained across all departments over 18 years.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38411317" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38411317" target="_blank">PMID:38411317</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most common etiology was microvascular (n = 168, 26.5%), followed by vascular anomalies (n = 110, 17.4%), neoplastic (n = 86, 13.6%), inflammatory (n = 79, 12.5%), idiopathic (n = 60, 9.5%) and traumatic (n = 53, 8.4%)."</div>
+
+
+                <div class="evidence-explanation">Direct source for the aetiological fractions recorded here.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-municipal-hospital-inpatients-with-third-nerve-palsy-personally-examined-by-a-single-neuro-ophthalmologist-over-37-years">
+                <div class="item-name">Municipal hospital inpatients with third nerve palsy personally examined by a single neuro-ophthalmologist over 37 years</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Period Prevalence</span>
+
+
+
+                    <span class="tag">Unknown</span>
+
+                    <span class="tag tag-subtype">Traumatic</span>
+
+                </div>
+
+                <div class="item-notes">Aetiological share in an inpatient population, where severe trauma and herniation are over-represented relative to outpatient neuro-ophthalmology series: trauma 26%, tumour 12%, diabetes 11%, aneurysm 10%.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21059515" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21059515" target="_blank">PMID:21059515</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Causes were trauma (26%), tumor (12%), diabetes (11%), aneurysm (10%), surgery (10%), stroke (8%), infection (5%), Guillain-Barre and Fisher syndromes (5%), idiopathic cavernous sinusitis (3%), benign self-limited (2%), miscellaneous (4%), and unknown (3%)."</div>
+
+
+                <div class="evidence-explanation">Direct source for the inpatient aetiological distribution, which differs markedly from referral outpatient series.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-korean-population">
+                <div class="item-name">Korean population</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Annual Incidence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        3.71 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000 per year</span>
+
+                </div>
+
+                <div class="item-notes">Population incidence of third cranial nerve palsy reported as 3.71 per 100,000 per year, against 5.73 for trochlear and 4.66 for abducens palsy in the same population. Incidence rises with age, accelerating after 60.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38352051" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38352051" target="_blank">PMID:38352051</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Recent reports have indicated that the incidence rates of third, fourth, and sixth cranial nerve palsy among the Korean population are 3.71, 5.73, and 4.66 per 100,000 per year, respectively."</div>
+
+
+                <div class="evidence-explanation">Gives the population annual incidence of third nerve palsy alongside the other ocular motor nerves for context.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+        <div class="card" id="epidemiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">🌍</div>
+                <h2 class="card-title">Epidemiology</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-setting-dependence-of-the-aetiological-mix">
+                <div class="item-name">Setting dependence of the aetiological mix</div>
+
+                <div class="item-desc">The apparent cause distribution of third nerve palsy depends heavily on where patients are ascertained. Inpatient and referral populations differ, and within one hospital the mix differs by the specialty managing the patient, so no single published distribution should be read as the population truth.</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38411317" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38411317" target="_blank">PMID:38411317</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The proportion of etiologies of isolated oculomotor nerve palsy may differ according to the specialties involved in the management."</div>
+
+
+                <div class="evidence-explanation">The authors&#39; own conclusion that ascertainment route biases the measured aetiological distribution.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21059515" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21059515" target="_blank">PMID:21059515</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Bilateral TNPs, multiple cranial neuropathies, and accompanying neurological signs were common among our inpatients, as were causes rare in outpatient settings such as severe trauma, transtentorial herniation, midbrain strokes, and the Guillain-Barre syndrome."</div>
+
+
+                <div class="evidence-explanation">Documents the specific causes enriched in an inpatient setting relative to outpatient neuro-ophthalmology cohorts.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-pain-accompanies-both-the-dangerous-and-the-benign-cause">
+                <div class="item-name">Pain accompanies both the dangerous and the benign cause</div>
+
+                <div class="item-desc">Painful onset is common in aneurysmal third nerve palsy but is also common in diabetic microvascular palsy, so pain alone cannot be used to triage urgency.</div>
+
+                <div class="item-meta">
+
+
+                    <span class="tag">headache</span>
+
+                    <span class="tag">periorbital pain</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21059515" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21059515" target="_blank">PMID:21059515</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"painful onset occurred with 94% of aneurysm and 69% of diabetic cases."</div>
+
+
+                <div class="evidence-explanation">Directly quantifies pain in both aneurysmal and diabetic palsy, showing pain does not discriminate between them.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -9652,6 +10985,8 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9986,7 +11321,7 @@ prevalence:
     the same population. Incidence rises with age, accelerating after 60.
   evidence:
   - reference: PMID:38352051
-    reference_title: &#34;Retrospective Analysis of Cranial Nerve Palsy in Third, Fourth, and Sixth Cranial Nerves: Etiology, Clinical Course, and Prognostic Factors.&#34;
+    reference_title: &#34;Retrospective Analysis of Factors Related to the Long-Term Recovery of Third, Fourth, and Sixth Cranial Nerve Palsy with Etiologies and Clinical Course in a Tertiary Hospital.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Recent reports have indicated that the incidence rates of third, fourth, and sixth cranial nerve palsy among the Korean population are 3.71, 5.73, and 4.66 per 100,000 per year, respectively.&#34;
@@ -10087,13 +11422,13 @@ progression:
     palsies in one tertiary series.
   evidence:
   - reference: PMID:38352051
-    reference_title: &#34;Retrospective Analysis of Cranial Nerve Palsy in Third, Fourth, and Sixth Cranial Nerves: Etiology, Clinical Course, and Prognostic Factors.&#34;
+    reference_title: &#34;Retrospective Analysis of Factors Related to the Long-Term Recovery of Third, Fourth, and Sixth Cranial Nerve Palsy with Etiologies and Clinical Course in a Tertiary Hospital.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The onset of symptoms in less than 1 week and isolated nerve involvement were associated with better prognosis in subjects with third, fourth, and sixth cranial nerve palsy.&#34;
     explanation: &#34;Identifies the two independent prognostic factors for recovery, adjusted for age, sex, and vascular risk factors.&#34;
   - reference: PMID:38352051
-    reference_title: &#34;Retrospective Analysis of Cranial Nerve Palsy in Third, Fourth, and Sixth Cranial Nerves: Etiology, Clinical Course, and Prognostic Factors.&#34;
+    reference_title: &#34;Retrospective Analysis of Factors Related to the Long-Term Recovery of Third, Fourth, and Sixth Cranial Nerve Palsy with Etiologies and Clinical Course in a Tertiary Hospital.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Our study revealed that ischemic and compressive lesions were the most common etiology of oculomotor nerve palsy, comprising 24.6% each.&#34;
@@ -10205,7 +11540,7 @@ pathophysiology:
     snippet: &#34;Etiologies range from benign microvascular ischemia to compressive intracranial lesions, including aneurysms, making prompt recognition and appropriate evaluation critical, particularly in cases presenting with pupillary dysfunction.&#34;
     explanation: &#34;Ties compressive aetiology to pupillary dysfunction and to the clinical urgency that follows from it.&#34;
   - reference: PMID:39692993
-    reference_title: &#34;Oculomotor nerve palsy recovery following microsurgery vs. endovascular treatment of posterior communicating artery aneurysms: a comparative meta-analysis.&#34;
+    reference_title: &#34;Oculomotor nerve palsy recovery following microsurgery vs. endovascular treatment of posterior communicating artery aneurysms: a comparative meta-analysis of short- and long-term outcomes.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Due to anatomical proximity, aneurysmal mass effect has been identified as the most prevalent ONP etiology and often leads to rupture&#34;
@@ -10259,7 +11594,7 @@ pathophysiology:
       adding ptosis and ophthalmoplegia to the pupillary sign.
     evidence:
     - reference: PMID:39692993
-      reference_title: &#34;Oculomotor nerve palsy recovery following microsurgery vs. endovascular treatment of posterior communicating artery aneurysms: a comparative meta-analysis.&#34;
+      reference_title: &#34;Oculomotor nerve palsy recovery following microsurgery vs. endovascular treatment of posterior communicating artery aneurysms: a comparative meta-analysis of short- and long-term outcomes.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Complete ONP diagnosis is established when the simultaneous occurrence of ptosis, fixed mydriasis, diplopia, and ophthalmoplegia is observed.&#34;
@@ -10442,7 +11777,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:39692993
-      reference_title: &#34;Oculomotor nerve palsy recovery following microsurgery vs. endovascular treatment of posterior communicating artery aneurysms: a comparative meta-analysis.&#34;
+      reference_title: &#34;Oculomotor nerve palsy recovery following microsurgery vs. endovascular treatment of posterior communicating artery aneurysms: a comparative meta-analysis of short- and long-term outcomes.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Complete ONP diagnosis is established when the simultaneous occurrence of ptosis, fixed mydriasis, diplopia, and ophthalmoplegia is observed.&#34;
@@ -10580,7 +11915,7 @@ pathophysiology:
     explanation: &#34;Gives the stretch-at-a-tether-point mechanism together with the observation that the pupillomotor fibres can survive it. Marked PROVISIONAL because this is a single imaged case with an author-proposed mechanism.&#34;
   - reference: PMID:16978866
     reference_title: &#34;Traumatic oculomotor nerve palsy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Oculomotor nerve palsy without internal ophthalmoplegia (pupil sparing) is extremely rare.&#34;
     explanation: &#34;Qualifies the mechanism: pupil sparing after trauma is possible but uncommon, so a traumatic palsy is not assumed to spare the pupil.&#34;
@@ -10613,7 +11948,7 @@ pathophysiology:
     evidence:
     - reference: PMID:6830173
       reference_title: &#34;Pupil sparing in oculomotor palsy: a brief review.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Careful examination is also necessary to separate examples of apparent pupil sparing in cases of aberrant regeneration and in some instances of cavernous sinus compression.&#34;
       explanation: &#34;Supports aberrant regeneration as a sequel of structural axonal injury; this review does not isolate the traumatic subgroup, so the edge is recorded as PARTIAL.&#34;
@@ -10700,13 +12035,13 @@ pathophysiology:
     explanation: &#34;Documents the imaging correlate that motivates a focal blood-nerve barrier mechanism.&#34;
   - reference: PMID:24567117
     reference_title: &#34;Ophthalmoplegic migraine: from questions to answers.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The authors suggest that ischemic reversible breakdown of the blood-nerve barrier is the most probable cause of OM and to include MR findings in the hallmarks of the disease.&#34;
     explanation: &#34;States the blood-nerve barrier hypothesis explicitly, as the authors&#39; preferred but not established explanation.&#34;
   - reference: PMID:36694449
     reference_title: &#34;Recurrent Painful Ophthalmoplegic Neuropathy: A case report with atypical features and a review of the literature.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Several hypotheses have been proposed, including nerve compression, ischemia or inflammation/demyelination, but none has been completely accepted.&#34;
     explanation: &#34;Confirms that no mechanism for RPON is established, which is why this node carries HYPOTHETICAL confidence.&#34;
@@ -10860,7 +12195,7 @@ phenotypes:
       label: Mydriasis
   evidence:
   - reference: PMID:39692993
-    reference_title: &#34;Oculomotor nerve palsy recovery following microsurgery vs. endovascular treatment of posterior communicating artery aneurysms: a comparative meta-analysis.&#34;
+    reference_title: &#34;Oculomotor nerve palsy recovery following microsurgery vs. endovascular treatment of posterior communicating artery aneurysms: a comparative meta-analysis of short- and long-term outcomes.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Complete ONP diagnosis is established when the simultaneous occurrence of ptosis, fixed mydriasis, diplopia, and ophthalmoplegia is observed.&#34;
@@ -11085,14 +12420,14 @@ treatments:
       explanation: &#34;Supports clipping as acting on the compressive mechanism with better complete-recovery outcomes.&#34;
   evidence:
   - reference: PMID:39692993
-    reference_title: &#34;Oculomotor nerve palsy recovery following microsurgery vs. endovascular treatment of posterior communicating artery aneurysms: a comparative meta-analysis.&#34;
+    reference_title: &#34;Oculomotor nerve palsy recovery following microsurgery vs. endovascular treatment of posterior communicating artery aneurysms: a comparative meta-analysis of short- and long-term outcomes.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Overall, microsurgical clipping of PComA aneurysms demonstrated a significantly higher likelihood of ONP recovery compared to EVT at 1,3,6, and 12 months follow-up.&#34;
     explanation: &#34;Meta-analytic support for earlier nerve recovery after clipping than after endovascular treatment.&#34;
   - reference: PMID:39692993
-    reference_title: &#34;Oculomotor nerve palsy recovery following microsurgery vs. endovascular treatment of posterior communicating artery aneurysms: a comparative meta-analysis.&#34;
-    supports: PARTIAL
+    reference_title: &#34;Oculomotor nerve palsy recovery following microsurgery vs. endovascular treatment of posterior communicating artery aneurysms: a comparative meta-analysis of short- and long-term outcomes.&#34;
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Our findings suggest microsurgery leads to prompt ONP recovery from PComA aneurysms, while EVT shows potential for delayed favorable recovery; both treatments yield short-term recovery when administered early.&#34;
     explanation: &#34;Qualifies the advantage as one of speed rather than of ultimate outcome, so the entry does not overstate clipping&#39;s superiority.&#34;
@@ -11116,15 +12451,15 @@ treatments:
       the adjacent nerve, though it leaves the aneurysm sac in place.
     evidence:
     - reference: PMID:39692993
-      reference_title: &#34;Oculomotor nerve palsy recovery following microsurgery vs. endovascular treatment of posterior communicating artery aneurysms: a comparative meta-analysis.&#34;
-      supports: PARTIAL
+      reference_title: &#34;Oculomotor nerve palsy recovery following microsurgery vs. endovascular treatment of posterior communicating artery aneurysms: a comparative meta-analysis of short- and long-term outcomes.&#34;
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;However, recent literature has reported favorable ONP recovery outcomes after endovascular treatment (EVT) suggesting other mechanisms associated with ONP occurrence, such as the pulsatile hemodynamic stress (water hammer effect) of cerebral aneurysms&#34;
       explanation: &#34;Supports pulsatile haemodynamic stress, not sac volume alone, as part of the compressive mechanism that endovascular treatment addresses.&#34;
   evidence:
   - reference: PMID:30455133
     reference_title: &#34;Posterior communicating aneurysm with oculomotor nerve palsy: Predictors of nerve recovery.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In addition, the aneurysm treatment modality was not correlated with nerve recovery in either analysis.&#34;
     explanation: &#34;A single-centre series in which modality did not predict recovery, tempering the meta-analytic preference for clipping.&#34;
@@ -11196,7 +12531,7 @@ treatments:
     explanation: &#34;Quantifies the sharp difference in benefit between acute and chronic palsy.&#34;
   - reference: PMID:38112391
     reference_title: &#34;Botulinum Toxin Injection for the Treatment of Third, Fourth, and Sixth Nerve Palsy: A Meta-Analysis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Botulinum toxin can be used for the treatment of acute third, fourth, and sixth nerve palsy, especially in patients with acute palsy and more severe tropia.&#34;
     explanation: &#34;Supports use restricted to the acute setting; the meta-analysis pools third, fourth, and sixth nerve palsy rather than isolating cranial nerve III.&#34;
@@ -11259,7 +12594,7 @@ treatments:
     explanation: &#34;Supports high-dose corticosteroids as effective initial therapy for the prototypical inflammatory cause.&#34;
   - reference: PMID:37853245
     reference_title: &#34;Recurrence and long-term outcomes of Tolosa-Hunt syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Recurrence occurred during steroid tapering as part of the initial treatment in seven, while in 18 patients, it happened after the successful termination of the initial treatment.&#34;
     explanation: &#34;Qualifies the benefit: a quarter of patients recurred, so steroid responsiveness does not amount to durable cure.&#34;
@@ -11394,7 +12729,7 @@ discussions:
   evidence:
   - reference: PMID:11756854
     reference_title: &#34;Patterns of extraocular muscle weakness in vasculopathic pupil-sparing, incomplete third nerve palsy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We propose that distinguishing these two patterns of EOM paresis may be helpful in differentiating between vasculopathic and aneurysmal 3NP. Future studies will be needed to confirm the clinical utility of this hypothesis.&#34;
     explanation: &#34;The authors state the hypothesis and its unvalidated status in their own words, which is why this is curated as EMERGING_HYPOTHESIS rather than as mechanism.&#34;
@@ -11522,6 +12857,39 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curation scope. This entry models the oculomotor nerve palsy syndrome (MONDO:0001309) as an aetiologically heterogeneous convergence on one motor and one autonomic deficit, organised around the somatotopic segregation of the nerve&#39;s fibres. Related entries in the knowledge base that intersect it are Intracranial_Berry_Aneurysm, which carries oculomotor nerve palsy as a phenotype of the aneurysm rather than as a disease in its own right, and Bells_Palsy, the analogous single-cranial-nerve entry for cranial nerve VII; neither is duplicated here. Congenital cranial dysinnervation disorders (CFEOM, Duane retraction syndrome) are deliberately out of scope - see the scope_boundary_congenital_dysinnervation discussion.
+Deep research. `just research-disorder falcon Oculomotor_Nerve_Palsy` was run on 2026-08-20 (research/Oculomotor_Nerve_Palsy-deep-research-falcon.md). `just preflight-dr` returned SKIP, as expected for an acquired syndrome for which MONDO records no causal gene, so the manual named-entity-confusion checks in CLAUDE.md section 2b were performed instead: the MONDO record (`runoak -i sqlite:obo:mondo info MONDO:0001309 -O obo`) carries no causal gene and no OMIM xref, its synonyms are all plain restatements of &#34;third nerve palsy&#34; with no competing eponym, and the report explicitly names MONDO:0001309 and the correct clinical entity. The report was judged not to be a named-entity confusion, but its top gene mentions (TUBB3, KIF21A, TUBA1A, PHOX2A, CHN1) revealed a scope drift into congenital cranial dysinnervation disorders; that material was excluded. The report was used as leads only, and every PMID and snippet in this entry was independently fetched and verified against the local reference cache.
+Clinical trials. No clinical_trials block is curated, and the omission is deliberate rather than an oversight. The deep-research run surfaced three registrations: NCT03099447 and NCT03461809 are acupuncture studies whose registry status is UNKNOWN with no posted results, and NCT03059420 is a congenital cranial dysinnervation disorder genetics registry that falls inside the scope boundary this entry draws. None of the three would support an evidence-bearing claim about this syndrome today.
+Anatomical provenance. The peripheral position of the pupillomotor fibres traces to Kerr and Hollowell&#39;s experimental work (PMID:14213479) and to Sunderland and Hughes. Neither has a retrievable abstract in the reference cache, so neither is quoted as evidence; the claim is instead anchored on contemporary sources whose text can be verified.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Oculomotor Nerve Palsy (MONDO:0001309)</strong> · 2026-08-20T14:47:53Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Oculomotor_Nerve_Palsy/2026-08-20T144753Z-claude-code-64115b.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of oculomotor nerve palsy (MONDO:0001309) for issue #8956. Modelled as an aetiologically heterogeneous syndrome converging on one motor and one autonomic deficit, with five has_subtypes: Microvascular, Compressive, Traumatic, Congenital, and RPON.
+
+The mechanistic core is the somatotopic segregation of the nerve&#39;s two fibre populations, curated as real pathophysiology nodes rather than asserted in prose. A &#34;Somatotopic Segregation of Pupillomotor and Somatic Motor Fibres&#34; node is evidenced on the superficial peripheral position of the preganglionic parasympathetic fibres and the deeper position of the somatic motor fibres (PMID:30252368, PMID:36116851). It feeds an extrinsic-compression arm and an endoneurial-ischaemia arm, which terminate in the paired &#34;Superficial Pupillomotor Fibre Injury&#34; (pupil-involving) and &#34;Preserved Superficial Pupillomotor Function&#34; (pupil-sparing) nodes. Pupil sparing is curated as a positive mechanistic state, not as the absence of a finding.
+
+Eleven pathophysiology nodes in total, also covering transtentorial herniation compressing CN III, traumatic stretch at fixed tether points, congenital nerve hypoplasia/aplasia, RPON focal blood-nerve-barrier breakdown, and aberrant regeneration (which manufactures apparent pupil sparing).
+
+A CONTROVERSY discussion records the documented failure modes of the pupil rule in both directions: only 2 percent of aneurysmal palsies spare the pupil, but 53 percent of diabetic microvascular palsies in a 1400-patient inpatient series did involve it, and pupillary signs carry no localizing value in children. An EMERGING_HYPOTHESIS discussion records the proposed diffuse-versus-focal pattern of extraocular muscle paresis as a candidate second discriminator, explicitly flagged unvalidated by its own authors. A KNOWLEDGE_GAP discussion records that no mechanism for RPON is established.
+
+Deep research: falcon, run 2026-08-20 (research/Oculomotor_Nerve_Palsy-deep-research-falcon.md). &#34;just preflight-dr&#34; returned SKIP, as expected for an acquired syndrome for which MONDO records no causal gene, so the manual CLAUDE.md section 2b NEC checks were performed instead (runoak MONDO record: no causal gene, no OMIM xref, no competing eponymic synonym; the report explicitly names MONDO:0001309 and the correct entity). The report was judged NOT a named-entity confusion, but its top gene mentions (TUBB3, KIF21A, TUBA1A, PHOX2A, CHN1) revealed a scope drift into congenital cranial dysinnervation disorders / CFEOM. That material was deliberately excluded and the boundary recorded as a RESOLVED INTERPRETATION discussion, anchored on the exclusion criterion stated by the entry&#39;s own anchoring cohort (PMID:38411317). The report was used as leads only; every PMID and snippet was independently fetched with &#34;just fetch-reference&#34; and verified against the local reference cache.
+
+Cross-referencing rather than duplication: Intracranial_Berry_Aneurysm already carries oculomotor nerve palsy as a phenotype of the aneurysm, and Bells_Palsy is the analogous single-cranial-nerve entry for CN VII; both are named in notes and neither is duplicated.
+
+Validation: &#34;just validate&#34; passed (schema, terms, references); &#34;just count-verified-snippets&#34; reported 105/105 verified against cached references; &#34;just validate-terms&#34; passed; &#34;just check-duplicate-keys&#34; passed; &#34;just validate-disorders&#34; passed. The three additional CI gates were run and are clean: check_snippet_length.py --against-ref origin/main, check_folded_hyphens.py, check_title_snippets.py.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -12014,7 +13382,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Oculomotor Nerve Palsy", "mondoId": "MONDO:0001309", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Oculomotor_Nerve_Palsy", "yamlRevision": "8495c4f5973e"};
+        const OS_CONFIG = {"diseaseName": "Oculomotor Nerve Palsy", "mondoId": "MONDO:0001309", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Oculomotor_Nerve_Palsy", "yamlRevision": "e8a449c4c4c4"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

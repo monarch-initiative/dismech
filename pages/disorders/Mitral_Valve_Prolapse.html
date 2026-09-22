@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3726,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3768,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 21</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Mitral%20Valve%20Prolapse"
@@ -3943,7 +4050,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">13</div>
+                <div class="stat-value">21</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3994,6 +4101,33 @@
 
 
         <!-- Comorbidities -->
+
+        <div class="card" id="comorbidities">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">C</div>
+                <h2 class="card-title">Comorbidities</h2>
+            </div>
+            <div class="mapping-section">
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        <a href="../comorbidities/com_Hypermobile_Ehlers-Danlos_Syndrome__Mitral_Valve_Prolapse.html">Hypermobile Ehlers-Danlos Syndrome &lt;-&gt; Mitral Valve Prolapse</a>
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-parent">Disease B</span>
+
+
+                        <span class="tag tag-classification">UNKNOWN</span>
+
+
+                        <span class="tag tag-mechanistic">CANDIDATE</span>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
 
 
         <!-- Mechanistic Hypotheses -->
@@ -4103,6 +4237,21 @@
 
                         </div>
 
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-ventricular-electrical-instability-and-sudden-cardiac-death">Ventricular Electrical Instability and Sudden Cardiac Death</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathograph">Premature Ventricular Contraction</a>
+
+
+
+                            <span class="crosslink-desc">The trigger half of the substrate-plus-trigger pair surfaces clinically as premature ventricular beats of Purkinje origin.</span>
+
+
+                        </div>
+
                     </div>
                 </div>
 
@@ -4123,6 +4272,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4146,6 +4297,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4369,6 +4522,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myxomatous-leaflet-remodeling" data-dismech-node="Myxomatous Leaflet Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Myxomatous Leaflet Remodeling</div>
 
+
                 <div class="item-desc">The primary lesion. Mitral valve interstitial cells remodel the leaflet extracellular matrix, producing thickened, redundant, abnormally compliant leaflets - the myxomatous or &#34;floppy&#34; valve. Leaflet thickness of 5 mm or more distinguishes classic from non-classic prolapse echocardiographically and is not a cosmetic distinction: it marks the more substantially remodeled valve. Myxomatous valve disease is among the commonest indications for valvular surgery.
 </div>
 
@@ -4514,6 +4668,8 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4535,6 +4691,8 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4559,6 +4717,7 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-valve-developmental-and-cytoskeletal-gene-lesion" data-dismech-node="Valve Developmental and Cytoskeletal Gene Lesion" data-dismech-type="pathophysiology">
                 <div class="item-name">Valve Developmental and Cytoskeletal Gene Lesion</div>
+
 
                 <div class="item-desc">Non-syndromic prolapse has a clear heritable component, and two genes identified in isolated families implicate different layers of valve biology. FLNA, encoding the actin-crosslinking protein filamin A, causes X-linked myxomatous valvular dystrophy with complete penetrance in men and incomplete penetrance in women - a cytoskeletal, mechanotransductive lesion. DCHS1, the human homologue of the Drosophila planar-cell-polarity gene dachsous, causes autosomal prolapse through impaired valve interstitial cell migration and patterning, and the mouse heterozygote traces adult prolapse back to developmental errors in valve morphogenesis. Together they suggest the adult valve lesion is in part a developmental one.
 </div>
@@ -4694,6 +4853,8 @@ This pathophysiological event involves DCHS1 (hgnc:13681). hgnc:13681 is a gene 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4715,6 +4876,8 @@ This pathophysiological event involves DCHS1 (hgnc:13681). hgnc:13681 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4740,6 +4903,8 @@ This pathophysiological event involves DCHS1 (hgnc:13681). hgnc:13681 is a gene 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4762,6 +4927,7 @@ This pathophysiological event involves DCHS1 (hgnc:13681). hgnc:13681 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systolic-leaflet-prolapse" data-dismech-node="Systolic Leaflet Prolapse" data-dismech-type="pathophysiology">
                 <div class="item-name">Systolic Leaflet Prolapse</div>
+
 
                 <div class="item-desc">Superior displacement of one or both leaflets more than 2 mm past the annular plane during systole - the defining finding, and the audible midsystolic click. In the community the prolapsing valve is usually competent or nearly so: Framingham subjects with prolapse had more regurgitation than those without, but on average only trace or mild. Bileaflet involvement is disproportionately represented in the arrhythmic phenotype, being present in 70% of both sudden-death cases and living patients with complex ventricular arrhythmia.
 </div>
@@ -4866,6 +5032,8 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4887,6 +5055,8 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4911,6 +5081,7 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitral-annular-disjunction-and-systolic-curling" data-dismech-node="Mitral Annular Disjunction and Systolic Curling" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitral Annular Disjunction and Systolic Curling</div>
+
 
                 <div class="item-desc">A structural abnormality of the valve hinge rather than of the leaflet: the atrial wall-mitral valve junction is displaced away from the ventricular myocardium, so the annulus is not anchored where it should be. In systole the disjointed posterior annulus curls toward the atrium instead of descending with the ventricle. Disjunction is a constant feature of arrhythmic prolapse with ventricular fibrosis - median 4.8 mm versus 1.8 mm in prolapse without fibrosis - and the degree of disjunction correlates tightly with the degree of curling. It is what converts leaflet excursion into myocardial traction, and it can be measured directly.
 </div>
@@ -5007,6 +5178,8 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5028,6 +5201,8 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5053,6 +5228,8 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5075,6 +5252,7 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mechanical-traction-on-papillary-muscles-and-inferobasal-wall" data-dismech-node="Mechanical Traction on Papillary Muscles and Inferobasal Wall" data-dismech-type="pathophysiology">
                 <div class="item-name">Mechanical Traction on Papillary Muscles and Inferobasal Wall</div>
+
 
                 <div class="item-desc">The mechanistic pivot of the arrhythmic phenotype. Excessive leaflet mobility combined with an unanchored, curling annulus applies repetitive systolic stretch to the inferobasal left ventricular wall and the papillary muscles. The regional distribution of the resulting injury is the signature: fibrosis appears exactly where the traction is applied, not diffusely, and not where ischaemia or a cardiomyopathy would put it. Crucially, this operates in patients with no or trivial mitral regurgitation, so it is not a consequence of volume loading.
 </div>
@@ -5260,6 +5438,8 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5281,6 +5461,8 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5305,6 +5487,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-regional-left-ventricular-fibrosis" data-dismech-node="Regional Left Ventricular Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Regional Left Ventricular Fibrosis</div>
+
 
                 <div class="item-desc">Fibrosis of the papillary muscles and the inferobasal left ventricular wall - found at histology in every one of the sudden-death cases in which prolapse was the only identified cause, and at the papillary muscles in all of them. In living patients with complex ventricular arrhythmia the same distribution appears as late gadolinium enhancement in 93%, against 14% of prolapse controls. The correspondence between the autopsy and imaging distributions is what makes this a substrate rather than an epiphenomenon, and what makes it detectable before the arrhythmia rather than after it. This node conforms to the extracellular-matrix-deposition effector of the `fibrotic_response` module with mechanical traction substituted for the module&#39;s usual chemical or inflammatory tissue injury.
 </div>
@@ -5490,6 +5673,8 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5511,6 +5696,8 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5536,6 +5723,8 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5559,9 +5748,21 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ventricular-electrical-instability-and-sudden-cardiac-death" data-dismech-node="Ventricular Electrical Instability and Sudden Cardiac Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Ventricular Electrical Instability and Sudden Cardiac Death</div>
 
+
                 <div class="item-desc">Malignant ventricular arrhythmia in prolapse appears to need both halves of the classical substrate-plus-trigger pair. The substrate is the regional hypertrophy and fibrosis together with surviving Purkinje tissue; the trigger is mechanical stretch eliciting premature ventricular beats, documented arising from Purkinje tissue in patients with aborted sudden death. Prolapse accounts for 7% of sudden cardiac deaths in adults aged 40 or under and 13% of those in young women, and the electrocardiographic signature points back at the anatomy: inverted inferior T waves in 83% of cases with an available tracing, and right bundle-branch block morphology arrhythmias in all of them, consistent with a left ventricular inferobasal origin.
 </div>
 
+
+                <div class="item-meta">
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-mechanical-traction-arrhythmogenesis">Leaflet traction-induced myocardial fibrosis</a>
+
+                    </span>
+
+                </div>
 
 
                 <div class="item-meta">
@@ -5633,6 +5834,32 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Premature Ventricular Contraction</span>
+
+	                            <span class="crosslink-desc">The trigger half of the substrate-plus-trigger pair surfaces clinically as premature ventricular beats of Purkinje origin.</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-mechanical-traction-arrhythmogenesis">Leaflet traction-induced myocardial fibrosis</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -5649,6 +5876,8 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5674,6 +5903,8 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5695,6 +5926,8 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5719,6 +5952,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitral-regurgitation-and-left-ventricular-volume-overload" data-dismech-node="Mitral Regurgitation and Left Ventricular Volume Overload" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitral Regurgitation and Left Ventricular Volume Overload</div>
+
 
                 <div class="item-desc">The haemodynamic route, and the one that dominates the surgical literature. Failure of coaptation regurgitates a fraction of stroke volume into the left atrium; the ventricle compensates by dilating. Outcome is graded by the effective regurgitant orifice area rather than by symptoms: in asymptomatic patients followed for a median of 26 years, five-year survival under medical management fell from 88% with an orifice below 20 mm2 to 55% at 40 mm2 or above, with risk rising continuously rather than at a threshold. This is a different disease from the arrhythmic one, in a different population, and it is measured differently.
 </div>
@@ -5793,6 +6027,8 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5814,6 +6050,8 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5839,6 +6077,8 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5861,6 +6101,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heart-failure" data-dismech-node="Heart Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Heart Failure</div>
+
 
                 <div class="item-desc">Decompensation of the volume-loaded ventricle. Notably absent from the community phenotype: no subject with prolapse in the Framingham offspring cohort had a history of heart failure, which is the clearest single statement of how rarely uncomplicated prolapse progresses this far.
 </div>
@@ -5902,6 +6143,21 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Congestive Heart Failure</span>
+
+	                            <span class="crosslink-desc">Decompensation of the volume-loaded ventricle presents clinically as congestive heart failure, in the severe-regurgitation minority rather than the community phenotype.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -5918,6 +6174,8 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5965,7 +6223,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"DCHS1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DCHS1\"], \"gene_terms\": [{\"label\": \"DCHS1\", \"id\": \"hgnc:13681\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"FLNA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FLNA\"], \"gene_terms\": [{\"label\": \"FLNA\", \"id\": \"hgnc:3754\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Heart Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Decompensation of the volume-loaded ventricle. Notably absent from the community phenotype: no subject with prolapse in the Framingham offspring cohort had a history of heart failure, which is the clearest single statement of how rarely uncomplicated prolapse progresses this far.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"heart left ventricle\"]}}, {\"id\": \"Mechanical Traction on Papillary Muscles and Inferobasal Wall\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The mechanistic pivot of the arrhythmic phenotype. Excessive leaflet mobility combined with an unanchored, curling annulus applies repetitive systolic stretch to the inferobasal left ventricular wall and the papillary muscles. The regional distribution of the resulting injury is the signature: fibrosis appears exactly where the traction is applied, not diffusely, and not where ischaemia or a cardiomyopathy would put it. Crucially, this operates in patients with no or trivial mitral regurgitation, so it is not a consequence of volume loading.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"cellular response to mechanical stimulus\"], \"locations\": [\"papillary muscle of heart\", \"heart left ventricle\"]}}, {\"id\": \"Mitral Annular Disjunction and Systolic Curling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A structural abnormality of the valve hinge rather than of the leaflet: the atrial wall-mitral valve junction is displaced away from the ventricular myocardium, so the annulus is not anchored where it should be. In systole the disjointed posterior annulus curls toward the atrium instead of descending with the ventricle. Disjunction is a constant feature of arrhythmic prolapse with ventricular fibrosis - median 4.8 mm versus 1.8 mm in prolapse without fibrosis - and the degree of disjunction correlates tightly with the degree of curling. It is what converts leaflet excursion into myocardial traction, and it can be measured directly.\\n\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"mitral valve\"]}}, {\"id\": \"Mitral Regurgitation and Left Ventricular Volume Overload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The haemodynamic route, and the one that dominates the surgical literature. Failure of coaptation regurgitates a fraction of stroke volume into the left atrium; the ventricle compensates by dilating. Outcome is graded by the effective regurgitant orifice area rather than by symptoms: in asymptomatic patients followed for a median of 26 years, five-year survival under medical management fell from 88% with an orifice below 20 mm2 to 55% at 40 mm2 or above, with risk rising continuously rather than at a threshold. This is a different disease from the arrhythmic one, in a different population, and it is measured differently.\\n\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"heart left ventricle\"]}}, {\"id\": \"Mitral Valve Repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical reconstruction of the mitral valve and its annulus, the preferred intervention for severe degenerative regurgitation and the operation the surgical literature is built on. Whether it also abolishes arrhythmic risk in prolapse without significant regurgitation is a separate and unresolved question.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Myxomatous Leaflet Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion. Mitral valve interstitial cells remodel the leaflet extracellular matrix, producing thickened, redundant, abnormally compliant leaflets - the myxomatous or \\\"floppy\\\" valve. Leaflet thickness of 5 mm or more distinguishes classic from non-classic prolapse echocardiographically and is not a cosmetic distinction: it marks the more substantially remodeled valve. Myxomatous valve disease is among the commonest indications for valvular surgery.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"mitral valve interstitial cell\"], \"biological_processes\": [\"extracellular matrix organization\"], \"role\": \"trigger\", \"locations\": [\"mitral valve\"]}}, {\"id\": \"Regional Left Ventricular Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fibrosis of the papillary muscles and the inferobasal left ventricular wall - found at histology in every one of the sudden-death cases in which prolapse was the only identified cause, and at the papillary muscles in all of them. In living patients with complex ventricular arrhythmia the same distribution appears as late gadolinium enhancement in 93%, against 14% of prolapse controls. The correspondence between the autopsy and imaging distributions is what makes this a substrate rather than an epiphenomenon, and what makes it detectable before the arrhythmia rather than after it. This node conforms to the extracellular-matrix-deposition effector of the `fibrotic_response` module with mechanical traction substituted for the module\u0027s usual chemical or inflammatory tissue injury.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"papillary muscle of heart\", \"heart left ventricle\"]}}, {\"id\": \"Systolic Leaflet Prolapse\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Superior displacement of one or both leaflets more than 2 mm past the annular plane during systole - the defining finding, and the audible midsystolic click. In the community the prolapsing valve is usually competent or nearly so: Framingham subjects with prolapse had more regurgitation than those without, but on average only trace or mild. Bileaflet involvement is disproportionately represented in the arrhythmic phenotype, being present in 70% of both sudden-death cases and living patients with complex ventricular arrhythmia.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"mitral valve\"]}}, {\"id\": \"Transcatheter Edge-to-Edge Repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Catheter-delivered leaflet approximation, avoiding sternotomy and cardiopulmonary bypass. In degenerative disease it achieves less complete abolition of regurgitation than surgery and is associated with worse long-term survival, so current evidence does not support it as a substitute where surgery is feasible.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Valve Developmental and Cytoskeletal Gene Lesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Non-syndromic prolapse has a clear heritable component, and two genes identified in isolated families implicate different layers of valve biology. FLNA, encoding the actin-crosslinking protein filamin A, causes X-linked myxomatous valvular dystrophy with complete penetrance in men and incomplete penetrance in women - a cytoskeletal, mechanotransductive lesion. DCHS1, the human homologue of the Drosophila planar-cell-polarity gene dachsous, causes autosomal prolapse through impaired valve interstitial cell migration and patterning, and the mouse heterozygote traces adult prolapse back to developmental errors in valve morphogenesis. Together they suggest the adult valve lesion is in part a developmental one.\\n\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"FLNA\", \"DCHS1\"], \"gene_terms\": [{\"label\": \"FLNA\", \"id\": \"hgnc:3754\"}, {\"label\": \"DCHS1\", \"id\": \"hgnc:13681\"}], \"role\": \"trigger\"}}, {\"id\": \"Ventricular Electrical Instability and Sudden Cardiac Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Malignant ventricular arrhythmia in prolapse appears to need both halves of the classical substrate-plus-trigger pair. The substrate is the regional hypertrophy and fibrosis together with surviving Purkinje tissue; the trigger is mechanical stretch eliciting premature ventricular beats, documented arising from Purkinje tissue in patients with aborted sudden death. Prolapse accounts for 7% of sudden cardiac deaths in adults aged 40 or under and 13% of those in young women, and the electrocardiographic signature points back at the anatomy: inverted inferior T waves in 83% of cases with an available tracing, and right bundle-branch block morphology arrhythmias in all of them, consistent with a left ventricular inferobasal origin.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Purkinje myocyte\"], \"locations\": [\"heart left ventricle\"]}}], \"edges\": [{\"source\": \"Myxomatous Leaflet Remodeling\", \"target\": \"Systolic Leaflet Prolapse\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Redundant, abnormally compliant leaflets billow into the left atrium under systolic pressure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Valve Developmental and Cytoskeletal Gene Lesion\", \"target\": \"Myxomatous Leaflet Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired interstitial cell patterning, migration, and mechanotransduction yield an abnormally remodeled leaflet matrix.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Systolic Leaflet Prolapse\", \"target\": \"Mitral Regurgitation and Left Ventricular Volume Overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of leaflet coaptation permits systolic regurgitation into the left atrium. This branch dominates in a minority of patients.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systolic Leaflet Prolapse\", \"target\": \"Mechanical Traction on Papillary Muscles and Inferobasal Wall\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive leaflet excursion transmits repetitive tension to the subvalvular apparatus and adjacent myocardium. This branch does not require haemodynamically significant regurgitation.\", \"hypothesis_groups\": [\"mechanical_traction_arrhythmogenesis\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Mitral Annular Disjunction and Systolic Curling\", \"target\": \"Mechanical Traction on Papillary Muscles and Inferobasal Wall\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Curling of the unanchored annulus transmits leaflet excursion to the inferobasal wall as repetitive stretch.\", \"hypothesis_groups\": [\"mechanical_traction_arrhythmogenesis\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mechanical Traction on Papillary Muscles and Inferobasal Wall\", \"target\": \"Regional Left Ventricular Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repetitive mechanical stretch drives regional myocardial hypertrophy and replacement fibrosis.\", \"hypothesis_groups\": [\"mechanical_traction_arrhythmogenesis\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Regional Left Ventricular Fibrosis\", \"target\": \"Ventricular Electrical Instability and Sudden Cardiac Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Regional scar and hypertrophy provide the reentrant substrate on which triggered beats degenerate into malignant ventricular arrhythmia.\", \"hypothesis_groups\": [\"mechanical_traction_arrhythmogenesis\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Mitral Regurgitation and Left Ventricular Volume Overload\", \"target\": \"Heart Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained volume overload eventually exceeds ventricular compensation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Mitral Valve Repair\", \"target\": \"Mitral Regurgitation and Left Ventricular Volume Overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Transcatheter Edge-to-Edge Repair\", \"target\": \"Mitral Regurgitation and Left Ventricular Volume Overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FLNA\", \"target\": \"Valve Developmental and Cytoskeletal Gene Lesion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DCHS1\", \"target\": \"Valve Developmental and Cytoskeletal Gene Lesion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Congestive Heart Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"End-stage consequence of chronic volume overload from severe regurgitation; absent from the uncomplicated community phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001635\"}}, {\"id\": \"DCHS1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DCHS1\"], \"gene_terms\": [{\"label\": \"DCHS1\", \"id\": \"hgnc:13681\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"FLNA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FLNA\"], \"gene_terms\": [{\"label\": \"FLNA\", \"id\": \"hgnc:3754\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Heart Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Decompensation of the volume-loaded ventricle. Notably absent from the community phenotype: no subject with prolapse in the Framingham offspring cohort had a history of heart failure, which is the clearest single statement of how rarely uncomplicated prolapse progresses this far.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"heart left ventricle\"]}}, {\"id\": \"Mechanical Traction on Papillary Muscles and Inferobasal Wall\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The mechanistic pivot of the arrhythmic phenotype. Excessive leaflet mobility combined with an unanchored, curling annulus applies repetitive systolic stretch to the inferobasal left ventricular wall and the papillary muscles. The regional distribution of the resulting injury is the signature: fibrosis appears exactly where the traction is applied, not diffusely, and not where ischaemia or a cardiomyopathy would put it. Crucially, this operates in patients with no or trivial mitral regurgitation, so it is not a consequence of volume loading.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"cellular response to mechanical stimulus\"], \"locations\": [\"papillary muscle of heart\", \"heart left ventricle\"]}}, {\"id\": \"Mitral Annular Disjunction and Systolic Curling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A structural abnormality of the valve hinge rather than of the leaflet: the atrial wall-mitral valve junction is displaced away from the ventricular myocardium, so the annulus is not anchored where it should be. In systole the disjointed posterior annulus curls toward the atrium instead of descending with the ventricle. Disjunction is a constant feature of arrhythmic prolapse with ventricular fibrosis - median 4.8 mm versus 1.8 mm in prolapse without fibrosis - and the degree of disjunction correlates tightly with the degree of curling. It is what converts leaflet excursion into myocardial traction, and it can be measured directly.\\n\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"mitral valve\"]}}, {\"id\": \"Mitral Regurgitation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Systolic regurgitation into the left atrium. Usually trace or mild in the community; severe in the minority who come to surgery.\\n\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Mitral Regurgitation and Left Ventricular Volume Overload\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Doppler-quantified regurgitation, graded by effective regurgitant orifice area, is the measurement of the haemodynamic node; grade rather than presence is what carries the prognostic information.\"}], \"term_id\": \"HP:0001653\"}}, {\"id\": \"Mitral Regurgitation and Left Ventricular Volume Overload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The haemodynamic route, and the one that dominates the surgical literature. Failure of coaptation regurgitates a fraction of stroke volume into the left atrium; the ventricle compensates by dilating. Outcome is graded by the effective regurgitant orifice area rather than by symptoms: in asymptomatic patients followed for a median of 26 years, five-year survival under medical management fell from 88% with an orifice below 20 mm2 to 55% at 40 mm2 or above, with risk rising continuously rather than at a threshold. This is a different disease from the arrhythmic one, in a different population, and it is measured differently.\\n\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"heart left ventricle\"]}}, {\"id\": \"Mitral Valve Prolapse\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Systolic displacement of one or both mitral leaflets more than 2 mm above the annular plane, the defining finding.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"reports_on\": [{\"target\": \"Systolic Leaflet Prolapse\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The 2 mm echocardiographic displacement criterion is the imaging measurement of systolic leaflet prolapse; the finding measures the mechanism rather than being caused by it.\"}], \"term_id\": \"HP:0001634\"}}, {\"id\": \"Mitral Valve Repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical reconstruction of the mitral valve and its annulus, the preferred intervention for severe degenerative regurgitation and the operation the surgical literature is built on. Whether it also abolishes arrhythmic risk in prolapse without significant regurgitation is a separate and unresolved question.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Myocardial Fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Regional fibrosis of the papillary muscles and inferobasal left ventricular wall, detectable as late gadolinium enhancement, marking the arrhythmic phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Regional Left Ventricular Fibrosis\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Late gadolinium enhancement at the papillary muscles and inferobasal wall, confirmed histologically, images the regional scar that constitutes the arrhythmic substrate.\"}], \"term_id\": \"HP:0001685\"}}, {\"id\": \"Myxomatous Leaflet Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion. Mitral valve interstitial cells remodel the leaflet extracellular matrix, producing thickened, redundant, abnormally compliant leaflets - the myxomatous or \\\"floppy\\\" valve. Leaflet thickness of 5 mm or more distinguishes classic from non-classic prolapse echocardiographically and is not a cosmetic distinction: it marks the more substantially remodeled valve. Myxomatous valve disease is among the commonest indications for valvular surgery.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"mitral valve interstitial cell\"], \"biological_processes\": [\"extracellular matrix organization\"], \"role\": \"trigger\", \"locations\": [\"mitral valve\"]}}, {\"id\": \"Premature Ventricular Contraction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Premature ventricular beats, documented arising from Purkinje tissue and acting as the trigger for ventricular fibrillation in patients with aborted sudden death.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006682\"}}, {\"id\": \"Regional Left Ventricular Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fibrosis of the papillary muscles and the inferobasal left ventricular wall - found at histology in every one of the sudden-death cases in which prolapse was the only identified cause, and at the papillary muscles in all of them. In living patients with complex ventricular arrhythmia the same distribution appears as late gadolinium enhancement in 93%, against 14% of prolapse controls. The correspondence between the autopsy and imaging distributions is what makes this a substrate rather than an epiphenomenon, and what makes it detectable before the arrhythmia rather than after it. This node conforms to the extracellular-matrix-deposition effector of the `fibrotic_response` module with mechanical traction substituted for the module\u0027s usual chemical or inflammatory tissue injury.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"papillary muscle of heart\", \"heart left ventricle\"]}}, {\"id\": \"Sudden Cardiac Death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arrhythmic sudden death, disproportionately affecting young women, and occurring in patients whose valve lesion may be haemodynamically mild.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001645\"}}, {\"id\": \"Syncope\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Transient loss of consciousness, present in a small minority in the community and of different significance when it accompanies documented ventricular arrhythmia.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001279\"}}, {\"id\": \"Systolic Leaflet Prolapse\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Superior displacement of one or both leaflets more than 2 mm past the annular plane during systole - the defining finding, and the audible midsystolic click. In the community the prolapsing valve is usually competent or nearly so: Framingham subjects with prolapse had more regurgitation than those without, but on average only trace or mild. Bileaflet involvement is disproportionately represented in the arrhythmic phenotype, being present in 70% of both sudden-death cases and living patients with complex ventricular arrhythmia.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"mitral valve\"]}}, {\"id\": \"Transcatheter Edge-to-Edge Repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Catheter-delivered leaflet approximation, avoiding sternotomy and cardiopulmonary bypass. In degenerative disease it achieves less complete abolition of regurgitation than surgery and is associated with worse long-term survival, so current evidence does not support it as a substitute where surgery is feasible.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Valve Developmental and Cytoskeletal Gene Lesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Non-syndromic prolapse has a clear heritable component, and two genes identified in isolated families implicate different layers of valve biology. FLNA, encoding the actin-crosslinking protein filamin A, causes X-linked myxomatous valvular dystrophy with complete penetrance in men and incomplete penetrance in women - a cytoskeletal, mechanotransductive lesion. DCHS1, the human homologue of the Drosophila planar-cell-polarity gene dachsous, causes autosomal prolapse through impaired valve interstitial cell migration and patterning, and the mouse heterozygote traces adult prolapse back to developmental errors in valve morphogenesis. Together they suggest the adult valve lesion is in part a developmental one.\\n\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"FLNA\", \"DCHS1\"], \"gene_terms\": [{\"label\": \"FLNA\", \"id\": \"hgnc:3754\"}, {\"label\": \"DCHS1\", \"id\": \"hgnc:13681\"}], \"role\": \"trigger\"}}, {\"id\": \"Ventricular Arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Complex ventricular arrhythmia, characteristically of right bundle-branch block morphology consistent with a left ventricular inferobasal origin.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004308\"}}, {\"id\": \"Ventricular Electrical Instability and Sudden Cardiac Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Malignant ventricular arrhythmia in prolapse appears to need both halves of the classical substrate-plus-trigger pair. The substrate is the regional hypertrophy and fibrosis together with surviving Purkinje tissue; the trigger is mechanical stretch eliciting premature ventricular beats, documented arising from Purkinje tissue in patients with aborted sudden death. Prolapse accounts for 7% of sudden cardiac deaths in adults aged 40 or under and 13% of those in young women, and the electrocardiographic signature points back at the anatomy: inverted inferior T waves in 83% of cases with an available tracing, and right bundle-branch block morphology arrhythmias in all of them, consistent with a left ventricular inferobasal origin.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Purkinje myocyte\"], \"locations\": [\"heart left ventricle\"]}}], \"edges\": [{\"source\": \"Myxomatous Leaflet Remodeling\", \"target\": \"Systolic Leaflet Prolapse\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Redundant, abnormally compliant leaflets billow into the left atrium under systolic pressure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Valve Developmental and Cytoskeletal Gene Lesion\", \"target\": \"Myxomatous Leaflet Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired interstitial cell patterning, migration, and mechanotransduction yield an abnormally remodeled leaflet matrix.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Systolic Leaflet Prolapse\", \"target\": \"Mitral Regurgitation and Left Ventricular Volume Overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of leaflet coaptation permits systolic regurgitation into the left atrium. This branch dominates in a minority of patients.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systolic Leaflet Prolapse\", \"target\": \"Mechanical Traction on Papillary Muscles and Inferobasal Wall\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive leaflet excursion transmits repetitive tension to the subvalvular apparatus and adjacent myocardium. This branch does not require haemodynamically significant regurgitation.\", \"hypothesis_groups\": [\"mechanical_traction_arrhythmogenesis\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Mitral Annular Disjunction and Systolic Curling\", \"target\": \"Mechanical Traction on Papillary Muscles and Inferobasal Wall\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Curling of the unanchored annulus transmits leaflet excursion to the inferobasal wall as repetitive stretch.\", \"hypothesis_groups\": [\"mechanical_traction_arrhythmogenesis\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mechanical Traction on Papillary Muscles and Inferobasal Wall\", \"target\": \"Regional Left Ventricular Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repetitive mechanical stretch drives regional myocardial hypertrophy and replacement fibrosis.\", \"hypothesis_groups\": [\"mechanical_traction_arrhythmogenesis\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Regional Left Ventricular Fibrosis\", \"target\": \"Ventricular Electrical Instability and Sudden Cardiac Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Regional scar and hypertrophy provide the reentrant substrate on which triggered beats degenerate into malignant ventricular arrhythmia.\", \"hypothesis_groups\": [\"mechanical_traction_arrhythmogenesis\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Ventricular Electrical Instability and Sudden Cardiac Death\", \"target\": \"Premature Ventricular Contraction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The trigger half of the substrate-plus-trigger pair surfaces clinically as premature ventricular beats of Purkinje origin.\", \"hypothesis_groups\": [\"mechanical_traction_arrhythmogenesis\"]}, {\"source\": \"Mitral Regurgitation and Left Ventricular Volume Overload\", \"target\": \"Heart Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained volume overload eventually exceeds ventricular compensation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Heart Failure\", \"target\": \"Congestive Heart Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Decompensation of the volume-loaded ventricle presents clinically as congestive heart failure, in the severe-regurgitation minority rather than the community phenotype.\"}, {\"source\": \"Ventricular Arrhythmia\", \"target\": \"Sudden Cardiac Death\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Degeneration of sustained ventricular arrhythmia into ventricular fibrillation is the terminal event in arrhythmic prolapse.\"}, {\"source\": \"Ventricular Arrhythmia\", \"target\": \"Syncope\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"A non-sustained or haemodynamically poorly tolerated ventricular arrhythmia can drop cerebral perfusion transiently and cause syncope.\"}, {\"source\": \"Premature Ventricular Contraction\", \"target\": \"Ventricular Arrhythmia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Purkinje-origin premature beats are the documented trigger that initiates ventricular fibrillation on the regional fibrotic substrate.\"}, {\"source\": \"Mitral Valve Repair\", \"target\": \"Mitral Regurgitation and Left Ventricular Volume Overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Transcatheter Edge-to-Edge Repair\", \"target\": \"Mitral Regurgitation and Left Ventricular Volume Overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Systolic Leaflet Prolapse\", \"target\": \"Mitral Valve Prolapse\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The 2 mm echocardiographic displacement criterion is the imaging measurement of systolic leaflet prolapse; the finding measures the mechanism rather than being caused by it.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Mitral Regurgitation and Left Ventricular Volume Overload\", \"target\": \"Mitral Regurgitation\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Doppler-quantified regurgitation, graded by effective regurgitant orifice area, is the measurement of the haemodynamic node; grade rather than presence is what carries the prognostic information.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Regional Left Ventricular Fibrosis\", \"target\": \"Myocardial Fibrosis\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Late gadolinium enhancement at the papillary muscles and inferobasal wall, confirmed histologically, images the regional scar that constitutes the arrhythmic substrate.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"FLNA\", \"target\": \"Valve Developmental and Cytoskeletal Gene Lesion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DCHS1\", \"target\": \"Valve Developmental and Cytoskeletal Gene Lesion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5982,36 +6240,20 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(5)</span></button>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-mitral-valve-prolapse" data-dismech-node="Mitral Valve Prolapse" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Mitral Valve Prolapse
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(3)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+                    <span class="phenotype-freq">OBLIGATE</span>
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Cardiovascular
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-mitral-valve-prolapse" data-dismech-node="Mitral Valve Prolapse" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Mitral Valve Prolapse
-
-                        <span class="phenotype-freq">OBLIGATE</span>
-
-
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -6023,7 +6265,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Mitral valve prolapse (HP:0001634). HP:0001634 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6043,6 +6288,8 @@ This clinical feature is Mitral valve prolapse (HP:0001634). HP:0001634 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6066,13 +6313,14 @@ This clinical feature is Mitral valve prolapse (HP:0001634). HP:0001634 is a phe
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ventricular-arrhythmia" data-dismech-node="Ventricular Arrhythmia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ventricular Arrhythmia
+            <div class="item-box phenotype-box anchor-target" id="phenotype-mitral-regurgitation" data-dismech-node="Mitral Regurgitation" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Mitral Regurgitation
 
 
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
@@ -6081,297 +6329,18 @@ This clinical feature is Mitral valve prolapse (HP:0001634). HP:0001634 is a phe
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004308" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0004308</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001653</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ventricular arrhythmia (HP:0004308). HP:0004308 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26160859" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26160859" target="_blank">PMID:26160859</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"all had right bundle-branch block ventricular arrhythmias."</div>
-
-
-                <div class="evidence-explanation">Documents the arrhythmia and its morphology in sudden-death cases with an available tracing.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sudden-cardiac-death" data-dismech-node="Sudden Cardiac Death" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Sudden Cardiac Death
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001645</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26160859" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26160859" target="_blank">PMID:26160859</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"MVP is an underestimated cause of arrhythmic SCD, mostly in young adult women."</div>
-
-
-                <div class="evidence-explanation">States the outcome and its demographic skew.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-syncope" data-dismech-node="Syncope" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Syncope
-
-                        <span class="phenotype-freq">VERY_RARE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001279</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10387935" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10387935" target="_blank">PMID:10387935</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"three (3.6 percent) had syncope, as compared with unadjusted prevalences of these findings in the subjects without prolapse of 0.7, 1.7, 1.5, and 3.0 percent, respectively."</div>
-
-
-                <div class="evidence-explanation">Quantifies syncope in prolapse against the background rate in the same cohort - the comparison is what shows it is barely raised.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-congestive-heart-failure" data-dismech-node="Congestive Heart Failure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Congestive Heart Failure
-
-                        <span class="phenotype-freq">VERY_RARE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001635</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10387935" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10387935" target="_blank">PMID:10387935</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"None of the subjects with prolapse had a history of heart failure"</div>
-
-
-                <div class="evidence-explanation">None of the 84 community subjects with prolapse had heart failure, placing it under the &lt;5% VERY_RARE ceiling in unselected prolapse. The cases that do occur come from the severe-regurgitation minority, not the community phenotype this cohort samples.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-mitral-regurgitation" data-dismech-node="Mitral Regurgitation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Mitral Regurgitation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001653</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
 This clinical feature is Mitral regurgitation (HP:0001653). HP:0001653 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6391,6 +6360,8 @@ This clinical feature is Mitral regurgitation (HP:0001653). HP:0001653 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6414,13 +6385,14 @@ This clinical feature is Mitral regurgitation (HP:0001653). HP:0001653 is a phen
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-myocardial-fibrosis" data-dismech-node="Myocardial Fibrosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Myocardial Fibrosis
+            <div class="item-box phenotype-box anchor-target" id="phenotype-myocardial-fibrosis" data-dismech-node="Myocardial Fibrosis" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Myocardial Fibrosis
 
 
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
@@ -6429,16 +6401,18 @@ This clinical feature is Mitral regurgitation (HP:0001653). HP:0001653 is a phen
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0001685" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001685</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001685" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001685</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myocardial fibrosis (HP:0001685). HP:0001685 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6458,6 +6432,8 @@ This clinical feature is Myocardial fibrosis (HP:0001685). HP:0001685 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6481,13 +6457,14 @@ This clinical feature is Myocardial fibrosis (HP:0001685). HP:0001685 is a pheno
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-premature-ventricular-contraction" data-dismech-node="Premature Ventricular Contraction" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Premature Ventricular Contraction
+            <div class="item-box phenotype-box anchor-target" id="phenotype-ventricular-arrhythmia" data-dismech-node="Ventricular Arrhythmia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Ventricular Arrhythmia
 
 
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
@@ -6496,18 +6473,108 @@ This clinical feature is Myocardial fibrosis (HP:0001685). HP:0001685 is a pheno
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0004308" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0004308</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006682" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0006682</a>
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ventricular arrhythmia (HP:0004308). HP:0004308 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
+
+                    <span class="tag" style="background: #bbf7d0; color: #166534;">Sudden Cardiac Death</span>
+
+                    <span class="tag" style="background: #bbf7d0; color: #166534;">Syncope</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26160859" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26160859" target="_blank">PMID:26160859</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"all had right bundle-branch block ventricular arrhythmias."</div>
+
+
+                <div class="evidence-explanation">Documents the arrhythmia and its morphology in sudden-death cases with an available tracing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-premature-ventricular-contraction" data-dismech-node="Premature Ventricular Contraction" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Premature Ventricular Contraction
+
+
+                    <span class="phenotype-category">Cardiovascular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006682" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0006682</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Premature ventricular contraction (HP:0006682). HP:0006682 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
 
+
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
+
+                    <span class="tag" style="background: #bbf7d0; color: #166534;">Ventricular Arrhythmia</span>
+
+                </div>
 
 
 
@@ -6525,6 +6592,8 @@ This clinical feature is Premature ventricular contraction (HP:0006682). HP:0006
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6548,34 +6617,228 @@ This clinical feature is Premature ventricular contraction (HP:0006682). HP:0006
 
 
 
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-sudden-cardiac-death" data-dismech-node="Sudden Cardiac Death" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Sudden Cardiac Death
+
+
+                    <span class="phenotype-category">Cardiovascular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001645</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
                 </div>
 
-            </details>
 
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26160859" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26160859" target="_blank">PMID:26160859</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MVP is an underestimated cause of arrhythmic SCD, mostly in young adult women."</div>
+
+
+                <div class="evidence-explanation">States the outcome and its demographic skew.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-syncope" data-dismech-node="Syncope" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Syncope
+
+                    <span class="phenotype-freq">VERY_RARE</span>
+
+
+                    <span class="phenotype-category">Cardiovascular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001279</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10387935" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10387935" target="_blank">PMID:10387935</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"three (3.6 percent) had syncope, as compared with unadjusted prevalences of these findings in the subjects without prolapse of 0.7, 1.7, 1.5, and 3.0 percent, respectively."</div>
+
+
+                <div class="evidence-explanation">Quantifies syncope in prolapse against the background rate in the same cohort - the comparison is what shows it is barely raised.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-congestive-heart-failure" data-dismech-node="Congestive Heart Failure" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Congestive Heart Failure
+
+                    <span class="phenotype-freq">VERY_RARE</span>
+
+
+                    <span class="phenotype-category">Cardiovascular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001635</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10387935" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10387935" target="_blank">PMID:10387935</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"None of the subjects with prolapse had a history of heart failure"</div>
+
+
+                <div class="evidence-explanation">None of the 84 community subjects with prolapse had heart failure, placing it under the &lt;5% VERY_RARE ceiling in unselected prolapse. The cases that do occur come from the severe-regurgitation minority, not the community phenotype this cohort samples.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
 
         </div>
 
@@ -6622,6 +6885,9 @@ This disease-associated gene is FLNA (hgnc:3754). hgnc:3754 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6636,6 +6902,8 @@ This disease-associated gene is FLNA (hgnc:3754). hgnc:3754 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6692,6 +6960,9 @@ This disease-associated gene is DCHS1 (hgnc:13681). hgnc:13681 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6706,6 +6977,8 @@ This disease-associated gene is DCHS1 (hgnc:13681). hgnc:13681 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6788,6 +7061,31 @@ This treatment is mitral valve repair (NCIT:C80449). NCIT:C80449 is a clinical i
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgical reconstruction of the mitral valve and its annulus, the preferred intervention for severe degenerative regurgitation and the operation the surgical literature is built on. Whether it also abolishes arrhythmic risk in prolapse without significant regurgitation is a separate and unresolved question.
 </div>
 
@@ -6828,6 +7126,8 @@ This treatment is mitral valve repair (NCIT:C80449). NCIT:C80449 is a clinical i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6891,6 +7191,31 @@ This treatment is transcatheter mitral valve repair (NCIT:C158019). NCIT:C158019
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Catheter-delivered leaflet approximation, avoiding sternotomy and cardiopulmonary bypass. In degenerative disease it achieves less complete abolition of regurgitation than surgery and is associated with worse long-term survival, so current evidence does not support it as a substitute where surgery is feasible.
 </div>
 
@@ -6923,14 +7248,16 @@ This treatment is transcatheter mitral valve repair (NCIT:C158019). NCIT:C158019
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42008639" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42008639" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42008639" target="_blank">PMID:42008639</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6956,6 +7283,8 @@ This treatment is transcatheter mitral valve repair (NCIT:C158019). NCIT:C158019
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6977,6 +7306,8 @@ This treatment is transcatheter mitral valve repair (NCIT:C158019). NCIT:C158019
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7006,6 +7337,169 @@ This treatment is transcatheter mitral valve repair (NCIT:C158019). NCIT:C158019
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+        <div class="card" id="epidemiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">🌍</div>
+                <h2 class="card-title">Epidemiology</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-community-prevalence-of-mitral-valve-prolapse">
+                <div class="item-name">Community prevalence of mitral valve prolapse</div>
+
+                <div class="item-desc">In the Framingham offspring cohort assessed by two-dimensional echocardiography, 2.4% had prolapse - lower than earlier reports - with 1.3% classic and 1.1% non-classic.
+</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10387935" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10387935" target="_blank">PMID:10387935</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In a community based sample of the population, the prevalence of mitral-valve prolapse was lower than previously reported."</div>
+
+
+                <div class="evidence-explanation">States the community prevalence finding and its correction of earlier referral-based estimates.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10387935" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10387935" target="_blank">PMID:10387935</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The prevalence of adverse sequelae commonly associated with mitral-valve prolapse in studies of patients referred for that diagnosis was also low."</div>
+
+
+                <div class="evidence-explanation">The referral-bias correction that underlies this entry&#39;s separation of the benign community phenotype from the arrhythmic one.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-contribution-to-sudden-cardiac-death-in-young-adults">
+                <div class="item-name">Contribution to sudden cardiac death in young adults</div>
+
+                <div class="item-desc">In a cardiac pathology registry of 650 sudden cardiac deaths in adults aged 40 or under, prolapse was the only identified cause in 7% overall and 13% of women.
+</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26160859" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26160859" target="_blank">PMID:26160859</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The cardiac pathology registry of 650 young adults (≤40 years of age) with SCD was reviewed, and cases with MVP as the only cause of SCD were re-examined."</div>
+
+
+                <div class="evidence-explanation">Describes the registry and the exclusion criterion that makes the 7% and 13% figures attributable to prolapse rather than merely co-occurring with it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7525,6 +8019,13 @@ pathophysiology:
     explanation: &gt;-
       States the substrate-plus-trigger model this node encodes. Evidence source
       is OTHER because this is a review.
+  downstream:
+  - target: Premature Ventricular Contraction
+    description: &gt;-
+      The trigger half of the substrate-plus-trigger pair surfaces clinically as
+      premature ventricular beats of Purkinje origin.
+    hypothesis_groups:
+    - mechanical_traction_arrhythmogenesis
 - name: Mitral Regurgitation and Left Ventricular Volume Overload
   biological_scale: ORGANISM
   description: &gt;
@@ -7600,6 +8101,12 @@ pathophysiology:
     explanation: &gt;-
       Bounds the frequency of this outcome in a community population, which is
       what keeps the entry honest about the benignity of the common phenotype.
+  downstream:
+  - target: Congestive Heart Failure
+    description: &gt;-
+      Decompensation of the volume-loaded ventricle presents clinically as
+      congestive heart failure, in the severe-regurgitation minority rather than
+      the community phenotype.
 phenotypes:
 - category: Cardiovascular
   name: Mitral Valve Prolapse
@@ -7624,6 +8131,15 @@ phenotypes:
     explanation: &gt;-
       Establishes the finding and its community prevalence with the
       classic/non-classic split.
+  reports_on:
+  - target: Systolic Leaflet Prolapse
+    relationship: READOUT_OF
+    direction: POSITIVE
+    endpoint_context: DIAGNOSTIC
+    interpretation: &gt;-
+      The 2 mm echocardiographic displacement criterion is the imaging
+      measurement of systolic leaflet prolapse; the finding measures the
+      mechanism rather than being caused by it.
 - category: Cardiovascular
   name: Mitral Regurgitation
   description: &gt;
@@ -7646,6 +8162,15 @@ phenotypes:
       Establishes that regurgitation is greater in prolapse than without it, and
       pins its usual severity as trace or mild. No proportion of affected
       patients is reported, so no frequency band is asserted.
+  reports_on:
+  - target: Mitral Regurgitation and Left Ventricular Volume Overload
+    relationship: READOUT_OF
+    direction: POSITIVE
+    endpoint_context: DIAGNOSTIC
+    interpretation: &gt;-
+      Doppler-quantified regurgitation, graded by effective regurgitant orifice
+      area, is the measurement of the haemodynamic node; grade rather than
+      presence is what carries the prognostic information.
 - category: Cardiovascular
   name: Myocardial Fibrosis
   description: &gt;
@@ -7667,6 +8192,15 @@ phenotypes:
       papillary muscles in all patients, and inferobasal wall in 88%.
     explanation: &gt;-
       Histological documentation of the fibrosis phenotype and its distribution.
+  reports_on:
+  - target: Regional Left Ventricular Fibrosis
+    relationship: READOUT_OF
+    direction: POSITIVE
+    endpoint_context: DIAGNOSTIC
+    interpretation: &gt;-
+      Late gadolinium enhancement at the papillary muscles and inferobasal wall,
+      confirmed histologically, images the regional scar that constitutes the
+      arrhythmic substrate.
 - category: Cardiovascular
   name: Ventricular Arrhythmia
   description: &gt;
@@ -7687,6 +8221,15 @@ phenotypes:
     explanation: &gt;-
       Documents the arrhythmia and its morphology in sudden-death cases with an
       available tracing.
+  sequelae:
+  - target: Sudden Cardiac Death
+    description: &gt;-
+      Degeneration of sustained ventricular arrhythmia into ventricular
+      fibrillation is the terminal event in arrhythmic prolapse.
+  - target: Syncope
+    description: &gt;-
+      A non-sustained or haemodynamically poorly tolerated ventricular
+      arrhythmia can drop cerebral perfusion transiently and cause syncope.
 - category: Cardiovascular
   name: Premature Ventricular Contraction
   description: &gt;
@@ -7710,6 +8253,11 @@ phenotypes:
     explanation: &gt;-
       Documents the trigger and its Purkinje origin. Evidence source is OTHER
       because this is a review.
+  sequelae:
+  - target: Ventricular Arrhythmia
+    description: &gt;-
+      Purkinje-origin premature beats are the documented trigger that initiates
+      ventricular fibrillation on the regional fibrotic substrate.
 - category: Cardiovascular
   name: Sudden Cardiac Death
   description: &gt;
@@ -7868,7 +8416,7 @@ treatments:
   evidence:
   - reference: PMID:42008639
     reference_title: &#34;Comparative Outcomes of Transcatheter Edge-to-Edge Repair and Surgical Mitral Valve Repair or Replacement for Degenerative Mitral Regurgitation: A Systematic Review, Meta-Analysis, and Trial Sequential Analysis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Although TEER is associated with a lower risk of septicemia and may reduce
@@ -8109,7 +8657,7 @@ epidemiology:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Mitral Valve Prolapse", "mondoId": "MONDO:0004910", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Mitral_Valve_Prolapse", "yamlRevision": "f28d3a9b3683"};
+        const OS_CONFIG = {"diseaseName": "Mitral Valve Prolapse", "mondoId": "MONDO:0004910", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Mitral_Valve_Prolapse", "yamlRevision": "ee8578296b15"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

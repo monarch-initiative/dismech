@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4066,6 +4173,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4088,6 +4197,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4233,6 +4344,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chm-loss-of-function-and-rep1-deficiency" data-dismech-node="CHM Loss of Function and REP1 Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">CHM Loss of Function and REP1 Deficiency</div>
 
+
                 <div class="item-desc">A hemizygous loss-of-function variant in CHM - most often nonsense, frameshift, splice or deletion, with essentially no missense hotspot - abolishes Rab escort protein 1. REP1 is not itself an enzyme: it binds newly synthesized Rab GTPases and presents them to Rab geranylgeranyltransferase, then escorts the prenylated Rab to its target membrane. The gene is expressed ubiquitously, so the lesion is systemic even though the disease is not.
 </div>
 
@@ -4321,6 +4433,8 @@ This pathophysiological event involves decreased Protein prenylation (GO:0018342
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4344,6 +4458,7 @@ This pathophysiological event involves decreased Protein prenylation (GO:0018342
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-rab-prenylation-and-intracellular-vesicle-trafficking" data-dismech-node="Defective Rab Prenylation and Intracellular Vesicle Trafficking" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Rab Prenylation and Intracellular Vesicle Trafficking</div>
+
 
                 <div class="item-desc">Without REP1 a subset of Rab GTPases goes unprenylated and cannot associate with the membranes whose traffic they direct. The consequence is a vesicle trafficking deficiency, which in the retina plausibly disrupts the processes that depend most heavily on high-throughput membrane traffic: daily phagocytosis and digestion of shed photoreceptor outer segment discs by the retinal pigment epithelium, melanosome and lysosome transport, and outer-segment renewal itself. The paralogue REP2 substitutes for REP1 in most tissues, which is why the systemic prenylation defect is clinically silent outside the eye.
 </div>
@@ -4531,6 +4646,8 @@ This pathophysiological event involves decreased Rab protein signal transduction
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4554,6 +4671,7 @@ This pathophysiological event involves decreased Rab protein signal transduction
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-chorioretinal-degeneration" data-dismech-node="Progressive Chorioretinal Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Chorioretinal Degeneration</div>
+
 
                 <div class="item-desc">Photoreceptors, retinal pigment epithelium and choriocapillaris all degenerate, producing the scalloped, sharply demarcated atrophy that exposes bare sclera and gives the disease its name. Which tissue fails first is not settled: the RPE, the photoreceptor and the choroid are all plausible primary sites, they are metabolically interdependent, and the loss of any one would take the others with it. This entry records that uncertainty rather than resolving it, because the answer determines which cell type gene therapy must reach.
 </div>
@@ -4775,6 +4893,8 @@ This pathophysiological event occurs in pigmented layer of retina (UBERON:000178
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4798,6 +4918,7 @@ This pathophysiological event occurs in pigmented layer of retina (UBERON:000178
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-centripetal-field-loss-and-blindness-in-late-adulthood" data-dismech-node="Centripetal Field Loss and Blindness in Late Adulthood" data-dismech-type="pathophysiology">
                 <div class="item-name">Centripetal Field Loss and Blindness in Late Adulthood</div>
+
 
                 <div class="item-desc">Atrophy begins in the midperiphery and advances inward, sparing a shrinking central island of retinal pigment epithelium that preserves good central acuity long after the peripheral field has gone - patients are often legally blind by field criteria while still reading. That island&#39;s area, measured by fundus autofluorescence, declines exponentially with age at a rate independent of how much was present at baseline, so the disease follows a strikingly regular course over about six decades and log-transformed residual RPE area serves as an anatomic trial endpoint. Central vision fails when the island is finally consumed, typically in the fifth to seventh decade.
 </div>
@@ -4874,6 +4995,8 @@ This pathophysiological event involves decreased Visual perception (GO:0007601).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4898,6 +5021,8 @@ This pathophysiological event involves decreased Visual perception (GO:0007601).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4920,6 +5045,8 @@ This pathophysiological event involves decreased Visual perception (GO:0007601).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4985,36 +5112,18 @@ This pathophysiological event involves decreased Visual perception (GO:0007601).
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(3)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(1)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-night-blindness" data-dismech-node="Night Blindness" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Night Blindness
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Eye
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-night-blindness" data-dismech-node="Night Blindness" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Night Blindness
-
-
+                    <span class="phenotype-category">Ocular</span>
 
 
 
 
                     <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Nyctalopia</span>
-
 
 
 
@@ -5026,7 +5135,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5046,6 +5158,8 @@ This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5072,6 +5186,8 @@ This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5094,13 +5210,16 @@ This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-constriction-of-peripheral-visual-field" data-dismech-node="Constriction of Peripheral Visual Field" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Constriction of Peripheral Visual Field
+            <div class="item-box phenotype-box anchor-target" id="phenotype-chorioretinal-atrophy" data-dismech-node="Chorioretinal Atrophy" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Chorioretinal Atrophy
+
+                    <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+                    <span class="phenotype-category">Ocular</span>
 
 
 
@@ -5109,185 +5228,17 @@ This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001133</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000533" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000533</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Constriction of peripheral visual field (HP:0001133), qualified as course progressive. HP:0001133 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32362554" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32362554" target="_blank">PMID:32362554</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"However, the long-term natural history of the residual retinal pigment epithelium (RPE) is unclear, with reported RPE area decline rates varying widely among patients."</div>
-
-
-                <div class="evidence-explanation">Supports the residual-island framing of field loss in this disease, and documents the inter-patient variability in rate that this phenotype&#39;s progression reflects.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-visual-loss" data-dismech-node="Progressive Visual Loss" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Progressive Visual Loss
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000529" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000529</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Progressive visual loss (HP:0000529). HP:0000529 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37814062" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37814062" target="_blank">PMID:37814062</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Choroideremia is a rare, X-linked retinal degeneration resulting in progressive vision loss."</div>
-
-
-                <div class="evidence-explanation">States progressive vision loss as the defining outcome. VERY_FREQUENT is a Pattern C mapping of that definitional framing (docs/frequency-evidence-guidelines.md); no proportion is reported.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chorioretinal-atrophy" data-dismech-node="Chorioretinal Atrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Chorioretinal Atrophy
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000533" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000533</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
 This clinical feature is Chorioretinal atrophy (HP:0000533), qualified as course progressive. HP:0000533 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
-                    <div class="item-meta">
+                <div class="item-meta">
 
 
 
@@ -5303,7 +5254,10 @@ This clinical feature is Chorioretinal atrophy (HP:0000533), qualified as course
 
 
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5323,6 +5277,8 @@ This clinical feature is Chorioretinal atrophy (HP:0000533), qualified as course
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5347,34 +5303,174 @@ This clinical feature is Chorioretinal atrophy (HP:0000533), qualified as course
 
 
 
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-constriction-of-peripheral-visual-field" data-dismech-node="Constriction of Peripheral Visual Field" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Constriction of Peripheral Visual Field
+
+
+                    <span class="phenotype-category">Ocular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001133</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Constriction of peripheral visual field (HP:0001133), qualified as course progressive. HP:0001133 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
                 </div>
 
-            </details>
+                <div class="item-meta">
 
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32362554" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32362554" target="_blank">PMID:32362554</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However, the long-term natural history of the residual retinal pigment epithelium (RPE) is unclear, with reported RPE area decline rates varying widely among patients."</div>
+
+
+                <div class="evidence-explanation">Supports the residual-island framing of field loss in this disease, and documents the inter-patient variability in rate that this phenotype&#39;s progression reflects.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-visual-loss" data-dismech-node="Progressive Visual Loss" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Progressive Visual Loss
+
+                    <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+                    <span class="phenotype-category">Ocular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000529" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000529</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Progressive visual loss (HP:0000529). HP:0000529 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37814062" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37814062" target="_blank">PMID:37814062</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Choroideremia is a rare, X-linked retinal degeneration resulting in progressive vision loss."</div>
+
+
+                <div class="evidence-explanation">States progressive vision loss as the defining outcome. VERY_FREQUENT is a Pattern C mapping of that definitional framing (docs/frequency-evidence-guidelines.md); no proportion is reported.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
 
         </div>
 
@@ -5423,6 +5519,9 @@ This disease-associated gene is CHM (hgnc:1940). hgnc:1940 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5437,6 +5536,8 @@ This disease-associated gene is CHM (hgnc:1940). hgnc:1940 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5520,6 +5621,31 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Subretinal delivery of an AAV2 vector carrying CHM, intended to restore REP1 in the surviving central island. The randomized phase 3 trial in 169 adult men did NOT meet its primary endpoint of best-corrected visual acuity improvement at 12 months, so key secondary endpoints were not formally tested; a numerically larger proportion of treated than control participants gained 10 or more ETDRS letters. Adverse events were mostly mild or moderate. This is recorded as an investigational therapy with a negative pivotal trial, not as standard of care. The authors identify entry criteria (more preserved retinal area), surgical technique and endpoint selection as the levers for future studies - which is consistent with the natural history data showing residual RPE area, not acuity, to be the quantity that changes measurably.
 </div>
 
@@ -5544,14 +5670,16 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37814062" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37814062" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37814062" target="_blank">PMID:37814062</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5587,14 +5715,16 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37814062" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37814062" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37814062" target="_blank">PMID:37814062</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5625,6 +5755,33 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -5712,6 +5869,8 @@ This clinical trial targets Chorioretinal atrophy (HP:0000533). HP:0000533 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6162,7 +6321,7 @@ treatments:
     evidence:
     - reference: PMID:37814062
       reference_title: &#34;Subretinal timrepigene emparvovec in adult men with choroideremia: a randomized phase 3 trial.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;A randomized, masked, phase 3 clinical trial evaluated the safety and efficacy over 12 months of follow-up in adult males with choroideremia randomized to receive a high-dose (1.0 × 1011 vector genomes (vg); n = 69) or low-dose (1.0 × 1010 vg; n = 34) subretinal injection of the AAV2-vector-based gene therapy timrepigene emparvovec versus non-treated control (n = 66).&#34;
       explanation: &gt;
@@ -6172,7 +6331,7 @@ treatments:
   evidence:
   - reference: PMID:37814062
     reference_title: &#34;Subretinal timrepigene emparvovec in adult men with choroideremia: a randomized phase 3 trial.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The trial did not meet its primary endpoint of best-corrected visual acuity (BCVA) improvement.&#34;
     explanation: &gt;
@@ -6333,7 +6492,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Choroideremia", "mondoId": "MONDO:0010557", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Choroideremia", "yamlRevision": "ef41ddfc0dbc"};
+        const OS_CONFIG = {"diseaseName": "Choroideremia", "mondoId": "MONDO:0010557", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Choroideremia", "yamlRevision": "fbd2f9927c90"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

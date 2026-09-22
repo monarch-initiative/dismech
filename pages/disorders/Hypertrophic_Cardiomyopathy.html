@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3726,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3925,6 +4032,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#discussions">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">💬</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Gaps</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#pathograph">
@@ -4166,14 +4281,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38368032" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38368032" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38368032" target="_blank">PMID:38368032</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4197,6 +4314,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4260,6 +4379,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4281,6 +4402,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4315,6 +4438,155 @@
 
         <!-- Discussions / Knowledge Gaps -->
 
+        <div class="card" id="discussions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
+                <h2 class="card-title">Discussions and Knowledge Gaps</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="q_hcm_variant_reclassification_burden">
+                <div class="item-name">How much of the reported HCM genotype is stable? Registry re-review reclassified a clinically meaningful fraction of variants and found most variants of uncertain significance unlikely to be causal — so which curated gene-disease and genotype-phenotype claims in this entry rest on classifications that would not survive re-adjudication today?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">INTERPRETATION</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">q_hcm_variant_reclassification_burden</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#genetic-myh7">genetic#MYH7</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#genetic-mybpc3">genetic#MYBPC3</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Variant pathogenicity is an evidence-weighted judgement that moves as criteria and case data accumulate, not a fixed property of the allele. In the SHaRe registry re-review, 10% of variants in HCM probands changed classification in a clinically meaningful way, downgrades outnumbered upgrades roughly three to one, and a further 1,031 variants sat in genes with no established HCM gene-disease association at all. This matters mechanistically as well as clinically: a downgraded variant weakens any genotype-phenotype claim built on it, and the direction of change is gene-specific — tied to whether the gene&#39;s disease mechanism (loss of function for MYBPC3, missense in the motor domain for MYH7) is settled enough to support the strongest ACMG/AMP criteria. Resolving this needs a pass over the entry&#39;s genotype-linked claims against current ClinGen expert-panel specifications, not new experimental work.</div>
+
+
+
+
+
+                <div class="mapping-notes">Sourced from a medRxiv preprint that has not been peer reviewed; it is cited here as a scoping observation about classification stability, and the underlying gene-disease associations in this entry are independently supported by ClinGen assertions and peer-reviewed studies.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PPR:PPR1295400" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/PPR:PPR1295400" target="_blank">PPR:PPR1295400</a>
+                    </span>
+
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinically meaningful reclassification occurred in 10% of variants identified in HCM probands."</div>
+
+
+                <div class="evidence-explanation">Quantifies the instability of reported HCM variant classifications in a large multi-center registry.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PPR:PPR1295400" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/PPR:PPR1295400" target="_blank">PPR:PPR1295400</a>
+                    </span>
+
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Sub-classification of VUS resulted in less uncertainty, with 369 (40.6%) variants reclassified as VUS-Low or B/LB, indicating a very strong probability of not being HCM associated."</div>
+
+
+                <div class="evidence-explanation">Shows most uncertain variants are unlikely to be causal once sub-classified, which bounds how much of the reported genotype should be treated as mechanistically informative.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PPR:PPR1295400" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/PPR:PPR1295400" target="_blank">PPR:PPR1295400</a>
+                    </span>
+
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Fourteen of 203 (6.9%) variants downgraded were loss-of-function (high impact) variants in genes where loss-of-function is not a known mechanism of disease"</div>
+
+
+                <div class="evidence-explanation">Demonstrates the gene-specific dependence directly — predicted loss-of-function alleles were downgraded precisely in the genes where loss of function is not the established mechanism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Pathophysiology -->
 
@@ -4327,6 +4599,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sarcomere-protein-mutations" data-dismech-node="Sarcomere Protein Mutations" data-dismech-type="pathophysiology">
                 <div class="item-name">Sarcomere Protein Mutations</div>
+
 
                 <div class="item-desc">Genetic mutations affecting the proteins of the cardiac sarcomere lead to abnormal thickening of the heart muscle. The central biophysical abnormality is sarcomere hypercontractility with increased myosin duty ratio and power, resulting in impaired relaxation and elevated energetic cost of contraction.</div>
 
@@ -5334,6 +5607,8 @@ This pathophysiological event occurs in interventricular septum (UBERON:0002094)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5357,6 +5632,8 @@ This pathophysiological event occurs in interventricular septum (UBERON:0002094)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5378,6 +5655,8 @@ This pathophysiological event occurs in interventricular septum (UBERON:0002094)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5404,6 +5683,7 @@ This pathophysiological event occurs in interventricular septum (UBERON:0002094)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myocyte-disarray" data-dismech-node="Myocyte Disarray" data-dismech-type="pathophysiology">
                 <div class="item-name">Myocyte Disarray</div>
+
 
                 <div class="item-desc">Disorganization of heart muscle cells contributes to the stiffness and dysfunction of the myocardium. Loss of physiological fiber alignment and orientation creates structural abnormalities that impair contractile efficiency and promote arrhythmogenic substrate.</div>
 
@@ -5496,6 +5776,8 @@ This pathophysiological event occurs in ventricular myocardium, annotated with h
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5517,6 +5799,8 @@ This pathophysiological event occurs in ventricular myocardium, annotated with h
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5542,6 +5826,8 @@ This pathophysiological event occurs in ventricular myocardium, annotated with h
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5564,6 +5850,7 @@ This pathophysiological event occurs in ventricular myocardium, annotated with h
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myocardial-fibrosis" data-dismech-node="Myocardial Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Myocardial Fibrosis</div>
+
 
                 <div class="item-desc">Increased collagen deposition by interstitial cells contributes to myocardial stiffness. Activation of TGF-beta and MAPK signaling pathways promotes extracellular matrix remodeling and fibrosis, which is a progressive phenomenon associated with greater disease severity.</div>
 
@@ -5814,6 +6101,8 @@ This pathophysiological event occurs in myocardial interstitium, annotated with 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5837,6 +6126,8 @@ This pathophysiological event occurs in myocardial interstitium, annotated with 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5858,6 +6149,8 @@ This pathophysiological event occurs in myocardial interstitium, annotated with 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5884,6 +6177,7 @@ This pathophysiological event occurs in myocardial interstitium, annotated with 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-calcium-handling" data-dismech-node="Altered Calcium Handling" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Calcium Handling</div>
+
 
                 <div class="item-desc">Increased myofilament calcium sensitivity and impaired diastolic calcium removal lead to diastolic dysfunction and promote pro-hypertrophic signaling. Altered calcium homeostasis contributes to both contractile abnormalities and arrhythmogenic substrate.</div>
 
@@ -6172,6 +6466,7 @@ This pathophysiological event occurs in left ventricle, annotated with heart lef
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dysfunction" data-dismech-node="Mitochondrial Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Dysfunction</div>
 
+
                 <div class="item-desc">Elevated energetic cost of sarcomere hypercontractility leads to mitochondrial stress and downregulation of energy metabolism pathways. Impaired ATP production contributes to contractile dysfunction and cellular remodeling.</div>
 
 
@@ -6381,6 +6676,7 @@ This pathophysiological event occurs in myocardium, annotated with heart left ve
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-left-ventricular-outflow-tract-obstruction" data-dismech-node="Left Ventricular Outflow Tract Obstruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Left Ventricular Outflow Tract Obstruction</div>
 
+
                 <div class="item-desc">Asymmetric septal hypertrophy combined with systolic anterior motion of the mitral valve creates dynamic obstruction to blood flow. Venturi forces draw the mitral valve toward the septum, elevating wall stress and contributing to ischemia and further hypertrophic remodeling.</div>
 
 
@@ -6518,7 +6814,7 @@ This pathophysiological event occurs in left ventricular outflow tract, annotate
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACTC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ACTC1\"], \"gene_terms\": [{\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"ALPK3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ALPK3\"], \"gene_terms\": [{\"label\": \"ALPK3\", \"id\": \"hgnc:17574\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Altered Calcium Handling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased myofilament calcium sensitivity and impaired diastolic calcium removal lead to diastolic dysfunction and promote pro-hypertrophic signaling. Altered calcium homeostasis contributes to both contractile abnormalities and arrhythmogenic substrate.\", \"meta\": {\"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"calcium ion transport\", \"regulation of cardiac muscle contraction\"], \"genes\": [\"JPH2\", \"RYR2\", \"TNNC1\"], \"gene_terms\": [{\"label\": \"JPH2\", \"id\": \"hgnc:14202\"}, {\"label\": \"RYR2\", \"id\": \"hgnc:10484\"}, {\"label\": \"TNNC1\", \"id\": \"hgnc:11943\"}], \"locations\": [\"left ventricle\"]}}, {\"id\": \"Arrhythmias\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011675\"}}, {\"id\": \"CSRP3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CSRP3\"], \"gene_terms\": [{\"label\": \"CSRP3\", \"id\": \"hgnc:2472\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"FHOD3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FHOD3\"], \"gene_terms\": [{\"label\": \"FHOD3\", \"id\": \"hgnc:26178\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"JPH2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"JPH2\"], \"gene_terms\": [{\"label\": \"JPH2\", \"id\": \"hgnc:14202\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"KLF10\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KLF10\"], \"gene_terms\": [{\"label\": \"KLF10\", \"id\": \"hgnc:11810\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"KLHL24\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KLHL24\"], \"gene_terms\": [{\"label\": \"KLHL24\", \"id\": \"hgnc:25947\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MT-TI\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-TI\"], \"gene_terms\": [{\"label\": \"MT-TI\", \"id\": \"hgnc:7488\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYBPC3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"MYBPC3\"], \"gene_terms\": [{\"label\": \"MYBPC3\", \"id\": \"hgnc:7551\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYH7\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 7, \"genes\": [\"MYH7\"], \"gene_terms\": [{\"label\": \"MYH7\", \"id\": \"hgnc:7577\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYL2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYL2\"], \"gene_terms\": [{\"label\": \"MYL2\", \"id\": \"hgnc:7583\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYL3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYL3\"], \"gene_terms\": [{\"label\": \"MYL3\", \"id\": \"hgnc:7584\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated energetic cost of sarcomere hypercontractility leads to mitochondrial stress and downregulation of energy metabolism pathways. Impaired ATP production contributes to contractile dysfunction and cellular remodeling.\", \"meta\": {\"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"ATP metabolic process\", \"oxidative phosphorylation\"], \"genes\": [\"MT-TI\"], \"gene_terms\": [{\"label\": \"MT-TI\", \"id\": \"hgnc:7488\"}], \"locations\": [\"myocardium\"]}}, {\"id\": \"Myocardial Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased collagen deposition by interstitial cells contributes to myocardial stiffness. Activation of TGF-beta and MAPK signaling pathways promotes extracellular matrix remodeling and fibrosis, which is a progressive phenomenon associated with greater disease severity.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Interstitial Cells\", \"cardiac fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\", \"response to TGF-beta\"], \"genes\": [\"KLF10\"], \"gene_terms\": [{\"label\": \"KLF10\", \"id\": \"hgnc:11810\"}], \"locations\": [\"myocardial interstitium\"]}}, {\"id\": \"NEXN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NEXN\"], \"gene_terms\": [{\"label\": \"NEXN\", \"id\": \"hgnc:29557\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"OBSCN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"OBSCN\"], \"gene_terms\": [{\"label\": \"OBSCN\", \"id\": \"hgnc:15719\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"PDLIM3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PDLIM3\"], \"gene_terms\": [{\"label\": \"PDLIM3\", \"id\": \"hgnc:20767\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Palpitations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001962\"}}, {\"id\": \"RBM20\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"RBM20\"], \"gene_terms\": [{\"label\": \"RBM20\", \"id\": \"hgnc:27424\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"RYR2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"RYR2\"], \"gene_terms\": [{\"label\": \"RYR2\", \"id\": \"hgnc:10484\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"SVIL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"SVIL\"], \"gene_terms\": [{\"label\": \"SVIL\", \"id\": \"hgnc:11480\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Sarcomere Protein Mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Genetic mutations affecting the proteins of the cardiac sarcomere lead to abnormal thickening of the heart muscle. The central biophysical abnormality is sarcomere hypercontractility with increased myosin duty ratio and power, resulting in impaired relaxation and elevated energetic cost of contraction.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"muscle contraction\", \"regulation of heart contraction\"], \"molecular_functions\": [\"ATP hydrolysis activity\"], \"genes\": [\"MYH7\", \"MYBPC3\", \"TNNT2\", \"TNNI3\", \"TPM1\", \"ACTC1\", \"MYL2\", \"MYL3\", \"CSRP3\", \"NEXN\", \"OBSCN\", \"PDLIM3\", \"TTN\", \"ALPK3\", \"FHOD3\", \"TRIM63\", \"SVIL\", \"KLHL24\", \"RBM20\"], \"gene_terms\": [{\"label\": \"MYH7\", \"id\": \"hgnc:7577\"}, {\"label\": \"MYBPC3\", \"id\": \"hgnc:7551\"}, {\"label\": \"TNNT2\", \"id\": \"hgnc:11949\"}, {\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}, {\"label\": \"TPM1\", \"id\": \"hgnc:12010\"}, {\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}, {\"label\": \"MYL2\", \"id\": \"hgnc:7583\"}, {\"label\": \"MYL3\", \"id\": \"hgnc:7584\"}, {\"label\": \"CSRP3\", \"id\": \"hgnc:2472\"}, {\"label\": \"NEXN\", \"id\": \"hgnc:29557\"}, {\"label\": \"OBSCN\", \"id\": \"hgnc:15719\"}, {\"label\": \"PDLIM3\", \"id\": \"hgnc:20767\"}, {\"label\": \"TTN\", \"id\": \"hgnc:12403\"}, {\"label\": \"ALPK3\", \"id\": \"hgnc:17574\"}, {\"label\": \"FHOD3\", \"id\": \"hgnc:26178\"}, {\"label\": \"TRIM63\", \"id\": \"hgnc:16007\"}, {\"label\": \"SVIL\", \"id\": \"hgnc:11480\"}, {\"label\": \"KLHL24\", \"id\": \"hgnc:25947\"}, {\"label\": \"RBM20\", \"id\": \"hgnc:27424\"}], \"locations\": [\"left ventricle\", \"interventricular septum\"]}}, {\"id\": \"Sudden Cardiac Death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001645\"}}, {\"id\": \"TNNC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNNC1\"], \"gene_terms\": [{\"label\": \"TNNC1\", \"id\": \"hgnc:11943\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TNNI3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNNI3\"], \"gene_terms\": [{\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TNNT2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"TNNT2\"], \"gene_terms\": [{\"label\": \"TNNT2\", \"id\": \"hgnc:11949\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TPM1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TPM1\"], \"gene_terms\": [{\"label\": \"TPM1\", \"id\": \"hgnc:12010\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TRIM63\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TRIM63\"], \"gene_terms\": [{\"label\": \"TRIM63\", \"id\": \"hgnc:16007\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TTN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TTN\"], \"gene_terms\": [{\"label\": \"TTN\", \"id\": \"hgnc:12403\"}], \"association\": \"Pathogenic Variants\"}}], \"edges\": [{\"source\": \"Arrhythmias\", \"target\": \"Palpitations\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Arrhythmias\", \"target\": \"Sudden Cardiac Death\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"MYH7\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYBPC3\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNNT2\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ALPK3\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FHOD3\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TRIM63\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SVIL\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ACTC1\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CSRP3\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"JPH2\", \"target\": \"Altered Calcium Handling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KLF10\", \"target\": \"Myocardial Fibrosis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KLHL24\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MT-TI\", \"target\": \"Mitochondrial Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYL2\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYL3\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NEXN\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"OBSCN\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDLIM3\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RBM20\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RYR2\", \"target\": \"Altered Calcium Handling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNNC1\", \"target\": \"Altered Calcium Handling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNNI3\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TPM1\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TTN\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACTC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ACTC1\"], \"gene_terms\": [{\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"ALPK3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ALPK3\"], \"gene_terms\": [{\"label\": \"ALPK3\", \"id\": \"hgnc:17574\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Altered Calcium Handling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased myofilament calcium sensitivity and impaired diastolic calcium removal lead to diastolic dysfunction and promote pro-hypertrophic signaling. Altered calcium homeostasis contributes to both contractile abnormalities and arrhythmogenic substrate.\", \"meta\": {\"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"calcium ion transport\", \"regulation of cardiac muscle contraction\"], \"genes\": [\"JPH2\", \"RYR2\", \"TNNC1\"], \"gene_terms\": [{\"label\": \"JPH2\", \"id\": \"hgnc:14202\"}, {\"label\": \"RYR2\", \"id\": \"hgnc:10484\"}, {\"label\": \"TNNC1\", \"id\": \"hgnc:11943\"}], \"locations\": [\"left ventricle\"]}}, {\"id\": \"Arrhythmias\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011675\"}}, {\"id\": \"CSRP3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CSRP3\"], \"gene_terms\": [{\"label\": \"CSRP3\", \"id\": \"hgnc:2472\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"FHOD3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FHOD3\"], \"gene_terms\": [{\"label\": \"FHOD3\", \"id\": \"hgnc:26178\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"JPH2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"JPH2\"], \"gene_terms\": [{\"label\": \"JPH2\", \"id\": \"hgnc:14202\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"KLF10\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KLF10\"], \"gene_terms\": [{\"label\": \"KLF10\", \"id\": \"hgnc:11810\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"KLHL24\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KLHL24\"], \"gene_terms\": [{\"label\": \"KLHL24\", \"id\": \"hgnc:25947\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MT-TI\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-TI\"], \"gene_terms\": [{\"label\": \"MT-TI\", \"id\": \"hgnc:7488\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYBPC3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 9, \"genes\": [\"MYBPC3\"], \"gene_terms\": [{\"label\": \"MYBPC3\", \"id\": \"hgnc:7551\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYH7\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 11, \"genes\": [\"MYH7\"], \"gene_terms\": [{\"label\": \"MYH7\", \"id\": \"hgnc:7577\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYL2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYL2\"], \"gene_terms\": [{\"label\": \"MYL2\", \"id\": \"hgnc:7583\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYL3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYL3\"], \"gene_terms\": [{\"label\": \"MYL3\", \"id\": \"hgnc:7584\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated energetic cost of sarcomere hypercontractility leads to mitochondrial stress and downregulation of energy metabolism pathways. Impaired ATP production contributes to contractile dysfunction and cellular remodeling.\", \"meta\": {\"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"ATP metabolic process\", \"oxidative phosphorylation\"], \"genes\": [\"MT-TI\"], \"gene_terms\": [{\"label\": \"MT-TI\", \"id\": \"hgnc:7488\"}], \"locations\": [\"myocardium\"]}}, {\"id\": \"Myocardial Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased collagen deposition by interstitial cells contributes to myocardial stiffness. Activation of TGF-beta and MAPK signaling pathways promotes extracellular matrix remodeling and fibrosis, which is a progressive phenomenon associated with greater disease severity.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Interstitial Cells\", \"cardiac fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\", \"response to TGF-beta\"], \"genes\": [\"KLF10\"], \"gene_terms\": [{\"label\": \"KLF10\", \"id\": \"hgnc:11810\"}], \"locations\": [\"myocardial interstitium\"]}}, {\"id\": \"NEXN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NEXN\"], \"gene_terms\": [{\"label\": \"NEXN\", \"id\": \"hgnc:29557\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"OBSCN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"OBSCN\"], \"gene_terms\": [{\"label\": \"OBSCN\", \"id\": \"hgnc:15719\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"PDLIM3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PDLIM3\"], \"gene_terms\": [{\"label\": \"PDLIM3\", \"id\": \"hgnc:20767\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Palpitations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001962\"}}, {\"id\": \"RBM20\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"RBM20\"], \"gene_terms\": [{\"label\": \"RBM20\", \"id\": \"hgnc:27424\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"RYR2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"RYR2\"], \"gene_terms\": [{\"label\": \"RYR2\", \"id\": \"hgnc:10484\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"SVIL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"SVIL\"], \"gene_terms\": [{\"label\": \"SVIL\", \"id\": \"hgnc:11480\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Sarcomere Protein Mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Genetic mutations affecting the proteins of the cardiac sarcomere lead to abnormal thickening of the heart muscle. The central biophysical abnormality is sarcomere hypercontractility with increased myosin duty ratio and power, resulting in impaired relaxation and elevated energetic cost of contraction.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"muscle contraction\", \"regulation of heart contraction\"], \"molecular_functions\": [\"ATP hydrolysis activity\"], \"genes\": [\"MYH7\", \"MYBPC3\", \"TNNT2\", \"TNNI3\", \"TPM1\", \"ACTC1\", \"MYL2\", \"MYL3\", \"CSRP3\", \"NEXN\", \"OBSCN\", \"PDLIM3\", \"TTN\", \"ALPK3\", \"FHOD3\", \"TRIM63\", \"SVIL\", \"KLHL24\", \"RBM20\"], \"gene_terms\": [{\"label\": \"MYH7\", \"id\": \"hgnc:7577\"}, {\"label\": \"MYBPC3\", \"id\": \"hgnc:7551\"}, {\"label\": \"TNNT2\", \"id\": \"hgnc:11949\"}, {\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}, {\"label\": \"TPM1\", \"id\": \"hgnc:12010\"}, {\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}, {\"label\": \"MYL2\", \"id\": \"hgnc:7583\"}, {\"label\": \"MYL3\", \"id\": \"hgnc:7584\"}, {\"label\": \"CSRP3\", \"id\": \"hgnc:2472\"}, {\"label\": \"NEXN\", \"id\": \"hgnc:29557\"}, {\"label\": \"OBSCN\", \"id\": \"hgnc:15719\"}, {\"label\": \"PDLIM3\", \"id\": \"hgnc:20767\"}, {\"label\": \"TTN\", \"id\": \"hgnc:12403\"}, {\"label\": \"ALPK3\", \"id\": \"hgnc:17574\"}, {\"label\": \"FHOD3\", \"id\": \"hgnc:26178\"}, {\"label\": \"TRIM63\", \"id\": \"hgnc:16007\"}, {\"label\": \"SVIL\", \"id\": \"hgnc:11480\"}, {\"label\": \"KLHL24\", \"id\": \"hgnc:25947\"}, {\"label\": \"RBM20\", \"id\": \"hgnc:27424\"}], \"locations\": [\"left ventricle\", \"interventricular septum\"]}}, {\"id\": \"Sudden Cardiac Death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001645\"}}, {\"id\": \"TNNC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNNC1\"], \"gene_terms\": [{\"label\": \"TNNC1\", \"id\": \"hgnc:11943\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TNNI3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNNI3\"], \"gene_terms\": [{\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TNNT2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"TNNT2\"], \"gene_terms\": [{\"label\": \"TNNT2\", \"id\": \"hgnc:11949\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TPM1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TPM1\"], \"gene_terms\": [{\"label\": \"TPM1\", \"id\": \"hgnc:12010\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TRIM63\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TRIM63\"], \"gene_terms\": [{\"label\": \"TRIM63\", \"id\": \"hgnc:16007\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TTN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TTN\"], \"gene_terms\": [{\"label\": \"TTN\", \"id\": \"hgnc:12403\"}], \"association\": \"Pathogenic Variants\"}}], \"edges\": [{\"source\": \"Arrhythmias\", \"target\": \"Palpitations\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Arrhythmias\", \"target\": \"Sudden Cardiac Death\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"MYH7\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYBPC3\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNNT2\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ALPK3\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FHOD3\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TRIM63\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SVIL\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ACTC1\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CSRP3\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"JPH2\", \"target\": \"Altered Calcium Handling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KLF10\", \"target\": \"Myocardial Fibrosis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KLHL24\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MT-TI\", \"target\": \"Mitochondrial Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYL2\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYL3\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NEXN\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"OBSCN\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDLIM3\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RBM20\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RYR2\", \"target\": \"Altered Calcium Handling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNNC1\", \"target\": \"Altered Calcium Handling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNNI3\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TPM1\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TTN\", \"target\": \"Sarcomere Protein Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6537,13 +6833,11 @@ This pathophysiological event occurs in left ventricular outflow tract, annotate
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(7)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Respiratory<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Constitutional<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6553,7 +6847,7 @@ This pathophysiological event occurs in left ventricular outflow tract, annotate
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">7</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-syncope" data-dismech-node="Syncope" data-dismech-type="phenotype">
@@ -6583,6 +6877,9 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
                     </div>
 
 
+
+
+
                     <div class="item-desc">Often triggered by exertion</div>
 
 
@@ -6602,6 +6899,8 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6627,6 +6926,8 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6648,6 +6949,8 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6700,6 +7003,9 @@ This clinical feature is Arrhythmias, annotated with Arrhythmia (HP:0011675). HP
                     </div>
 
 
+
+
+
                     <div class="item-desc">Abnormal heart rhythms are common. Can include atrial fibrillation and ventricular arrhythmias.</div>
 
 
@@ -6730,6 +7036,8 @@ This clinical feature is Arrhythmias, annotated with Arrhythmia (HP:0011675). HP
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6753,6 +7061,8 @@ This clinical feature is Arrhythmias, annotated with Arrhythmia (HP:0011675). HP
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6774,6 +7084,8 @@ This clinical feature is Arrhythmias, annotated with Arrhythmia (HP:0011675). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6801,6 +7113,136 @@ This clinical feature is Arrhythmias, annotated with Arrhythmia (HP:0011675). HP
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-mitral-valve-regurgitation" data-dismech-node="Mitral Valve Regurgitation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Mitral Valve Regurgitation
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Mitral regurgitation</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0001653</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mitral Valve Regurgitation, annotated with Mitral regurgitation (HP:0001653). HP:0001653 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Thickened heart muscle can affect mitral valve function, causing leakage.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21909825" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21909825" target="_blank">PMID:21909825</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Elongation and pathological thickening of the mitral valve (MV) is commonly seen in hypertrophic cardiomyopathy (HCM)... failure of either to optimally adapt in this setting can result in mitral regurgitation."</div>
+
+
+                <div class="evidence-explanation">The reference discusses the common occurrence of mitral valve elongation and thickening in HCM, which can lead to mitral regurgitation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35644869" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35644869" target="_blank">PMID:35644869</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"RESULTS: Significant (more than mild) MR was a significant univariate predictor of all the three LA strain values"</div>
+
+
+                <div class="evidence-explanation">This study shows that mitral regurgitation (MR) is a significant factor in patients with hypertrophic cardiomyopathy (HCM), supporting the statement that thickened heart muscle can affect mitral valve function, causing leakage.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37563454" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37563454" target="_blank">PMID:37563454</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However, the interplay between these conditions is increasingly being recognized and they frequently coexist, as in the paradigmatic examples of dilated cardiomyopathy and hypertrophic cardiomyopathy, which are often complicated by the occurrence of mitral regurgitation."</div>
+
+
+                <div class="evidence-explanation">The reference indicates that hypertrophic cardiomyopathy is often complicated by mitral regurgitation, supporting the statement.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-palpitations" data-dismech-node="Palpitations" data-dismech-type="phenotype">
                     <div class="item-name">
                         Palpitations
@@ -6817,15 +7259,18 @@ This clinical feature is Arrhythmias, annotated with Arrhythmia (HP:0011675). HP
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0001962</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0001962</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Often associated with atrial fibrillation and ventricular arrhythmias</div>
@@ -6855,15 +7300,18 @@ This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0001645</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0001645</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sudden Cardiac Death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Highest risk in young patients and those with sarcomere-positive disease. Leading cause of sudden death in young athletes.</div>
@@ -6893,15 +7341,18 @@ This clinical feature is Sudden Cardiac Death (HP:0001645). HP:0001645 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0001712</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0001712</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Defining feature of HCM; often asymmetric with septal predominance</div>
@@ -6931,15 +7382,18 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0005110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0005110</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Due to advanced diastolic dysfunction and left atrial dilatation and remodeling. Genotype-positive status associated with higher lifetime hazard.</div>
@@ -6978,15 +7432,18 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0002094</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7006,6 +7463,8 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7056,15 +7515,18 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0100749</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0100749</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7084,6 +7546,8 @@ This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7125,15 +7589,18 @@ This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0012378</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0012378</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Due to reduced cardiac output and efficiency.</div>
@@ -7157,6 +7624,8 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7170,136 +7639,6 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
             </div>
 
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-mitral-valve-regurgitation" data-dismech-node="Mitral Valve Regurgitation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Mitral Valve Regurgitation
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Mitral regurgitation</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0001653</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Mitral Valve Regurgitation, annotated with Mitral regurgitation (HP:0001653). HP:0001653 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Thickened heart muscle can affect mitral valve function, causing leakage.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (4 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21909825" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21909825" target="_blank">PMID:21909825</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Elongation and pathological thickening of the mitral valve (MV) is commonly seen in hypertrophic cardiomyopathy (HCM)... failure of either to optimally adapt in this setting can result in mitral regurgitation."</div>
-
-
-                <div class="evidence-explanation">The reference discusses the common occurrence of mitral valve elongation and thickening in HCM, which can lead to mitral regurgitation.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35644869" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35644869" target="_blank">PMID:35644869</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"RESULTS: Significant (more than mild) MR was a significant univariate predictor of all the three LA strain values"</div>
-
-
-                <div class="evidence-explanation">This study shows that mitral regurgitation (MR) is a significant factor in patients with hypertrophic cardiomyopathy (HCM), supporting the statement that thickened heart muscle can affect mitral valve function, causing leakage.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37563454" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37563454" target="_blank">PMID:37563454</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"However, the interplay between these conditions is increasingly being recognized and they frequently coexist, as in the paradigmatic examples of dilated cardiomyopathy and hypertrophic cardiomyopathy, which are often complicated by the occurrence of mitral regurgitation."</div>
-
-
-                <div class="evidence-explanation">The reference indicates that hypertrophic cardiomyopathy is often complicated by mitral regurgitation, supporting the statement.</div>
-
-
-
-            </div>
-
-
-            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -7382,9 +7721,12 @@ This disease-associated gene is MYH7 (hgnc:7577). hgnc:7577 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (7 references)
+            Show evidence (11 references)
         </summary>
         <div class="evidence-list">
 
@@ -7396,6 +7738,8 @@ This disease-associated gene is MYH7 (hgnc:7577). hgnc:7577 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7421,6 +7765,8 @@ This disease-associated gene is MYH7 (hgnc:7577). hgnc:7577 is a gene from the H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7444,6 +7790,8 @@ This disease-associated gene is MYH7 (hgnc:7577). hgnc:7577 is a gene from the H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7458,7 +7806,7 @@ This disease-associated gene is MYH7 (hgnc:7577). hgnc:7577 is a gene from the H
             </div>
 
 
-            <div class="evidence-more">+ 4 more references</div>
+            <div class="evidence-more">+ 8 more references</div>
 
         </div>
     </details>
@@ -7500,9 +7848,12 @@ This disease-associated gene is MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (5 references)
+            Show evidence (9 references)
         </summary>
         <div class="evidence-list">
 
@@ -7514,6 +7865,8 @@ This disease-associated gene is MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7539,6 +7892,8 @@ This disease-associated gene is MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7562,6 +7917,8 @@ This disease-associated gene is MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7576,7 +7933,7 @@ This disease-associated gene is MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the
             </div>
 
 
-            <div class="evidence-more">+ 2 more references</div>
+            <div class="evidence-more">+ 6 more references</div>
 
         </div>
     </details>
@@ -7618,6 +7975,9 @@ This disease-associated gene is TNNT2 (hgnc:11949). hgnc:11949 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7632,6 +7992,8 @@ This disease-associated gene is TNNT2 (hgnc:11949). hgnc:11949 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7657,6 +8019,8 @@ This disease-associated gene is TNNT2 (hgnc:11949). hgnc:11949 is a gene from th
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7678,6 +8042,8 @@ This disease-associated gene is TNNT2 (hgnc:11949). hgnc:11949 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7734,6 +8100,9 @@ This disease-associated gene is ALPK3 (hgnc:17574). hgnc:17574 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7748,6 +8117,8 @@ This disease-associated gene is ALPK3 (hgnc:17574). hgnc:17574 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7771,6 +8142,8 @@ This disease-associated gene is ALPK3 (hgnc:17574). hgnc:17574 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7827,6 +8200,9 @@ This disease-associated gene is FHOD3 (hgnc:26178). hgnc:26178 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7841,6 +8217,8 @@ This disease-associated gene is FHOD3 (hgnc:26178). hgnc:26178 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7897,6 +8275,9 @@ This disease-associated gene is TRIM63 (hgnc:16007). hgnc:16007 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7911,6 +8292,8 @@ This disease-associated gene is TRIM63 (hgnc:16007). hgnc:16007 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7969,6 +8352,9 @@ This disease-associated gene is SVIL (hgnc:11480). hgnc:11480 is a gene from the
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-actc1" data-dismech-node="ACTC1" data-dismech-type="genetic">
@@ -8004,6 +8390,9 @@ This disease-associated gene is ACTC1 (hgnc:143). hgnc:143 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8018,6 +8407,8 @@ This disease-associated gene is ACTC1 (hgnc:143). hgnc:143 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8074,6 +8465,9 @@ This disease-associated gene is CSRP3 (hgnc:2472). hgnc:2472 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8088,6 +8482,8 @@ This disease-associated gene is CSRP3 (hgnc:2472). hgnc:2472 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8144,6 +8540,9 @@ This disease-associated gene is JPH2 (hgnc:14202). hgnc:14202 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8158,6 +8557,8 @@ This disease-associated gene is JPH2 (hgnc:14202). hgnc:14202 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8214,6 +8615,9 @@ This disease-associated gene is KLF10 (hgnc:11810). hgnc:11810 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8228,6 +8632,8 @@ This disease-associated gene is KLF10 (hgnc:11810). hgnc:11810 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8284,6 +8690,9 @@ This disease-associated gene is KLHL24 (hgnc:25947). hgnc:25947 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8298,6 +8707,8 @@ This disease-associated gene is KLHL24 (hgnc:25947). hgnc:25947 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8354,6 +8765,9 @@ This disease-associated gene is MT-TI (hgnc:7488). hgnc:7488 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8368,6 +8782,8 @@ This disease-associated gene is MT-TI (hgnc:7488). hgnc:7488 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8424,6 +8840,9 @@ This disease-associated gene is MYL2 (hgnc:7583). hgnc:7583 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8438,6 +8857,8 @@ This disease-associated gene is MYL2 (hgnc:7583). hgnc:7583 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8494,6 +8915,9 @@ This disease-associated gene is MYL3 (hgnc:7584). hgnc:7584 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8508,6 +8932,8 @@ This disease-associated gene is MYL3 (hgnc:7584). hgnc:7584 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8564,6 +8990,9 @@ This disease-associated gene is NEXN (hgnc:29557). hgnc:29557 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8578,6 +9007,8 @@ This disease-associated gene is NEXN (hgnc:29557). hgnc:29557 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8634,6 +9065,9 @@ This disease-associated gene is OBSCN (hgnc:15719). hgnc:15719 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8648,6 +9082,8 @@ This disease-associated gene is OBSCN (hgnc:15719). hgnc:15719 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8704,6 +9140,9 @@ This disease-associated gene is PDLIM3 (hgnc:20767). hgnc:20767 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8718,6 +9157,8 @@ This disease-associated gene is PDLIM3 (hgnc:20767). hgnc:20767 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8774,6 +9215,9 @@ This disease-associated gene is RBM20 (hgnc:27424). hgnc:27424 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8788,6 +9232,8 @@ This disease-associated gene is RBM20 (hgnc:27424). hgnc:27424 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8844,6 +9290,9 @@ This disease-associated gene is RPS6KB1 (hgnc:10436). hgnc:10436 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8858,6 +9307,8 @@ This disease-associated gene is RPS6KB1 (hgnc:10436). hgnc:10436 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8914,6 +9365,9 @@ This disease-associated gene is RYR2 (hgnc:10484). hgnc:10484 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8928,6 +9382,8 @@ This disease-associated gene is RYR2 (hgnc:10484). hgnc:10484 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8984,6 +9440,9 @@ This disease-associated gene is TMPO (hgnc:11875). hgnc:11875 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8998,6 +9457,8 @@ This disease-associated gene is TMPO (hgnc:11875). hgnc:11875 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9054,6 +9515,9 @@ This disease-associated gene is TNNC1 (hgnc:11943). hgnc:11943 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9068,6 +9532,8 @@ This disease-associated gene is TNNC1 (hgnc:11943). hgnc:11943 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9124,6 +9590,9 @@ This disease-associated gene is TNNI3 (hgnc:11947). hgnc:11947 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9138,6 +9607,8 @@ This disease-associated gene is TNNI3 (hgnc:11947). hgnc:11947 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9194,6 +9665,9 @@ This disease-associated gene is TPM1 (hgnc:12010). hgnc:12010 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9208,6 +9682,8 @@ This disease-associated gene is TPM1 (hgnc:12010). hgnc:12010 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9264,6 +9740,9 @@ This disease-associated gene is TTN (hgnc:12403). hgnc:12403 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9278,6 +9757,8 @@ This disease-associated gene is TTN (hgnc:12403). hgnc:12403 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9382,6 +9863,20 @@ This treatment uses beta-adrenergic agonist (NCIT:C48149). NCIT:C48149 is a ther
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Used to reduce heart rate and improve symptoms</div>
 
 
@@ -9403,6 +9898,8 @@ This treatment uses beta-adrenergic agonist (NCIT:C48149). NCIT:C48149 is a ther
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9428,6 +9925,8 @@ This treatment uses beta-adrenergic agonist (NCIT:C48149). NCIT:C48149 is a ther
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9449,6 +9948,8 @@ This treatment uses beta-adrenergic agonist (NCIT:C48149). NCIT:C48149 is a ther
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9534,6 +10035,20 @@ This treatment uses calcium channel blocker (NCIT:C333). NCIT:C333 is a therapeu
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Help to relax heart muscle and improve blood flow</div>
 
 
@@ -9557,6 +10072,8 @@ This treatment uses calcium channel blocker (NCIT:C333). NCIT:C333 is a therapeu
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9570,14 +10087,16 @@ This treatment uses calcium channel blocker (NCIT:C333). NCIT:C333 is a therapeu
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36044874" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36044874" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36044874" target="_blank">PMID:36044874</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9601,6 +10120,8 @@ This treatment uses calcium channel blocker (NCIT:C333). NCIT:C333 is a therapeu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9664,6 +10185,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgical removal of part of the thickened heart muscle</div>
 
 
@@ -9687,6 +10233,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9708,6 +10256,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9771,6 +10321,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Minimally invasive procedure to reduce obstruction by injecting alcohol into a small artery that supplies the thickened heart muscle</div>
 
 
@@ -9792,6 +10367,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9817,6 +10394,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9838,6 +10417,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9903,6 +10484,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Prevents sudden cardiac death in high-risk patients</div>
 
 
@@ -9924,6 +10530,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9949,6 +10557,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9970,6 +10580,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10035,6 +10647,31 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Adeno-associated virus-mediated gene replacement to restore normal sarcomeric protein expression in HCM-causing genes. Represents a disease-modifying approach targeting the genetic root cause.</div>
 
 
@@ -10058,6 +10695,8 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10079,6 +10718,8 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10142,6 +10783,31 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Gene-based silencing therapy targeting pathogenic alleles to reduce expression of disease-causing sarcomeric protein variants. Selective allele-specific approach to spare wild-type protein.</div>
 
 
@@ -10163,6 +10829,8 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10226,6 +10894,31 @@ This treatment is gene editing, annotated with Gene Therapy (NCIT:C15238). NCIT:
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene editing</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Precision gene editing approaches including base editing and CRISPR-Cas9 to correct or disrupt pathogenic sarcomeric gene variants at their genomic source. Emerging strategy with potential for durable long-term correction.</div>
 
 
@@ -10249,6 +10942,8 @@ This treatment is gene editing, annotated with Gene Therapy (NCIT:C15238). NCIT:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10270,6 +10965,8 @@ This treatment is gene editing, annotated with Gene Therapy (NCIT:C15238). NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10331,6 +11028,8 @@ This treatment is gene editing, annotated with Gene Therapy (NCIT:C15238). NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10396,6 +11095,8 @@ This treatment is gene editing, annotated with Gene Therapy (NCIT:C15238). NCIT:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10417,6 +11118,554 @@ This treatment is gene editing, annotated with Gene Therapy (NCIT:C15238). NCIT:
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-echocardiogram">
+                <div class="item-name">
+                    Echocardiogram
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">Shows left ventricular hypertrophy and outflow obstruction if present</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22948303" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22948303" target="_blank">PMID:22948303</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The evaluation of hypertrophic cardiomyopathy incorporates methods based on the ultrasound image, which, along with MRI, allow recognizing ventricular obstruction generating mechanisms, thus facilitating the diagnosis and management of obstructive and latent obstructive forms."</div>
+
+
+                <div class="evidence-explanation">The text indicates that echocardiographic imaging is crucial for identifying left ventricular obstruction in hypertrophic cardiomyopathy, supporting the statement about echocardiogram diagnosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37160197" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37160197" target="_blank">PMID:37160197</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This document provides an additional practical framework for optimal image and measurement acquisition and guidance on how to tailor the echocardiography examination for individuals with HCM."</div>
+
+
+                <div class="evidence-explanation">This supports that echocardiogram (which includes ultrasound) is a fundamental diagnostic tool for hypertrophic cardiomyopathy.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:133253" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/133253" target="_blank">PMID:133253</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Asymmetric septal hypertrophy was demonstrated in both obstructive and nonobstructive HCM. In all cases of HCM studied, the thickness of the interventricular septum was 1.4 cm or more (1.4-3.7 cm) ... A systolic anterior movement of the mitral valve (SAM) was observed in obstructive cases only..."</div>
+
+
+                <div class="evidence-explanation">The echocardiographic study clearly demonstrates its effectiveness in diagnosing features of HCM including left ventricular hypertrophy and outflow obstruction.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-electrocardiogram">
+                <div class="item-name">
+                    Electrocardiogram
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">May show signs of left ventricular hypertrophy or arrhythmias</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (5 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32639329" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32639329" target="_blank">PMID:32639329</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In our study, only a few ECG voltage criteria used for the detection of LVH in clinical practice showed an acceptable performance in the HCM population."</div>
+
+
+                <div class="evidence-explanation">While ECG can show signs of left ventricular hypertrophy, its overall diagnostic accuracy in hypertrophic cardiomyopathy (HCM) populations is limited.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37579849" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37579849" target="_blank">PMID:37579849</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although the 12‑lead electrocardiogram (ECG) is abnormal in most patients with hypertrophic cardiomyopathy (HCM), some present normal ECG."</div>
+
+
+                <div class="evidence-explanation">The ECG can be useful for diagnosing HCM, but a normal ECG does not rule out the condition.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23704850" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23704850" target="_blank">PMID:23704850</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Electrocardiogram typically shows repolarization changes and giant (&gt;10 mm), inverted T waves in the anterolateral leads."</div>
+
+
+                <div class="evidence-explanation">Specific ECG patterns can be indicative of certain variants of HCM.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 2 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-onset">
+                <div class="item-name">Onset</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25897040" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25897040" target="_blank">PMID:25897040</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Myocardial fibrosis in HCM is a progressive phenomenon. Non-apical phenotype and a higher LGE extent at CMR-1 are both associated with greater LGE progression."</div>
+
+
+                <div class="evidence-explanation">The literature supports that hypertrophic cardiomyopathy (HCM) can progress over time, which implies progression from an initial onset phase.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22158452" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22158452" target="_blank">PMID:22158452</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Progressive heart failure associated with left ventricular remodeling and systo-diastolic dysfunction is one of the most severe complications of hypertrophic cardiomyopathy (HCM)."</div>
+
+
+                <div class="evidence-explanation">The progression of hypertrophic cardiomyopathy (HCM) through various stages, including an onset phase, is indicated by the reference to progressive heart failure.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29111210" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29111210" target="_blank">PMID:29111210</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hypertrophic cardiomyopathy (HC) has been characterized as a generally progressive genetic heart disease..."</div>
+
+
+                <div class="evidence-explanation">The statement that HC is generally progressive suggests that there is an initial onset phase followed by further disease progression.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target">
+                <div class="item-name"></div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Adolescence-Adulthood</span>
+
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29622585" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29622585" target="_blank">PMID:29622585</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In the subset of patients with serial imaging, statistically significant increases in LGE, LV mass, and left atrial size were detected over 2.5 years, indicating disease progression over time."</div>
+
+
+                <div class="evidence-explanation">This study shows significant disease progression, including increases in late gadolinium enhancement (LGE), left ventricular (LV) mass, and left atrial size, indicating that hypertrophic cardiomyopathy progresses over time from adolescence into adulthood.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29710196" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29710196" target="_blank">PMID:29710196</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pediatric-onset HCM is rare and associated with adverse outcomes driven mainly by arrhythmic events. Risk extends well beyond adolescence, which calls for unchanged clinical surveillance into adulthood."</div>
+
+
+                <div class="evidence-explanation">This study highlights that pediatric-onset HCM progresses into adulthood and is associated with adverse outcomes, supporting continuous clinical surveillance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-general-population">
+                <div class="item-name">General Population</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        200.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25814232" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25814232" target="_blank">PMID:25814232</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"For the past 20 years, most data have supported the occurrence of HCM at about 1 in 500."</div>
+
+
+                <div class="evidence-explanation">1 in 500 translates to 0.2%, which supports the statement. However, the statement could be conflicting with the suggestion that HCM might be more common than previously estimated.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34969871" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34969871" target="_blank">PMID:34969871</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Between 2010 and 2018, prevalence increased for ARVC by 180% and HCM by 9%."</div>
+
+
+                <div class="evidence-explanation">While the statement of HCM prevalence being 0.2% is approximately correct, recognition of HCM prevalence seems to have increased, indicating it could be more common now.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33623987" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33623987" target="_blank">PMID:33623987</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Currently, available estimates of prevalence and incidence of CMPs are based on clinical data, collected with a wide variability in population-source, and before the genetic testing evolved as a standard diagnostic tool."</div>
+
+
+                <div class="evidence-explanation">Prevalence estimates for HCM might vary based on the population and advances in diagnostic tools, suggesting that 0.2% could be an estimate but with existing variability.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -10517,6 +11766,8 @@ This dataset samples engineered heart tissue, annotated with heart (UBERON:00009
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10539,7 +11790,7 @@ This dataset samples engineered heart tissue, annotated with heart (UBERON:00009
 
             <div class="item-box dataset-box anchor-target" id="dataset-geo-gse137081">
                 <div class="item-name">
-                    Effects of spaceflight on hiPSC-derived cardiomyocyte structure and function
+                    Effects of Spaceflight on Human Induced Pluripotent Stem Cell-Derived Cardiomyocyte Structure and Function
 
                     <span class="dataset-accession">
                         <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE137081" target="_blank">geo:GSE137081</a>
@@ -10623,6 +11874,8 @@ This dataset samples iPSC-derived cardiomyocyte, annotated with heart (UBERON:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10645,7 +11898,7 @@ This dataset samples iPSC-derived cardiomyocyte, annotated with heart (UBERON:00
 
             <div class="item-box dataset-box anchor-target" id="dataset-geo-gse188793">
                 <div class="item-name">
-                    Space microgravity improves proliferation of human iPSC-derived cardiomyocytes
+                    Microgravity on the International Space Station promotes survival and proliferation of human stem cell cardiomyocytes
 
                     <span class="dataset-accession">
                         <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE188793" target="_blank">geo:GSE188793</a>
@@ -10725,6 +11978,8 @@ This dataset samples iPSC-derived cardiac progenitor, annotated with heart (UBER
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -10829,6 +12084,8 @@ This dataset samples heart tissue, annotated with heart (UBERON:0000948). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10985,6 +12242,8 @@ This dataset samples right ventricle tissue, annotated with heart right ventricl
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11066,6 +12325,8 @@ This dataset samples right ventricle tissue, annotated with heart right ventricl
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -11133,7 +12394,7 @@ has_subtypes:
   evidence:
   - reference: PMID:38368032
     reference_title: &#34;Hypertrophic Cardiomyopathy: A Brief Overview.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: Obstruction to left ventricular outflow occurs in approximately 60% of patients.
     explanation: The provided literature states that obstruction occurs in approximately 60% of HCM patients, indicating that not all HCM cases are obstructive. Thus, the statement that the thickened heart muscle obstructs blood flow out of the left ventricle can be recognized as a subtype known as obstructive HCM but does not apply to all HCM patients.
@@ -11166,19 +12427,19 @@ prevalence:
   evidence:
   - reference: PMID:25814232
     reference_title: &#34;New perspectives on the prevalence of hypertrophic cardiomyopathy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: For the past 20 years, most data have supported the occurrence of HCM at about 1 in 500.
     explanation: 1 in 500 translates to 0.2%, which supports the statement. However, the statement could be conflicting with the suggestion that HCM might be more common than previously estimated.
   - reference: PMID:34969871
     reference_title: &#34;Epidemiology of cardiomyopathies and incident heart failure in a population-based cohort study.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Between 2010 and 2018, prevalence increased for ARVC by 180% and HCM by 9%.
     explanation: While the statement of HCM prevalence being 0.2% is approximately correct, recognition of HCM prevalence seems to have increased, indicating it could be more common now.
   - reference: PMID:33623987
     reference_title: &#34;Epidemiology of cardiomyopathies: essential context knowledge for a tailored clinical work-up.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: Currently, available estimates of prevalence and incidence of CMPs are based on clinical data, collected with a wide variability in population-source, and before the genetic testing evolved as a standard diagnostic tool.
     explanation: Prevalence estimates for HCM might vary based on the population and advances in diagnostic tools, suggesting that 0.2% could be an estimate but with existing variability.
@@ -11773,13 +13034,13 @@ diagnosis:
   evidence:
   - reference: PMID:32639329
     reference_title: &#34;Electrocardiographic voltage criteria in patients with hypertrophic cardiomyopathy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: In our study, only a few ECG voltage criteria used for the detection of LVH in clinical practice showed an acceptable performance in the HCM population.
     explanation: While ECG can show signs of left ventricular hypertrophy, its overall diagnostic accuracy in hypertrophic cardiomyopathy (HCM) populations is limited.
   - reference: PMID:37579849
     reference_title: &#34;Hypertrophic cardiomyopathy in patients with a normal electrocardiogram: A view from the east side of the Atlantic Ocean.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Although the 12‑lead electrocardiogram (ECG) is abnormal in most patients with hypertrophic cardiomyopathy (HCM), some present normal ECG.
     explanation: The ECG can be useful for diagnosing HCM, but a normal ECG does not rule out the condition.
@@ -11791,7 +13052,7 @@ diagnosis:
     explanation: Specific ECG patterns can be indicative of certain variants of HCM.
   - reference: PMID:30739754
     reference_title: &#34;[Hypertrophic cardiomyopathies].&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: The minimum check-up must include an electrocardiogram and a transthoracic echocardiography, which will most of the time be completed by magnetic resonance imaging.
     explanation: While ECG is part of the diagnostic process, it alone may not be sufficient for a conclusive diagnosis.
@@ -11852,6 +13113,47 @@ genetic:
     evidence_source: OTHER
     snippet: &#34;MYH7 | HGNC:7577 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Definitive&#34;
     explanation: ClinGen classifies the MYH7-hypertrophic cardiomyopathy gene-disease relationship as definitive with autosomal dominant inheritance.
+  - reference: PMID:29300372
+    reference_title: &#34;Adaptation and validation of the ACMG/AMP variant classification framework for MYH7-associated inherited cardiomyopathies: recommendations by ClinGen&#39;s Inherited Cardiomyopathy Expert Panel.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: It is well established that missense variants in MYH7 are the predominant class of pathogenic alleles.
+    explanation: &gt;-
+      Establishes that MYH7 acts through missense alleles rather than loss of function,
+      the mechanistic contrast with MYBPC3 that the reclassification notes turn on.
+  - reference: PMID:29300372
+    reference_title: &#34;Adaptation and validation of the ACMG/AMP variant classification framework for MYH7-associated inherited cardiomyopathies: recommendations by ClinGen&#39;s Inherited Cardiomyopathy Expert Panel.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: this is driven by statistically significant clustering of pathogenic variants in the head region
+    explanation: &gt;-
+      Documents the regional clustering of pathogenic MYH7 missense variants in the
+      motor (head) domain that the ClinGen expert panel encoded as the PM1 critical-domain
+      rule.
+  - reference: PPR:PPR1295400
+    reference_title: &#34;Reclassification of Genetic Variants in Patients with Hypertrophic Cardiomyopathy from the Sarcomeric Human Cardiomyopathy Registry (SHaRe)&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Conversely, 23/29 (79%) MYH7 variants that were upgraded were within the HCM associated regional hot spot
+    explanation: &gt;-
+      In a 12,187-patient multi-center registry, MYH7 variants promoted to
+      pathogenic/likely pathogenic on re-review fell overwhelmingly inside the head-domain
+      hot spot, corroborating the regional clustering of causal missense alleles.
+  - reference: PPR:PPR1295400
+    reference_title: &#34;Reclassification of Genetic Variants in Patients with Hypertrophic Cardiomyopathy from the Sarcomeric Human Cardiomyopathy Registry (SHaRe)&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: There were 55 variants in MYH7 downgraded, including 44/203 (21.6%) missense variants that were rare in gnomAD but lacked sufficient evidence to reach P/LP
+    explanation: &gt;-
+      Qualifies the association: rarity inside the hot spot is not by itself sufficient
+      evidence of causation, and a substantial minority of previously reported MYH7
+      missense variants were downgraded on re-review.
+  notes: &gt;-
+    Pathogenic MYH7 alleles are essentially all missense and cluster in the myosin
+    motor (head) domain, which ClinGen&#39;s Cardiomyopathy Expert Panel encodes as the
+    PM1 critical-domain rule. Location in that hot spot is supporting, not sufficient,
+    evidence — in the SHaRe registry re-review MYH7 was among the eight of nine
+    sarcomere genes with more than 20% of variants reclassified.
 - name: MYBPC3
   gene_term:
     preferred_term: MYBPC3
@@ -11890,6 +13192,46 @@ genetic:
     evidence_source: OTHER
     snippet: &#34;MYBPC3 | HGNC:7551 | hypertrophic cardiomyopathy | MONDO:0005045 | AD | Definitive&#34;
     explanation: ClinGen classifies the MYBPC3-hypertrophic cardiomyopathy gene-disease relationship as definitive with autosomal dominant inheritance.
+  - reference: PMID:30674652
+    reference_title: &#34;Hypertrophic cardiomyopathy mutations in MYBPC3 dysregulate myosin.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: most MYBPC3 mutations are truncating and are predicted to cause haploinsufficiency of cMyBPC
+    explanation: &gt;-
+      States the allelic mechanism that distinguishes MYBPC3 from the other sarcomere
+      genes: truncating variants acting through haploinsufficiency rather than a
+      dominant-negative missense protein.
+  - reference: PMID:30674652
+    reference_title: &#34;Hypertrophic cardiomyopathy mutations in MYBPC3 dysregulate myosin.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: supporting the conclusion that MYBPC3 mutations cause HCM by haploinsufficiency
+    explanation: &gt;-
+      Truncating alleles and RNAi silencing of Mybpc3 produced comparable contraction
+      and relaxation defects in mouse cardiomyocytes, experimentally establishing dose
+      dependence rather than a poison-peptide effect.
+  - reference: PPR:PPR1295400
+    reference_title: &#34;Reclassification of Genetic Variants in Patients with Hypertrophic Cardiomyopathy from the Sarcomeric Human Cardiomyopathy Registry (SHaRe)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: MYBPC3 is the only gene where loss-of-function is an established mechanism of disease
+    explanation: &gt;-
+      Records that the ClinGen Cardiomyopathy Expert Panel treats loss of function as an
+      established disease mechanism for MYBPC3 alone among the HCM genes, so the PVS1
+      criterion is applicable only here.
+  - reference: PPR:PPR1295400
+    reference_title: &#34;Reclassification of Genetic Variants in Patients with Hypertrophic Cardiomyopathy from the Sarcomeric Human Cardiomyopathy Registry (SHaRe)&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: MYBPC3 was the only sarcomere gene with fewer than 20% of variants reclassified (at 11.1%).
+    explanation: &gt;-
+      A settled loss-of-function mechanism makes MYBPC3 assignments comparatively stable:
+      it had the lowest reclassification rate of any sarcomere gene in the registry re-review.
+  notes: &gt;-
+    MYBPC3 is the one HCM gene in which loss of function is an established disease
+    mechanism, so truncating alleles are interpreted as haploinsufficiency (and are the
+    only HCM variants to which the PVS1 criterion applies). This underwrites their
+    classification stability relative to the missense-driven sarcomere genes.
 - name: TNNT2
   gene_term:
     preferred_term: TNNT2
@@ -12298,7 +13640,7 @@ treatments:
     explanation: The literature supports that calcium channel blockers are used to improve symptoms in hypertrophic cardiomyopathy patients, which implies relaxing the heart muscle and improving blood flow.
   - reference: PMID:36044874
     reference_title: &#34;A Discrepancy: Calcium Channel Blockers Are Effective for the Treatment of Hypertensive Left Ventricular Hypertrophy but Not as Effective for Prevention of Heart Failure.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: CCBs are effective antihypertensive drugs and a very good therapeutic option for HTN LVH as they can cause reverse LVH remodeling.
     explanation: This review addresses hypertensive left ventricular hypertrophy (HTN LVH), a distinct entity from primary hypertrophic cardiomyopathy, so it only partially supports the use of calcium channel blockers in HCM; the HCM-specific rationale is carried by the verapamil-in-HCM references above.
@@ -12462,6 +13804,61 @@ treatments:
     evidence_source: OTHER
     snippet: Together, these developments establish HCM as one of the important early models for cardiac gene therapy and highlight both the promise and complexity of translating genetic insight into durable clinical benefit.
     explanation: Gene editing contributes to HCM being recognized as an important early model for cardiac gene therapy, with potential for achieving durable clinical benefit through genomic correction.
+discussions:
+- discussion_id: q_hcm_variant_reclassification_burden
+  prompt: &gt;-
+    How much of the reported HCM genotype is stable? Registry re-review reclassified a
+    clinically meaningful fraction of variants and found most variants of uncertain
+    significance unlikely to be causal — so which curated gene-disease and
+    genotype-phenotype claims in this entry rest on classifications that would not
+    survive re-adjudication today?
+  kind: INTERPRETATION
+  status: OPEN
+  attaches_to:
+  - genetic#MYH7
+  - genetic#MYBPC3
+  rationale: &gt;-
+    Variant pathogenicity is an evidence-weighted judgement that moves as criteria and
+    case data accumulate, not a fixed property of the allele. In the SHaRe registry
+    re-review, 10% of variants in HCM probands changed classification in a clinically
+    meaningful way, downgrades outnumbered upgrades roughly three to one, and a further
+    1,031 variants sat in genes with no established HCM gene-disease association at all.
+    This matters mechanistically as well as clinically: a downgraded variant weakens any
+    genotype-phenotype claim built on it, and the direction of change is gene-specific —
+    tied to whether the gene&#39;s disease mechanism (loss of function for MYBPC3, missense
+    in the motor domain for MYH7) is settled enough to support the strongest ACMG/AMP
+    criteria. Resolving this needs a pass over the entry&#39;s genotype-linked claims against
+    current ClinGen expert-panel specifications, not new experimental work.
+  evidence:
+  - reference: PPR:PPR1295400
+    reference_title: &#34;Reclassification of Genetic Variants in Patients with Hypertrophic Cardiomyopathy from the Sarcomeric Human Cardiomyopathy Registry (SHaRe)&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Clinically meaningful reclassification occurred in 10% of variants identified in HCM probands.
+    explanation: Quantifies the instability of reported HCM variant classifications in a large multi-center registry.
+  - reference: PPR:PPR1295400
+    reference_title: &#34;Reclassification of Genetic Variants in Patients with Hypertrophic Cardiomyopathy from the Sarcomeric Human Cardiomyopathy Registry (SHaRe)&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Sub-classification of VUS resulted in less uncertainty, with 369 (40.6%) variants reclassified as VUS-Low or B/LB, indicating a very strong probability of not being HCM associated.
+    explanation: &gt;-
+      Shows most uncertain variants are unlikely to be causal once sub-classified, which
+      bounds how much of the reported genotype should be treated as mechanistically
+      informative.
+  - reference: PPR:PPR1295400
+    reference_title: &#34;Reclassification of Genetic Variants in Patients with Hypertrophic Cardiomyopathy from the Sarcomeric Human Cardiomyopathy Registry (SHaRe)&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Fourteen of 203 (6.9%) variants downgraded were loss-of-function (high impact) variants in genes where loss-of-function is not a known mechanism of disease
+    explanation: &gt;-
+      Demonstrates the gene-specific dependence directly — predicted loss-of-function
+      alleles were downgraded precisely in the genes where loss of function is not the
+      established mechanism.
+  notes: &gt;-
+    Sourced from a medRxiv preprint that has not been peer reviewed; it is cited here as
+    a scoping observation about classification stability, and the underlying gene-disease
+    associations in this entry are independently supported by ClinGen assertions and
+    peer-reviewed studies.
 disease_term:
   preferred_term: hypertrophic cardiomyopathy
   term:
@@ -12525,7 +13922,7 @@ datasets:
 
 # ISS hiPSC-CM gene expression (Wnorowski et al. 2019)
 - accession: &#34;geo:GSE137081&#34;
-  title: Effects of spaceflight on hiPSC-derived cardiomyocyte structure and function
+  title: Effects of Spaceflight on Human Induced Pluripotent Stem Cell-Derived Cardiomyocyte Structure and Function
   description: &gt;-
     RNA sequencing from human induced pluripotent stem cell-derived cardiomyocytes
     (hiPSC-CMs) cultured aboard the ISS for 5.5 weeks. Identified 2,635 differentially
@@ -12567,7 +13964,7 @@ datasets:
 
 # ISS cardiac progenitor proliferation (Rampoldi et al. 2022)
 - accession: &#34;geo:GSE188793&#34;
-  title: Space microgravity improves proliferation of human iPSC-derived cardiomyocytes
+  title: Microgravity on the International Space Station promotes survival and proliferation of human stem cell cardiomyocytes
   description: &gt;-
     RNA sequencing from 3D hiPSC-derived cardiac progenitors cultured 3 weeks on
     the ISS. Microgravity cultures showed 3-fold larger sphere sizes, 20-fold higher
@@ -12917,6 +14314,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -13244,7 +14643,7 @@ Hypertrophic cardiomyopathy is primarily a disease of the cardiac sarcomere with
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hypertrophic Cardiomyopathy", "mondoId": "MONDO:0005045", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypertrophic_Cardiomyopathy", "yamlRevision": "8bafe4ae82ca"};
+        const OS_CONFIG = {"diseaseName": "Hypertrophic Cardiomyopathy", "mondoId": "MONDO:0005045", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypertrophic_Cardiomyopathy", "yamlRevision": "0b029afefd87"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

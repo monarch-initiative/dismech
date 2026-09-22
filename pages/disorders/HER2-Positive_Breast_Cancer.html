@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4216,6 +4323,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4237,6 +4346,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4280,7 +4391,7 @@
                 </div>
 
 
-                <div class="item-desc" style="margin-top: 8px;">Trastuzumab resistance is sustained in part by post-translational stabilization of the HER2 receptor protein at the cell surface. CMTM6 (CKLF-like MARVEL transmembrane domain-containing 6) directly interacts with HER2 and inhibits HER2 ubiquitination, preserving the GRB2-adaptor output even under trastuzumab pressure. Under the interactome- rebalancing framing, CMTM6 acts as a separate post-translational pivot point in parallel to GRB2 conformational state, and degrading or inhibiting CMTM6 may resensitize tumors to HER2-targeted therapy. This hypothesis is independent of (and complementary to) GRB2-level conformational control.</div>
+                <div class="item-desc" style="margin-top: 8px;">Trastuzumab resistance is sustained in part by post-translational stabilization of the HER2 receptor protein at the cell surface. CMTM6 (CKLF-like MARVEL transmembrane domain-containing 6) directly interacts with HER2 and inhibits HER2 ubiquitination, preserving the GRB2-adaptor output even under trastuzumab pressure. Under the interactome-rebalancing framing, CMTM6 acts as a separate post-translational pivot point in parallel to GRB2 conformational state, and degrading or inhibiting CMTM6 may resensitize tumors to HER2-targeted therapy. This hypothesis is independent of (and complementary to) GRB2-level conformational control.</div>
 
 
 
@@ -4323,6 +4434,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4344,6 +4457,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4430,6 +4545,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4451,6 +4568,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4521,7 +4640,7 @@
                 </div>
 
 
-                <div class="item-desc" style="margin-top: 10px;">HER2-targeted antibodies and TKIs do not eliminate downstream GRB2 adaptor output: resistant tumors typically rewire RAS-MAPK and PI3K-AKT signaling rather than lose HER2. GRB2 also has a documented nuclear RAD51 fork- protection role under replication stress. Treating GRB2 as a thermodynamic pivot — stabilizing distinct SH2/SH3 conformational states with allosteric binders, or degrading the protein with PROTAC warheads — would let us test whether different perturbations funnel the interactome into distinct pathological survival states (cytoplasmic effector dominance vs. nuclear fork-protection dominance vs. innate-immune activation through PARPi- induced cytosolic DNA).</div>
+                <div class="item-desc" style="margin-top: 10px;">HER2-targeted antibodies and TKIs do not eliminate downstream GRB2 adaptor output: resistant tumors typically rewire RAS-MAPK and PI3K-AKT signaling rather than lose HER2. GRB2 also has a documented nuclear RAD51 fork-protection role under replication stress. Treating GRB2 as a thermodynamic pivot — stabilizing distinct SH2/SH3 conformational states with allosteric binders, or degrading the protein with PROTAC warheads — would let us test whether different perturbations funnel the interactome into distinct pathological survival states (cytoplasmic effector dominance vs. nuclear fork-protection dominance vs. innate-immune activation through PARPi-induced cytosolic DNA).</div>
 
 
                 <div class="experiment-section">
@@ -4573,7 +4692,7 @@ This experiment is of type controlled perturbation experiment.</span>
 
         </div>
 
-        <div class="item-desc" style="margin-top: 8px;">Treat HER2-amplified patient-derived breast cancer organoids and isogenic cell-line panels (HER2-amplified, HER2-amplified plus PIK3CA-mutant, trastuzumab-resistant derivatives) with (a) allosteric GRB2 SH2/SH3 binders tuned to stabilize discrete conformational states, (b) a GRB2- directed PROTAC warhead that physically degrades the adaptor, and (c) paired HER2 inhibition (trastuzumab, tucatinib, T-DXd). Read out RAS- MAPK and PI3K-AKT effector signaling, nuclear GRB2 localization, RAD51 fork-protection at stalled replication forks, cytosolic DNA release, cGAS-STING activation, and immune-cell killing in autologous co-culture. Compare to PARP-inhibitor co-treatment arms to test whether GRB2 pivot state predicts PARPi-STING vulnerability.</div>
+        <div class="item-desc" style="margin-top: 8px;">Treat HER2-amplified patient-derived breast cancer organoids and isogenic cell-line panels (HER2-amplified, HER2-amplified plus PIK3CA-mutant, trastuzumab-resistant derivatives) with (a) allosteric GRB2 SH2/SH3 binders tuned to stabilize discrete conformational states, (b) a GRB2-directed PROTAC warhead that physically degrades the adaptor, and (c) paired HER2 inhibition (trastuzumab, tucatinib, T-DXd). Read out RAS-MAPK and PI3K-AKT effector signaling, nuclear GRB2 localization, RAD51 fork-protection at stalled replication forks, cytosolic DNA release, cGAS-STING activation, and immune-cell killing in autologous co-culture. Compare to PARP-inhibitor co-treatment arms to test whether GRB2 pivot state predicts PARPi-STING vulnerability.</div>
 
 
         <div class="experiment-section">
@@ -5180,6 +5299,8 @@ This readout reports on innate immune response (GO:0045087). GO:0045087 is a bio
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5228,6 +5349,7 @@ This readout reports on innate immune response (GO:0045087). GO:0045087 is a bio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-erbb2-gene-amplification" data-dismech-node="ERBB2 Gene Amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">ERBB2 Gene Amplification</div>
 
+
                 <div class="item-desc">HER2-positive breast cancer is driven by amplification of the ERBB2 gene on chromosome 17q12, resulting in overexpression of the HER2 receptor tyrosine kinase. Gene amplification typically results in 25-50 copies per cell, leading to massive receptor overexpression on the cell surface.</div>
 
 
@@ -5265,6 +5387,31 @@ This pathophysiological event involves luminal epithelial cell of mammary gland 
 
 
                 </div>
+
+
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: SOMATIC</span>
+
+
+
+
+
+
+    </div>
+
 
 
 
@@ -5341,14 +5488,16 @@ This pathophysiological event involves increased ERBB2 signaling pathway (GO:003
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40303293" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40303293" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40303293" target="_blank">PMID:40303293</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5370,6 +5519,8 @@ This pathophysiological event involves increased ERBB2 signaling pathway (GO:003
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5395,7 +5546,8 @@ This pathophysiological event involves increased ERBB2 signaling pathway (GO:003
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-receptor-activation" data-dismech-node="Constitutive Receptor Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive Receptor Activation</div>
 
-                <div class="item-desc">Massive HER2 overexpression promotes spontaneous receptor homodimerization and heterodimerization with other ERBB family members (EGFR, HER3, HER4) without ligand binding. The phosphorylated receptor tail creates docking sites for SH2- domain-containing adaptors including GRB2, instantiating the RTK-phosphotyrosine docking trigger of the GRB2 signaling adaptation module.</div>
+
+                <div class="item-desc">Massive HER2 overexpression promotes spontaneous receptor homodimerization and heterodimerization with other ERBB family members (EGFR, HER3, HER4) without ligand binding. The phosphorylated receptor tail creates docking sites for SH2-domain-containing adaptors including GRB2, instantiating the RTK-phosphotyrosine docking trigger of the GRB2 signaling adaptation module.</div>
 
 
 
@@ -5507,6 +5659,7 @@ This pathophysiological event involves increased protein autophosphorylation (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-grb2-adaptor-hub" data-dismech-node="GRB2 Adaptor Hub" data-dismech-type="pathophysiology">
                 <div class="item-name">GRB2 Adaptor Hub</div>
+
 
                 <div class="item-desc">GRB2 is the adaptor control point that couples HER2 phosphotyrosine docking to downstream effector complexes. In HER2-amplified breast tumors, the GRB2 adaptor function is constitutively engaged through ERBB2 homo- and heterodimers, driving sustained RAS-MAPK and PI3K-AKT signaling. The HER2 amplicon at 17q12 frequently co-amplifies GRB7, an SH2 adaptor whose expression correlates with GRB2-pathway output and adverse outcome. A second, nuclear GRB2 function in RAD51-dependent replication-fork protection may rebalance the tumor&#39;s interactome toward DNA-damage tolerance under HER2-targeted or chemotherapy-induced replication stress.</div>
 
@@ -5675,6 +5828,8 @@ This pathophysiological event involves growth factor receptor binding (GO:007085
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5682,7 +5837,7 @@ This pathophysiological event involves growth factor receptor binding (GO:007085
                 <div class="evidence-snippet">"the growth factor receptor bound protein-2 (Grb2) is required for the proliferation of ErbB2-overexpressing breast cancer cells"</div>
 
 
-                <div class="evidence-explanation">Lim et al. directly establish GRB2 as a required adaptor for ErbB2- driven proliferation in HER2+ breast cancer cells, instantiating the module&#39;s GRB2 Adaptor Hub node in this disease.</div>
+                <div class="evidence-explanation">Lim et al. directly establish GRB2 as a required adaptor for ErbB2-driven proliferation in HER2+ breast cancer cells, instantiating the module&#39;s GRB2 Adaptor Hub node in this disease.</div>
 
 
 
@@ -5698,6 +5853,8 @@ This pathophysiological event involves growth factor receptor binding (GO:007085
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5711,14 +5868,16 @@ This pathophysiological event involves growth factor receptor binding (GO:007085
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23628726" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:23628726" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23628726" target="_blank">PMID:23628726</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5741,6 +5900,7 @@ This pathophysiological event involves growth factor receptor binding (GO:007085
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-downstream-oncogenic-signaling" data-dismech-node="Downstream Oncogenic Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Downstream Oncogenic Signaling</div>
+
 
                 <div class="item-desc">Activated HER2 signals through PI3K-AKT-mTOR and RAS-RAF-MEK-ERK pathways, promoting cell proliferation, survival, and resistance to apoptosis. HER2-HER3 heterodimers are particularly potent activators of the PI3K pathway. Adaptive rewiring of these outputs (rather than HER2 loss) is the dominant resistance pattern under trastuzumab and tyrosine kinase inhibition.</div>
 
@@ -5865,6 +6025,8 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5887,6 +6049,7 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-uncontrolled-proliferation" data-dismech-node="Uncontrolled Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Uncontrolled Proliferation</div>
+
 
                 <div class="item-desc">Constitutive HER2 signaling drives continuous cell cycle progression and resistance to apoptotic signals. HER2+ tumors are typically high grade with high proliferation indices (high Ki-67).</div>
 
@@ -5962,6 +6125,8 @@ This pathophysiological event involves increased cell population proliferation (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6012,14 +6177,16 @@ This pathophysiological event involves increased cell population proliferation (
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39806949" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39806949" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39806949" target="_blank">PMID:39806949</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6062,7 +6229,7 @@ This pathophysiological event involves increased cell population proliferation (
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Constitutive Receptor Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Massive HER2 overexpression promotes spontaneous receptor homodimerization and heterodimerization with other ERBB family members (EGFR, HER3, HER4) without ligand binding. The phosphorylated receptor tail creates docking sites for SH2- domain-containing adaptors including GRB2, instantiating the RTK-phosphotyrosine docking trigger of the GRB2 signaling adaptation module.\", \"meta\": {\"biological_processes\": [\"transmembrane receptor protein tyrosine kinase signaling pathway\", \"protein autophosphorylation\"]}}, {\"id\": \"Downstream Oncogenic Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated HER2 signals through PI3K-AKT-mTOR and RAS-RAF-MEK-ERK pathways, promoting cell proliferation, survival, and resistance to apoptosis. HER2-HER3 heterodimers are particularly potent activators of the PI3K pathway. Adaptive rewiring of these outputs (rather than HER2 loss) is the dominant resistance pattern under trastuzumab and tyrosine kinase inhibition.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"phosphatidylinositol 3-kinase signaling\", \"MAPK cascade\"]}}, {\"id\": \"ERBB2 Gene Amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HER2-positive breast cancer is driven by amplification of the ERBB2 gene on chromosome 17q12, resulting in overexpression of the HER2 receptor tyrosine kinase. Gene amplification typically results in 25-50 copies per cell, leading to massive receptor overexpression on the cell surface.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"luminal epithelial cell of mammary gland\"], \"biological_processes\": [\"ERBB2 signaling pathway\"]}}, {\"id\": \"GRB2 Adaptor Hub\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GRB2 is the adaptor control point that couples HER2 phosphotyrosine docking to downstream effector complexes. In HER2-amplified breast tumors, the GRB2 adaptor function is constitutively engaged through ERBB2 homo- and heterodimers, driving sustained RAS-MAPK and PI3K-AKT signaling. The HER2 amplicon at 17q12 frequently co-amplifies GRB7, an SH2 adaptor whose expression correlates with GRB2-pathway output and adverse outcome. A second, nuclear GRB2 function in RAD51-dependent replication-fork protection may rebalance the tumor\u0027s interactome toward DNA-damage tolerance under HER2-targeted or chemotherapy-induced replication stress.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"growth factor receptor binding\"], \"genes\": [\"GRB2\", \"GRB7\"], \"gene_terms\": [{\"label\": \"GRB2\", \"id\": \"hgnc:4566\"}, {\"label\": \"GRB7\", \"id\": \"hgnc:4567\"}]}}, {\"id\": \"Uncontrolled Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutive HER2 signaling drives continuous cell cycle progression and resistance to apoptotic signals. HER2+ tumors are typically high grade with high proliferation indices (high Ki-67).\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}], \"edges\": [{\"source\": \"ERBB2 Gene Amplification\", \"target\": \"Constitutive Receptor Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Receptor overexpression leads to ligand-independent dimerization and activation\"}, {\"source\": \"Constitutive Receptor Activation\", \"target\": \"GRB2 Adaptor Hub\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Phosphorylated HER2 recruits GRB2-containing adaptor complexes at pY docking sites.\"}, {\"source\": \"GRB2 Adaptor Hub\", \"target\": \"Downstream Oncogenic Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytoplasmic GRB2 adaptor complexes activate RAS-MAPK and PI3K-AKT.\"}, {\"source\": \"Downstream Oncogenic Signaling\", \"target\": \"Uncontrolled Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained signaling drives tumor growth\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Constitutive Receptor Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Massive HER2 overexpression promotes spontaneous receptor homodimerization and heterodimerization with other ERBB family members (EGFR, HER3, HER4) without ligand binding. The phosphorylated receptor tail creates docking sites for SH2-domain-containing adaptors including GRB2, instantiating the RTK-phosphotyrosine docking trigger of the GRB2 signaling adaptation module.\", \"meta\": {\"biological_processes\": [\"transmembrane receptor protein tyrosine kinase signaling pathway\", \"protein autophosphorylation\"]}}, {\"id\": \"Downstream Oncogenic Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated HER2 signals through PI3K-AKT-mTOR and RAS-RAF-MEK-ERK pathways, promoting cell proliferation, survival, and resistance to apoptosis. HER2-HER3 heterodimers are particularly potent activators of the PI3K pathway. Adaptive rewiring of these outputs (rather than HER2 loss) is the dominant resistance pattern under trastuzumab and tyrosine kinase inhibition.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"phosphatidylinositol 3-kinase signaling\", \"MAPK cascade\"]}}, {\"id\": \"ERBB2 Gene Amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HER2-positive breast cancer is driven by amplification of the ERBB2 gene on chromosome 17q12, resulting in overexpression of the HER2 receptor tyrosine kinase. Gene amplification typically results in 25-50 copies per cell, leading to massive receptor overexpression on the cell surface.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"luminal epithelial cell of mammary gland\"], \"biological_processes\": [\"ERBB2 signaling pathway\"], \"genetic_context\": {\"variant_origin\": \"SOMATIC\"}}}, {\"id\": \"GRB2 Adaptor Hub\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GRB2 is the adaptor control point that couples HER2 phosphotyrosine docking to downstream effector complexes. In HER2-amplified breast tumors, the GRB2 adaptor function is constitutively engaged through ERBB2 homo- and heterodimers, driving sustained RAS-MAPK and PI3K-AKT signaling. The HER2 amplicon at 17q12 frequently co-amplifies GRB7, an SH2 adaptor whose expression correlates with GRB2-pathway output and adverse outcome. A second, nuclear GRB2 function in RAD51-dependent replication-fork protection may rebalance the tumor\u0027s interactome toward DNA-damage tolerance under HER2-targeted or chemotherapy-induced replication stress.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"growth factor receptor binding\"], \"genes\": [\"GRB2\", \"GRB7\"], \"gene_terms\": [{\"label\": \"GRB2\", \"id\": \"hgnc:4566\"}, {\"label\": \"GRB7\", \"id\": \"hgnc:4567\"}]}}, {\"id\": \"Uncontrolled Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutive HER2 signaling drives continuous cell cycle progression and resistance to apoptotic signals. HER2+ tumors are typically high grade with high proliferation indices (high Ki-67).\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}], \"edges\": [{\"source\": \"ERBB2 Gene Amplification\", \"target\": \"Constitutive Receptor Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Receptor overexpression leads to ligand-independent dimerization and activation\"}, {\"source\": \"Constitutive Receptor Activation\", \"target\": \"GRB2 Adaptor Hub\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Phosphorylated HER2 recruits GRB2-containing adaptor complexes at pY docking sites.\"}, {\"source\": \"GRB2 Adaptor Hub\", \"target\": \"Downstream Oncogenic Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytoplasmic GRB2 adaptor complexes activate RAS-MAPK and PI3K-AKT.\"}, {\"source\": \"Downstream Oncogenic Signaling\", \"target\": \"Uncontrolled Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained signaling drives tumor growth\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6126,6 +6293,9 @@ This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6140,6 +6310,8 @@ This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6210,6 +6382,9 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-her2-overexpression" data-dismech-node="HER2 Overexpression" data-dismech-type="phenotype">
@@ -6239,6 +6414,9 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6320,6 +6498,9 @@ This disease-associated gene is ERBB2 (hgnc:3430). hgnc:3430 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Somatic</span>
@@ -6334,14 +6515,16 @@ This disease-associated gene is ERBB2 (hgnc:3430). hgnc:3430 is a gene from the 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23628726" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:23628726" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23628726" target="_blank">PMID:23628726</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6363,6 +6546,8 @@ This disease-associated gene is ERBB2 (hgnc:3430). hgnc:3430 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6415,6 +6600,9 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6487,6 +6675,8 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6585,6 +6775,20 @@ This treatment uses trastuzumab (CHEBI:231601). CHEBI:231601 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Humanized monoclonal antibody targeting the extracellular domain of HER2. First-line treatment in combination with chemotherapy. Revolutionized HER2+ breast cancer treatment, converting a poor-prognosis subtype into one with excellent outcomes.</div>
 
 
@@ -6606,6 +6810,8 @@ This treatment uses trastuzumab (CHEBI:231601). CHEBI:231601 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6690,6 +6896,20 @@ This treatment uses pertuzumab (NCIT:C38692). NCIT:C38692 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Humanized monoclonal antibody that binds HER2 at a different epitope than trastuzumab, preventing HER2 dimerization. Used in combination with trastuzumab and chemotherapy in the neoadjuvant, adjuvant, and metastatic settings.</div>
 
 
@@ -6760,6 +6980,20 @@ This treatment uses trastuzumab deruxtecan (NCIT:C128799). NCIT:C128799 is a the
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6836,6 +7070,20 @@ This treatment uses tucatinib (NCIT:C77896). NCIT:C77896 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Oral HER2-selective tyrosine kinase inhibitor with activity against brain metastases. Used in combination with trastuzumab and capecitabine in previously treated HER2+ metastatic breast cancer.</div>
 
 
@@ -6909,6 +7157,20 @@ This treatment uses neratinib (CHEBI:61397). CHEBI:61397 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Irreversible pan-HER tyrosine kinase inhibitor. Approved for extended adjuvant therapy after trastuzumab-based treatment and for metastatic disease in combination with capecitabine.</div>
 
 
@@ -6930,6 +7192,8 @@ This treatment uses neratinib (CHEBI:61397). CHEBI:61397 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6981,6 +7245,33 @@ This treatment uses neratinib (CHEBI:61397). CHEBI:61397 is a therapeutic agent 
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7206,8 +7497,8 @@ mechanistic_hypotheses:
     stabilization of the HER2 receptor protein at the cell surface. CMTM6
     (CKLF-like MARVEL transmembrane domain-containing 6) directly interacts
     with HER2 and inhibits HER2 ubiquitination, preserving the GRB2-adaptor
-    output even under trastuzumab pressure. Under the interactome-
-    rebalancing framing, CMTM6 acts as a separate post-translational pivot
+    output even under trastuzumab pressure. Under the interactome-rebalancing
+    framing, CMTM6 acts as a separate post-translational pivot
     point in parallel to GRB2 conformational state, and degrading or
     inhibiting CMTM6 may resensitize tumors to HER2-targeted therapy. This
     hypothesis is independent of (and complementary to) GRB2-level
@@ -7274,6 +7565,8 @@ mechanistic_hypotheses:
 
 pathophysiology:
 - name: ERBB2 Gene Amplification
+  genetic_context:
+    variant_origin: SOMATIC
   description: &gt;-
     HER2-positive breast cancer is driven by amplification of the ERBB2 gene on
     chromosome 17q12, resulting in overexpression of the HER2 receptor tyrosine
@@ -7282,7 +7575,7 @@ pathophysiology:
   evidence:
   - reference: PMID:40303293
     reference_title: &#34;PPARG Activation of Fatty Acid Metabolism Drives Resistance to Anti-HER2 Therapies in HER2-Positive Breast Cancer.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: HER2-positive breast cancer, which accounts for approximately 15-20% of all breast cancers, is characterized by its aggressive recurrence, metastasis and reduced survival.
     explanation: This abstract identifies HER2-positive breast cancer as a distinct, aggressive subtype, supporting the disease definition used here.
   - reference: CIVIC_ASSERTION:2
@@ -7310,8 +7603,8 @@ pathophysiology:
   description: &gt;-
     Massive HER2 overexpression promotes spontaneous receptor homodimerization and
     heterodimerization with other ERBB family members (EGFR, HER3, HER4) without
-    ligand binding. The phosphorylated receptor tail creates docking sites for SH2-
-    domain-containing adaptors including GRB2, instantiating the RTK-phosphotyrosine
+    ligand binding. The phosphorylated receptor tail creates docking sites for SH2-domain-containing
+    adaptors including GRB2, instantiating the RTK-phosphotyrosine
     docking trigger of the GRB2 signaling adaptation module.
   biological_processes:
   - preferred_term: transmembrane receptor protein tyrosine kinase signaling pathway
@@ -7373,8 +7666,8 @@ pathophysiology:
       the growth factor receptor bound protein-2 (Grb2) is required for the
       proliferation of ErbB2-overexpressing breast cancer cells
     explanation: &gt;-
-      Lim et al. directly establish GRB2 as a required adaptor for ErbB2-
-      driven proliferation in HER2+ breast cancer cells, instantiating the
+      Lim et al. directly establish GRB2 as a required adaptor for ErbB2-driven
+      proliferation in HER2+ breast cancer cells, instantiating the
       module&#39;s GRB2 Adaptor Hub node in this disease.
   - reference: PMID:38459011
     reference_title: GRB2 stabilizes RAD51 at reversed replication forks suppressing genomic instability and innate immunity against cancer.
@@ -7389,7 +7682,7 @@ pathophysiology:
       tumors under replication stress.
   - reference: PMID:23628726
     reference_title: &#34;The HER2 amplicon in breast cancer: Topoisomerase IIA and beyond.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;HER2 gene amplification is observed in about 15% of breast cancers.&#34;
     explanation: &gt;-
       The HER2 amplicon frequently extends to include GRB7, providing a
@@ -7493,7 +7786,7 @@ histopathology:
   evidence:
   - reference: PMID:39806949
     reference_title: &#34;An Overview of Invasive Ductal Carcinoma (IDC) in Women&#39;s Breast Cancer.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;Invasive ductal carcinoma (IDC) is the most common type of breast cancer,&#34;
     explanation: Abstract states that invasive ductal carcinoma is the most common breast cancer type.
 
@@ -7569,7 +7862,7 @@ genetic:
   evidence:
   - reference: PMID:23628726
     reference_title: &#34;The HER2 amplicon in breast cancer: Topoisomerase IIA and beyond.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;HER2 gene amplification is observed in about 15% of breast cancers.&#34;
     explanation: &#34;Abstract reports HER2 amplification frequency in breast cancer.&#34;
   - reference: CIVIC_ASSERTION:2
@@ -7700,14 +7993,14 @@ discussions:
   rationale: &gt;-
     HER2-targeted antibodies and TKIs do not eliminate downstream GRB2 adaptor
     output: resistant tumors typically rewire RAS-MAPK and PI3K-AKT signaling
-    rather than lose HER2. GRB2 also has a documented nuclear RAD51 fork-
-    protection role under replication stress. Treating GRB2 as a thermodynamic
+    rather than lose HER2. GRB2 also has a documented nuclear RAD51 fork-protection
+    role under replication stress. Treating GRB2 as a thermodynamic
     pivot — stabilizing distinct SH2/SH3 conformational states with allosteric
     binders, or degrading the protein with PROTAC warheads — would let us test
     whether different perturbations funnel the interactome into distinct
     pathological survival states (cytoplasmic effector dominance vs. nuclear
-    fork-protection dominance vs. innate-immune activation through PARPi-
-    induced cytosolic DNA).
+    fork-protection dominance vs. innate-immune activation through PARPi-induced
+    cytosolic DNA).
   proposed_experiments:
   - experiment_id: exp_her2_grb2_conformational_pivot
     name: Allosteric GRB2 stabilization versus PROTAC degradation in HER2+ organoids
@@ -7715,10 +8008,10 @@ discussions:
       Treat HER2-amplified patient-derived breast cancer organoids and isogenic
       cell-line panels (HER2-amplified, HER2-amplified plus PIK3CA-mutant,
       trastuzumab-resistant derivatives) with (a) allosteric GRB2 SH2/SH3
-      binders tuned to stabilize discrete conformational states, (b) a GRB2-
-      directed PROTAC warhead that physically degrades the adaptor, and (c)
-      paired HER2 inhibition (trastuzumab, tucatinib, T-DXd). Read out RAS-
-      MAPK and PI3K-AKT effector signaling, nuclear GRB2 localization, RAD51
+      binders tuned to stabilize discrete conformational states, (b) a GRB2-directed
+      PROTAC warhead that physically degrades the adaptor, and (c)
+      paired HER2 inhibition (trastuzumab, tucatinib, T-DXd). Read out RAS-MAPK
+      and PI3K-AKT effector signaling, nuclear GRB2 localization, RAD51
       fork-protection at stalled replication forks, cytosolic DNA release,
       cGAS-STING activation, and immune-cell killing in autologous co-culture.
       Compare to PARP-inhibitor co-treatment arms to test whether GRB2 pivot
@@ -7892,6 +8185,18 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">3</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Cross-provider assessment</strong> · <a href="../research/HER2_Positive_Breast_Cancer-synthesis.html">Read assessment</a></p>
+
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8450,7 +8755,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "HER2-Positive Breast Cancer", "mondoId": "MONDO:0006244", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "HER2-Positive_Breast_Cancer", "yamlRevision": "0cdc0689e2ca"};
+        const OS_CONFIG = {"diseaseName": "HER2-Positive Breast Cancer", "mondoId": "MONDO:0006244", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "HER2-Positive_Breast_Cancer", "yamlRevision": "aaf99e0ed311"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

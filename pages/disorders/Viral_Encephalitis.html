@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4070,6 +4177,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4091,6 +4200,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4289,6 +4400,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-viral-neuroinvasion" data-dismech-node="Viral Neuroinvasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Viral Neuroinvasion</div>
 
+
                 <div class="item-desc">Neurotropic viruses reach the central nervous system either by hematogenous spread across the blood-brain barrier or by retrograde axonal transport along peripheral nerves (e.g., trans-synaptic spread of HSV-1 from the trigeminal or olfactory pathways). This neuroinvasion establishes infection of brain parenchyma and is the initiating event of viral encephalitis.</div>
 
 
@@ -4408,6 +4520,8 @@ This pathophysiological event involves defense response to virus (GO:0051607). G
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4430,6 +4544,7 @@ This pathophysiological event involves defense response to virus (GO:0051607). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-infection" data-dismech-node="Neuronal Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Infection</div>
+
 
                 <div class="item-desc">Once in the CNS, neurotropic viruses replicate within neurons (and other CNS-resident cells), producing direct viral cytotoxicity. Cortical neurons underlie forebrain infection while brainstem neurons underlie brainstem infection, and cell-intrinsic antiviral immunity in these neurons is the critical determinant of whether infection is contained.</div>
 
@@ -4558,6 +4673,8 @@ This pathophysiological event involves antiviral innate immune response (GO:0140
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4580,6 +4697,7 @@ This pathophysiological event involves antiviral innate immune response (GO:0140
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuron-intrinsic-interferon-defense" data-dismech-node="Neuron-Intrinsic Interferon Defense" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuron-Intrinsic Interferon Defense</div>
+
 
                 <div class="item-desc">CNS-resident neurons restrict neurotropic viruses through cell-intrinsic antiviral immunity, prominently the TLR3-dependent induction of type I and type III interferons and downstream interferon-stimulated genes, as well as interferon-independent intrinsic mechanisms. Inborn errors that disrupt these neuron-intrinsic pathways (see Genetic section) underlie a substantial fraction of childhood herpes simplex encephalitis by permitting unchecked HSV-1 replication in the brain.</div>
 
@@ -4700,6 +4818,8 @@ This pathophysiological event involves type I interferon production (GO:0032606)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4721,6 +4841,8 @@ This pathophysiological event involves type I interferon production (GO:0032606)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4745,6 +4867,7 @@ This pathophysiological event involves type I interferon production (GO:0032606)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroinflammatory-response" data-dismech-node="Neuroinflammatory Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuroinflammatory Response</div>
+
 
                 <div class="item-desc">Neuronal infection elicits a host inflammatory response with microglial and astrocytic activation and a cytokine/chemokine surge (e.g., IL-6, IL-8, IL-1, TNF, CXCL1, CCL2). This neuroinflammation, together with T-cell-mediated immunity, both restricts viral entry into the CNS and contributes to immunopathology and blood-brain barrier breakdown.</div>
 
@@ -4925,6 +5048,8 @@ This pathophysiological event involves leukocyte migration (GO:0050900). GO:0050
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4946,6 +5071,8 @@ This pathophysiological event involves leukocyte migration (GO:0050900). GO:0050
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4970,6 +5097,7 @@ This pathophysiological event involves leukocyte migration (GO:0050900). GO:0050
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-parenchymal-injury-and-cerebral-edema" data-dismech-node="Parenchymal Injury and Cerebral Edema" data-dismech-type="pathophysiology">
                 <div class="item-name">Parenchymal Injury and Cerebral Edema</div>
+
 
                 <div class="item-desc">Direct viral cytotoxicity, excitotoxicity, cytokine-mediated injury, and immune-mediated damage produce neuronal loss, gliosis, perivascular cuffing, demyelination, and cerebral edema. This tissue damage is the substrate for the clinical encephalopathy and is associated with the permanent neurologic sequelae seen in survivors.</div>
 
@@ -5114,6 +5242,8 @@ This pathophysiological event involves neuronal apoptotic cell death, annotated 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5136,6 +5266,7 @@ This pathophysiological event involves neuronal apoptotic cell death, annotated 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-post-hse-anti-nmdar-autoimmune-encephalitis" data-dismech-node="Post-HSE Anti-NMDAR Autoimmune Encephalitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Post-HSE Anti-NMDAR Autoimmune Encephalitis</div>
+
 
                 <div class="item-desc">In roughly a quarter of patients, herpes simplex encephalitis (HSE) is followed by a distinct secondary autoimmune encephalitis mediated by antibodies against neuronal cell-surface and synaptic antigens, most commonly the NMDA receptor, arising weeks after the acute infection. This chronic complication is immunologically and clinically distinct from ongoing viral disease: it does not respond to antiviral therapy and instead requires immunotherapy (corticosteroids, plasma exchange, or rituximab). Presentation is age-dependent, with choreoathetosis and decreased consciousness predominating in young children and psychosis predominating in older children and adults.</div>
 
@@ -5222,6 +5353,8 @@ This pathophysiological event involves humoral immune response (GO:0006959). GO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5243,6 +5376,8 @@ This pathophysiological event involves humoral immune response (GO:0006959). GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5321,11 +5456,9 @@ This pathophysiological event involves humoral immune response (GO:0006959). GO:
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(6)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(8)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5384,6 +5517,9 @@ This clinical feature is Infectious encephalitis (HP:0002383), qualified as temp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5398,6 +5534,8 @@ This clinical feature is Infectious encephalitis (HP:0002383), qualified as temp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5429,7 +5567,7 @@ This clinical feature is Infectious encephalitis (HP:0002383), qualified as temp
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-fever" data-dismech-node="Fever" data-dismech-type="phenotype">
@@ -5482,6 +5620,46 @@ This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:
 
 
 
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-csf-protein-concentration" data-dismech-node="Increased CSF protein concentration" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Increased CSF protein concentration
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002922" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002922</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased CSF protein concentration (HP:0002922). HP:0002922 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
 
             </details>
@@ -5490,7 +5668,7 @@ This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-headache" data-dismech-node="Headache" data-dismech-type="phenotype">
@@ -5507,15 +5685,18 @@ This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002315</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002315</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5541,10 +5722,10 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001298</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001298</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Encephalopathy (HP:0001298), qualified as temporality acute. HP:0001298 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5573,6 +5754,9 @@ This clinical feature is Encephalopathy (HP:0001298), qualified as temporality a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5587,6 +5771,8 @@ This clinical feature is Encephalopathy (HP:0001298), qualified as temporality a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5626,15 +5812,18 @@ This clinical feature is Encephalopathy (HP:0001298), qualified as temporality a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5654,6 +5843,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5679,6 +5870,43 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-consciousness" data-dismech-node="Reduced consciousness" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Reduced consciousness
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004372" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0004372</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced consciousness (HP:0004372). HP:0004372 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-aphasia" data-dismech-node="Aphasia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Aphasia
@@ -5693,15 +5921,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002381</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002381</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Aphasia (HP:0002381). HP:0002381 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5727,15 +5958,18 @@ This clinical feature is Aphasia (HP:0002381). HP:0002381 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001269" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001269</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001269" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001269</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5761,15 +5995,18 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002354</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002354</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Memory impairment (HP:0002354). HP:0002354 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5791,6 +6028,8 @@ This clinical feature is Memory impairment (HP:0002354). HP:0002354 is a phenoty
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5804,14 +6043,16 @@ This clinical feature is Memory impairment (HP:0002354). HP:0002354 is a phenoty
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40005568" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40005568" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40005568" target="_blank">PMID:40005568</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5837,49 +6078,6 @@ This clinical feature is Memory impairment (HP:0002354). HP:0002354 is a phenoty
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-consciousness" data-dismech-node="Reduced consciousness" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reduced consciousness
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004372" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0004372</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Reduced consciousness (HP:0004372). HP:0004372 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-
-                </div>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-csf-pleocytosis" data-dismech-node="CSF pleocytosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         CSF pleocytosis
@@ -5894,10 +6092,10 @@ This clinical feature is Reduced consciousness (HP:0004372). HP:0004372 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012229" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0012229</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012229" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0012229</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is CSF pleocytosis (HP:0012229). HP:0012229 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5906,37 +6104,6 @@ This clinical feature is CSF pleocytosis (HP:0012229). HP:0012229 is a phenotype
 
 
 
-
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-csf-protein-concentration" data-dismech-node="Increased CSF protein concentration" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Increased CSF protein concentration
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002922" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002922</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Increased CSF protein concentration (HP:0002922). HP:0002922 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
 
 
 
@@ -6016,6 +6183,9 @@ This disease-associated gene is TLR3 (hgnc:11849). hgnc:11849 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -6040,6 +6210,8 @@ This disease-associated gene is TLR3 (hgnc:11849). hgnc:11849 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6092,6 +6264,9 @@ This disease-associated gene is TICAM1 (hgnc:18348). hgnc:18348 is a gene from t
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -6108,14 +6283,16 @@ This disease-associated gene is TICAM1 (hgnc:18348). hgnc:18348 is a gene from t
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36839582" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36839582" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36839582" target="_blank">PMID:36839582</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6168,6 +6345,9 @@ This disease-associated gene is TRAF3 (hgnc:12033). hgnc:12033 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6182,14 +6362,16 @@ This disease-associated gene is TRAF3 (hgnc:12033). hgnc:12033 is a gene from th
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36839582" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36839582" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36839582" target="_blank">PMID:36839582</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6242,6 +6424,9 @@ This disease-associated gene is TBK1 (hgnc:11584). hgnc:11584 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6256,14 +6441,16 @@ This disease-associated gene is TBK1 (hgnc:11584). hgnc:11584 is a gene from the
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36839582" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36839582" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36839582" target="_blank">PMID:36839582</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6316,6 +6503,9 @@ This disease-associated gene is IRF3 (hgnc:6118). hgnc:6118 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6330,14 +6520,16 @@ This disease-associated gene is IRF3 (hgnc:6118). hgnc:6118 is a gene from the H
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36839582" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36839582" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36839582" target="_blank">PMID:36839582</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6390,6 +6582,9 @@ This disease-associated gene is UNC93B1 (hgnc:13481). hgnc:13481 is a gene from 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -6412,6 +6607,8 @@ This disease-associated gene is UNC93B1 (hgnc:13481). hgnc:13481 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6464,6 +6661,9 @@ This disease-associated gene is IFNAR1 (hgnc:5432). hgnc:5432 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -6486,6 +6686,8 @@ This disease-associated gene is IFNAR1 (hgnc:5432). hgnc:5432 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6538,6 +6740,9 @@ This disease-associated gene is RIPK3 (hgnc:10021). hgnc:10021 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -6560,6 +6765,8 @@ This disease-associated gene is RIPK3 (hgnc:10021). hgnc:10021 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6664,6 +6871,31 @@ This treatment uses aciclovir, annotated with acyclovir (CHEBI:2453). CHEBI:2453
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Intravenous aciclovir is the standard of care for herpes simplex encephalitis. Despite antiviral therapy, mortality and morbidity remain high; early initiation is recommended as delayed treatment worsens outcomes.</div>
 
 
@@ -6677,14 +6909,16 @@ This treatment uses aciclovir, annotated with acyclovir (CHEBI:2453). CHEBI:2453
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38092513" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38092513" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38092513" target="_blank">PMID:38092513</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6748,6 +6982,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">For arboviral, alphaviral, and most non-HSV encephalitides there is no specific antiviral therapy; management is supportive, including seizure control, management of cerebral edema, and intensive care.</div>
 
 
@@ -6771,6 +7019,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6792,6 +7042,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6855,6 +7107,31 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Vaccine</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Effective vaccines exist for several encephalitic viruses, including tick-borne encephalitis virus and Japanese encephalitis virus, and are a primary preventive measure for at-risk travelers and endemic populations.</div>
 
 
@@ -6876,6 +7153,8 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6905,6 +7184,457 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">5</span>
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-herpes-simplex-virus-type-1">
+                <div class="item-name">Herpes simplex virus type 1</div>
+
+                <div class="item-desc">Neurotropic alphaherpesvirus and the leading cause of sporadic viral encephalitis in immunocompetent adults.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Human alphaherpesvirus 1
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10298" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-37">NCBITaxon:10298</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-37">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39567785" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39567785" target="_blank">PMID:39567785</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Herpes simplex virus 1 (HSV-1) encephalitis (HSE) is the most common sporadic viral encephalitis in humans."</div>
+
+
+                <div class="evidence-explanation">The abstract identifies HSV-1 as the most common sporadic viral encephalitis pathogen.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-japanese-encephalitis-virus">
+                <div class="item-name">Japanese encephalitis virus</div>
+
+                <div class="item-desc">Mosquito-borne flavivirus and the leading cause of epidemic viral encephalitis in Asia; a major global cause of arboviral encephalitis.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Japanese encephalitis virus
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_11072" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-38">NCBITaxon:11072</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-38">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37112938" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37112938" target="_blank">PMID:37112938</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Among these, infection with several of these flaviviruses-including West Nile virus (WNV), Zika virus (ZIKV), Japanese encephalitis virus (JEV), tick-borne encephalitis virus (TBEV), and Powassan virus (POWV)-can result in neuroinvasive disease presenting as meningitis or encephalitis."</div>
+
+
+                <div class="evidence-explanation">Identifies Japanese encephalitis virus among the flaviviruses that cause neuroinvasive encephalitis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-west-nile-virus">
+                <div class="item-name">West Nile virus</div>
+
+                <div class="item-desc">Mosquito-borne flavivirus and a leading cause of arboviral encephalitis, causing neuroinvasive disease including encephalitis and meningitis.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        West Nile virus
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_11082" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-39">NCBITaxon:11082</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37112938" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37112938" target="_blank">PMID:37112938</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Among these, infection with several of these flaviviruses-including West Nile virus (WNV), Zika virus (ZIKV), Japanese encephalitis virus (JEV), tick-borne encephalitis virus (TBEV), and Powassan virus (POWV)-can result in neuroinvasive disease presenting as meningitis or encephalitis."</div>
+
+
+                <div class="evidence-explanation">Identifies West Nile virus among the flaviviruses that cause neuroinvasive encephalitis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-tick-borne-encephalitis-virus">
+                <div class="item-name">Tick-borne encephalitis virus</div>
+
+                <div class="item-desc">Tick-borne flavivirus focally endemic in parts of Europe and Asia that causes acute neurologic disease; a vaccine-preventable cause of arboviral encephalitis.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Tick-borne encephalitis virus
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_11084" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-40">NCBITaxon:11084</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-40">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37943707" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37943707" target="_blank">PMID:37943707</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"TBE virus can cause acute neurologic disease, which usually results in"</div>
+
+
+                <div class="evidence-explanation">Establishes tick-borne encephalitis virus as a cause of acute neurologic disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-varicella-zoster-virus">
+                <div class="item-name">Varicella-zoster virus</div>
+
+                <div class="item-desc">Neurotropic alphaherpesvirus and one of the most commonly diagnosed infectious causes of sporadic encephalitis alongside HSV.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Human alphaherpesvirus 3
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10335" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-41">NCBITaxon:10335</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-41">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37435162" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37435162" target="_blank">PMID:37435162</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Herpes simplex virus (HSV) and varicella zoster virus (VZV) are among the most"</div>
+
+
+                <div class="evidence-explanation">Identifies varicella-zoster virus among the most commonly diagnosed infectious causes of sporadic encephalitis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7540,7 +8270,7 @@ phenotypes:
     explanation: Human neuropsychological follow-up study of HSVE survivors directly documents verbal memory impairment as a common sequela.
   - reference: PMID:40005568
     reference_title: &#34;Neuropathogenesis of Encephalitic Alphaviruses in Non-Human Primate and Mouse Models of Infection.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;survivors of infection often suffer from permanent neurological sequelae as a result of sustained neuroinflammation and neurological insults encountered.&#34;
     explanation: Animal model study of alphavirus encephalitis (not HSV) showing neurological sequelae in survivors; provides indirect support for the general concept that encephalitis survivors suffer cognitive sequelae, but the study agent differs from HSV-1.
@@ -7602,7 +8332,7 @@ genetic:
   evidence:
   - reference: PMID:36839582
     reference_title: &#34;Inborn Errors of Immunity Predisposing to Herpes Simplex Virus Infections of the Central Nervous System.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Previous studies have uncovered defects in the innate Toll-like receptor 3 pathway and production of type I interferon (IFN-I) in children and adults that predispose them to herpes simplex encephalitis.&#34;
     explanation: The snippet supports TLR3-pathway defects in HSE but does not name TICAM1/TRIF specifically; provides partial support that this gene&#39;s role in the TLR3 pathway predisposes to HSE.
@@ -7622,7 +8352,7 @@ genetic:
   evidence:
   - reference: PMID:36839582
     reference_title: &#34;Inborn Errors of Immunity Predisposing to Herpes Simplex Virus Infections of the Central Nervous System.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Previous studies have uncovered defects in the innate Toll-like receptor 3 pathway and production of type I interferon (IFN-I) in children and adults that predispose them to herpes simplex encephalitis.&#34;
     explanation: The snippet supports TLR3-pathway defects in HSE but does not name TRAF3 specifically; provides partial support that this gene&#39;s role in the TLR3 pathway predisposes to HSE.
@@ -7642,7 +8372,7 @@ genetic:
   evidence:
   - reference: PMID:36839582
     reference_title: &#34;Inborn Errors of Immunity Predisposing to Herpes Simplex Virus Infections of the Central Nervous System.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Previous studies have uncovered defects in the innate Toll-like receptor 3 pathway and production of type I interferon (IFN-I) in children and adults that predispose them to herpes simplex encephalitis.&#34;
     explanation: The snippet supports TLR3-pathway defects in HSE but does not name TBK1 specifically; provides partial support that this gene&#39;s role in the TLR3 pathway predisposes to HSE.
@@ -7662,7 +8392,7 @@ genetic:
   evidence:
   - reference: PMID:36839582
     reference_title: &#34;Inborn Errors of Immunity Predisposing to Herpes Simplex Virus Infections of the Central Nervous System.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Previous studies have uncovered defects in the innate Toll-like receptor 3 pathway and production of type I interferon (IFN-I) in children and adults that predispose them to herpes simplex encephalitis.&#34;
     explanation: The snippet supports TLR3-pathway defects in HSE but does not name IRF3 specifically; provides partial support that this gene&#39;s role in the TLR3 pathway predisposes to HSE.
@@ -7747,7 +8477,7 @@ treatments:
   evidence:
   - reference: PMID:38092513
     reference_title: &#34;The immunobiology of herpes simplex virus encephalitis and post-viral autoimmunity.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Herpes simplex virus encephalitis (HSE) is the leading cause of non-epidemic encephalitis in the developed world and, despite antiviral therapy, mortality and morbidity is high.&#34;
     explanation: Establishes aciclovir as the standard treatment for HSE; the snippet confirms mortality and morbidity remain high despite therapy, so does not directly support a claim that aciclovir substantially reduces mortality.
@@ -7901,6 +8631,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8431,7 +9163,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Viral Encephalitis", "mondoId": "MONDO:0006009", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Viral_Encephalitis", "yamlRevision": "b30f7f7b83d8"};
+        const OS_CONFIG = {"diseaseName": "Viral Encephalitis", "mondoId": "MONDO:0006009", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Viral_Encephalitis", "yamlRevision": "17088a2330e4"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

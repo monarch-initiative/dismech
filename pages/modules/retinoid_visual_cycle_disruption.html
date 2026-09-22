@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -289,6 +290,16 @@
             border: 1px solid var(--teal-light);
         }
 
+        /* Study-area category pills. Colour comes from ModuleCategoryEnum via
+           the renderer, so only the shape is set here. */
+        .badge-study-area {
+            border: 1px solid;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 5px 13px;
+            cursor: help;
+        }
+
         .badge-module {
             background: #e0f2fe;
             color: #0369a1;
@@ -457,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -634,9 +657,7 @@
             font-weight: 600;
         }
         .support-SUPPORT { background: #d1fae5; color: #065f46; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
-        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
@@ -974,6 +995,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -982,7 +1017,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -1022,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1037,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1091,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1104,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1262,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1272,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1313,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1519,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1552,6 +1626,11 @@
         <header class="page-header">
             <h1>Retinoid Visual Cycle Disruption Module</h1>
             <div class="header-meta">
+                
+                <span class="badge badge-study-area"
+                      title="Nervous-system mechanism across the central, peripheral, and sensory systems: neurodegeneration, synaptic and circuit dysfunction, excitability, neurodevelopmental patterning of the brain, and neural waste clearance."
+                      style="background: hsl(343, 68%, 96%); border-color: hsl(343, 52%, 78%); color: hsl(343, 62%, 26%);">Neuroscience</span>
+                
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">retinoid_visual_cycle_disruption</span>
                 <span class="badge badge-count">3 disorders</span>
@@ -1966,6 +2045,8 @@ SCOPE. This module covers chromophore regeneration and retinoid clearance. The c
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
@@ -2089,11 +2170,13 @@ SCOPE. This module covers chromophore regeneration and retinoid clearance. The c
             
             <div class="item-box anchor-target" id="module-pathophysiology-visual-cycle-enzyme-or-transporter-defect" data-dismech-node="Visual Cycle Enzyme or Transporter Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Visual Cycle Enzyme or Transporter Defect</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The initiating lesion is a variant in a gene encoding a component of the retinoid cycle. The affected protein may sit on the regeneration relay - LRAT esterifying all-trans-retinol, RPE65 isomerohydrolysing the ester to 11-cis-retinol, RDH5 oxidising it to 11-cis-retinal, CRALBP chaperoning cis-retinoids between those steps - or on the clearance side, where ABCA4 flips N-retinylidene-phosphatidylethanolamine out of the disc lumen and the retinol dehydrogenases reduce free all-trans-retinal. A lesion upstream of the eye entirely, in retinol delivery to the RPE, enters the same chain.</div>
                 
@@ -2267,11 +2350,13 @@ This pathophysiological event involves abnormal Retinol metabolic process (GO:00
             
             <div class="item-box anchor-target" id="module-pathophysiology-impaired-retinoid-flux-between-photoreceptor-and-retinal-pigment-epithelium" data-dismech-node="Impaired Retinoid Flux Between Photoreceptor and Retinal Pigment Epithelium" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Retinoid Flux Between Photoreceptor and Retinal Pigment Epithelium</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The visual cycle is a two-compartment relay: bleached all-trans-retinal leaves the photoreceptor outer segment, is processed through the retinal pigment epithelium, and returns as 11-cis-retinal to recombine with opsin. A defective step stalls that traffic. Substrate backs up behind the block - retinyl esters in LRAT-competent RPE65 deficiency, cis-retinoids in RDH5 deficiency - and product falls short downstream. Because the relay crosses a cell boundary, the consequences are shared between two cell types that neither can escape: the photoreceptor is starved of chromophore while the RPE is left holding the intermediates.</div>
                 
@@ -2410,11 +2495,13 @@ This pathophysiological event involves photoreceptor outer segment (GO:0001750).
             
             <div class="item-box anchor-target" id="module-pathophysiology-chromophore-insufficiency-and-retinoid-intermediate-accumulation" data-dismech-node="Chromophore Insufficiency and Retinoid Intermediate Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Chromophore Insufficiency and Retinoid Intermediate Accumulation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The rate-limiting, disorder-agnostic node, and the module&#39;s key conformance target. Every conforming disorder arrives at some mix of two deficits. Too little 11-cis-retinal reaches the opsins, so visual pigment cannot be regenerated at the rate light bleaches it - severe and constant when the isomerohydrolase step is lost, mild and unmasked only by a bright bleach when a redundant dehydrogenase step is lost. And too much reactive retinoid is left in the system, because all-trans-retinal that is neither reduced nor flipped out of the disc lumen condenses with phosphatidylethanolamine into bisretinoids. Which component dominates is set by where in the relay the lesion sits, and it is the reason two disorders in this module can look clinically opposite while sharing a mechanism.</div>
                 
@@ -2593,11 +2680,13 @@ This pathophysiological event involves decreased Absorption of visible light by 
             
             <div class="item-box anchor-target" id="module-pathophysiology-rpe-lipofuscin-loading-and-retinal-pigment-epithelium-dysfunction" data-dismech-node="RPE Lipofuscin Loading and Retinal Pigment Epithelium Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">RPE Lipofuscin Loading and Retinal Pigment Epithelium Dysfunction</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Bisretinoids formed from uncleared all-trans-retinal are transferred to the retinal pigment epithelium with each day&#39;s phagocytosed outer-segment discs. Being neither degradable nor exportable, they accumulate in RPE lysosomes as autofluorescent lipofuscin, whose photooxidation products damage the cell. A failing RPE then withdraws the phagocytic, metabolic and retinoid support that overlying photoreceptors cannot survive without, which is why a clearance-arm defect expressed in one cell type kills the other.</div>
                 
@@ -2703,11 +2792,13 @@ This pathophysiological event involves abnormal Retinoid metabolic process (GO:0
             
             <div class="item-box anchor-target" id="module-pathophysiology-delayed-dark-adaptation-and-night-blindness" data-dismech-node="Delayed Dark Adaptation and Night Blindness" data-dismech-type="pathophysiology">
                 <div class="item-name">Delayed Dark Adaptation and Night Blindness</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The direct functional consequence of chromophore insufficiency, and the module&#39;s most sensitive early readout. Recovering sensitivity after a bleach requires resynthesised 11-cis-retinal, so a stalled cycle is measured as prolonged dark adaptation before any structural change is visible. Severity scales with where the block sits: a redundant step such as RDH5 gives a strikingly mild, essentially stationary night blindness with a normal daytime retina, whereas loss of the isomerohydrolase gives severe congenital visual impairment. Rods are affected first and most because their pigment demand is highest, but cone dark adaptation is delayed as well.</div>
                 
@@ -2855,11 +2946,13 @@ This pathophysiological event involves decreased Visual perception (GO:0007601).
             
             <div class="item-box anchor-target" id="module-pathophysiology-progressive-photoreceptor-and-retinal-pigment-epithelium-degeneration" data-dismech-node="Progressive Photoreceptor and Retinal Pigment Epithelium Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Photoreceptor and Retinal Pigment Epithelium Degeneration</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The terminal consequence, reached from either arm. Chromophore starvation leaves opsin unliganded, which is itself destabilising, and bisretinoid loading poisons the supporting epithelium; both routes end in loss of photoreceptors and of the RPE beneath them, with the atrophy distributed according to the lesion - macular in ABCA4 retinopathy, widespread in RPE65-associated disease. This node marks the seam to photoreceptor_degeneration, which models the death programme itself; it is not re-derived here, and a degenerating conformer should declare conformance to both modules.</div>
                 
@@ -2974,6 +3067,206 @@ This pathophysiological event involves decreased Photoreceptor cell maintenance 
                 </div>
                 
 
+                
+            </div>
+            
+        </div>
+        
+
+        
+        
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">2</span>
+            </div>
+            
+            <div class="item-box" data-dismech-node="RPE65 Gene Replacement (Voretigene Neparvovec)" data-dismech-type="treatment">
+                <div class="item-name">RPE65 Gene Replacement (Voretigene Neparvovec)</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        gene therapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C15238</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Gene therapy</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">Subretinal AAV2 delivery of human RPE65 to the retinal pigment epithelium, restoring isomerohydrolase activity and with it 11-cis-retinal supply. This is the drug-target pattern for the CHROMOPHORE-SUPPLY arm only: it works by increasing retinoid flux through the cycle, which is exactly the wrong direction for a clearance-arm disorder. It is a mechanism pattern here, not a treatment recommendation, and conforming disorders do not inherit it.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">RESTORES</span>
+                        
+                        
+                        <a href="#module-pathophysiology-chromophore-insufficiency-and-retinoid-intermediate-accumulation"><strong>Chromophore Insufficiency and Retinoid Intermediate Accumulation</strong></a>
+                        
+                        <span> — Restoring RPE65 isomerohydrolase activity re-establishes 11-cis-retinal supply, acting on the supply component of the module&#39;s rate-limiting node.</span>
+                        
+                        <span class="tag" style="background:#ecfeff;color:#155e75;font-size:0.75rem;">Evidence: 1</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 1</span>
+                </div>
+                
+                
+            </div>
+            
+            <div class="item-box" data-dismech-node="Visual Cycle Modulation for the Retinoid Clearance Arm" data-dismech-type="treatment">
+                <div class="item-name">Visual Cycle Modulation for the Retinoid Clearance Arm</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        Pharmacotherapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C15986</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Small molecule</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">The mechanistic inverse of gene replacement. Where the lesion is failure to clear retinoid byproducts, the therapeutic aim is to REDUCE flux through the cycle so less all-trans-retinal is available to form bisretinoid - visual cycle modulators, deuterated vitamin A analogues, and retinol-binding-protein antagonists all act this way. Recorded here so the module carries both directions explicitly and a conformer cannot pick up the wrong one; it is a mechanism pattern, not a treatment recommendation, and no agent in this class is approved.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">INHIBITS</span>
+                        
+                        
+                        <a href="#module-pathophysiology-chromophore-insufficiency-and-retinoid-intermediate-accumulation"><strong>Chromophore Insufficiency and Retinoid Intermediate Accumulation</strong></a>
+                        
+                        <span> — Slowing retinoid turnover lowers the pool of free all-trans-retinal available for bisretinoid condensation, acting on the accumulation component of the same rate-limiting node that gene replacement acts on from the opposite direction.</span>
+                        
+                        <span class="tag" style="background:#ecfeff;color:#155e75;font-size:0.75rem;">Evidence: 1</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 1</span>
+                </div>
+                
                 
             </div>
             

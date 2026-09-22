@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3726,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4016,6 +4123,105 @@
         <!-- Classifications -->
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ICD-O Morphology</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="Bound to NCIT:C3230 (Meningioma, ICD-O-3 9530/0). Meningiomas are meningothelial, not glial, so ``Glioma`` would have been wrong despite the shared intracranial site - the same trap recorded on the Medulloblastoma entry.">Meningioma</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
         <!-- Mappings -->
 
 
@@ -4096,6 +4302,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4157,6 +4365,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4222,6 +4432,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4266,6 +4478,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nf2-merlin-loss" data-dismech-node="NF2/Merlin Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">NF2/Merlin Loss</div>
+
 
                 <div class="item-desc">NF2 loss inactivates the Merlin tumor suppressor, one of the central early genetic events in meningioma tumorigenesis and a major axis separating NF2 altered from non-NF2 molecular groups.</div>
 
@@ -4361,6 +4574,8 @@ This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4382,6 +4597,8 @@ This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4406,6 +4623,7 @@ This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hippo-yap-signaling-deregulation" data-dismech-node="Hippo-YAP Signaling Deregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hippo-YAP Signaling Deregulation</div>
+
 
                 <div class="item-desc">Merlin loss disrupts Hippo pathway control and permits YAP1 activation, promoting meningioma cell proliferation, migration, and tumorigenic behavior.</div>
 
@@ -4540,6 +4758,8 @@ This pathophysiological event involves YAP1 (hgnc:16262). hgnc:16262 is a gene f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4561,6 +4781,8 @@ This pathophysiological event involves YAP1 (hgnc:16262). hgnc:16262 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4585,6 +4807,7 @@ This pathophysiological event involves YAP1 (hgnc:16262). hgnc:16262 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cell-proliferation-and-migration" data-dismech-node="Cell Proliferation and Migration" data-dismech-type="pathophysiology">
                 <div class="item-name">Cell Proliferation and Migration</div>
+
 
                 <div class="item-desc">YAP1 activation promotes meningioma-cell proliferation, migration, and anchorage-independent growth downstream of Hippo pathway deregulation.</div>
 
@@ -4694,6 +4917,8 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4715,6 +4940,8 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4739,6 +4966,7 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-non-nf2-driver-mutation-subgroups" data-dismech-node="Non-NF2 Driver Mutation Subgroups" data-dismech-type="pathophysiology">
                 <div class="item-name">Non-NF2 Driver Mutation Subgroups</div>
+
 
                 <div class="item-desc">A substantial subset of meningiomas lacks NF2 alteration and instead carries mutually exclusive driver mutations in TRAF7, KLF4, AKT1, SMO, and related signaling genes, producing clinically and anatomically distinct molecular subgroups.</div>
 
@@ -5014,6 +5242,8 @@ This pathophysiological event involves POLR2A (hgnc:9187). hgnc:9187 is a gene f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5037,6 +5267,8 @@ This pathophysiological event involves POLR2A (hgnc:9187). hgnc:9187 is a gene f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5058,6 +5290,8 @@ This pathophysiological event involves POLR2A (hgnc:9187). hgnc:9187 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5084,6 +5318,7 @@ This pathophysiological event involves POLR2A (hgnc:9187). hgnc:9187 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cdkn2a-b-deletion-associated-progression" data-dismech-node="CDKN2A/B Deletion-Associated Progression" data-dismech-type="pathophysiology">
                 <div class="item-name">CDKN2A/B Deletion-Associated Progression</div>
+
 
                 <div class="item-desc">CDKN2A and CDKN2B deletion marks aggressive meningioma biology and is linked to shorter progression-free survival, with homozygous deletion incorporated into modern high-grade risk assessment.</div>
 
@@ -5203,6 +5438,8 @@ This pathophysiological event involves CDKN2B (hgnc:1788). hgnc:1788 is a gene f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5224,6 +5461,8 @@ This pathophysiological event involves CDKN2B (hgnc:1788). hgnc:1788 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5248,6 +5487,7 @@ This pathophysiological event involves CDKN2B (hgnc:1788). hgnc:1788 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tert-promoter-mutation-associated-grade-3-biology" data-dismech-node="TERT Promoter Mutation-Associated Grade 3 Biology" data-dismech-type="pathophysiology">
                 <div class="item-name">TERT Promoter Mutation-Associated Grade 3 Biology</div>
+
 
                 <div class="item-desc">TERT promoter mutations identify a molecularly high-risk meningioma subset associated with recurrence risk and WHO grade 3 assignment in modern classification.</div>
 
@@ -5328,6 +5568,8 @@ This pathophysiological event involves TERT (hgnc:11730). hgnc:11730 is a gene f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5350,6 +5592,7 @@ This pathophysiological event involves TERT (hgnc:11730). hgnc:11730 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-notch3-activation-in-aggressive-meningioma" data-dismech-node="NOTCH3 Activation in Aggressive Meningioma" data-dismech-type="pathophysiology">
                 <div class="item-name">NOTCH3 Activation in Aggressive Meningioma</div>
+
 
                 <div class="item-desc">NOTCH3 signaling is associated with aggressive meningioma behavior and links to downstream metabolic reprogramming.</div>
 
@@ -5445,6 +5688,8 @@ This pathophysiological event involves NOTCH3 (hgnc:7883). hgnc:7883 is a gene f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5466,6 +5711,8 @@ This pathophysiological event involves NOTCH3 (hgnc:7883). hgnc:7883 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5490,6 +5737,7 @@ This pathophysiological event involves NOTCH3 (hgnc:7883). hgnc:7883 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cd36-associated-fatty-acid-oxidation-reprogramming" data-dismech-node="CD36-Associated Fatty Acid Oxidation Reprogramming" data-dismech-type="pathophysiology">
                 <div class="item-name">CD36-Associated Fatty Acid Oxidation Reprogramming</div>
+
 
                 <div class="item-desc">NOTCH3-associated meningioma states show increased CD36-linked fatty acid utilization and FAO-like mitochondrial metabolism.</div>
 
@@ -5657,6 +5905,8 @@ This pathophysiological event involves increased fatty acid beta-oxidation (GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5678,6 +5928,8 @@ This pathophysiological event involves increased fatty acid beta-oxidation (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5702,6 +5954,7 @@ This pathophysiological event involves increased fatty acid beta-oxidation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ferroptosis-resistance" data-dismech-node="Ferroptosis Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Ferroptosis Resistance</div>
+
 
                 <div class="item-desc">Aggressive meningioma cells with activated NOTCH3 signaling display reduced sensitivity to ferroptosis, indicating a potential mechanism of treatment resistance.</div>
 
@@ -5777,6 +6030,8 @@ This pathophysiological event involves decreased ferroptosis (GO:0097707). GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5799,6 +6054,7 @@ This pathophysiological event involves decreased ferroptosis (GO:0097707). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ny-eso-1-associated-immune-vulnerability-in-malignant-meningioma" data-dismech-node="NY-ESO-1-Associated Immune Vulnerability in Malignant Meningioma" data-dismech-type="pathophysiology">
                 <div class="item-name">NY-ESO-1-Associated Immune Vulnerability in Malignant Meningioma</div>
+
 
                 <div class="item-desc">Higher NY-ESO-1 expression in malignant meningioma is linked to higher tumor grade and may expose a targetable immune vulnerability.</div>
 
@@ -5894,6 +6150,8 @@ This pathophysiological event involves CTAG1B (hgnc:2491). hgnc:2491 is a gene f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5916,6 +6174,7 @@ This pathophysiological event involves CTAG1B (hgnc:2491). hgnc:2491 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ny-eso-1-dependent-tcr-t-cytolysis-susceptibility" data-dismech-node="NY-ESO-1-Dependent TCR-T Cytolysis Susceptibility" data-dismech-type="pathophysiology">
                 <div class="item-name">NY-ESO-1-Dependent TCR-T Cytolysis Susceptibility</div>
+
 
                 <div class="item-desc">Meningioma cells with higher NY-ESO-1 expression show stronger cytolytic response to NY-ESO-1-targeted TCR-transduced T cells.</div>
 
@@ -5953,6 +6212,8 @@ This pathophysiological event involves CTAG1B (hgnc:2491). hgnc:2491 is a gene f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5974,6 +6235,8 @@ This pathophysiological event involves CTAG1B (hgnc:2491). hgnc:2491 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6034,6 +6297,8 @@ This pathophysiological event involves CTAG1B (hgnc:2491). hgnc:2491 is a gene f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6078,6 +6343,8 @@ This pathophysiological event involves CTAG1B (hgnc:2491). hgnc:2491 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6186,6 +6453,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6200,6 +6470,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6253,6 +6525,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6267,6 +6542,8 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6312,6 +6589,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6326,6 +6606,8 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6362,6 +6644,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6376,6 +6661,8 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6473,6 +6760,9 @@ This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6487,6 +6777,8 @@ This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6543,6 +6835,9 @@ This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6557,6 +6852,8 @@ This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6613,6 +6910,9 @@ This disease-associated gene is CDKN2B (hgnc:1788). hgnc:1788 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6627,6 +6927,8 @@ This disease-associated gene is CDKN2B (hgnc:1788). hgnc:1788 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6683,6 +6985,9 @@ This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6697,6 +7002,8 @@ This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6753,6 +7060,9 @@ This disease-associated gene is TRAF7 (hgnc:20456). hgnc:20456 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6767,6 +7077,8 @@ This disease-associated gene is TRAF7 (hgnc:20456). hgnc:20456 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6823,6 +7135,9 @@ This disease-associated gene is KLF4 (hgnc:6348). hgnc:6348 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6837,6 +7152,8 @@ This disease-associated gene is KLF4 (hgnc:6348). hgnc:6348 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6893,6 +7210,9 @@ This disease-associated gene is AKT1 (hgnc:391). hgnc:391 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6907,6 +7227,8 @@ This disease-associated gene is AKT1 (hgnc:391). hgnc:391 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6963,6 +7285,9 @@ This disease-associated gene is SMO (hgnc:11119). hgnc:11119 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6977,6 +7302,8 @@ This disease-associated gene is SMO (hgnc:11119). hgnc:11119 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7033,6 +7360,9 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7047,6 +7377,8 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7103,6 +7435,9 @@ This disease-associated gene is POLR2A (hgnc:9187). hgnc:9187 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7119,14 +7454,16 @@ This disease-associated gene is POLR2A (hgnc:9187). hgnc:9187 is a gene from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Recurrent somatic mutations in POLR2A define a distinct subset of meningiomas"</div>
+                <div class="evidence-snippet">"On the basis of a combination of next-generation genomic analyses of 775 meningiomas, we report that recurrent somatic p.Gln403Lys or p.Leu438_His439del mutations inPOLR2A, which encodes the catalytic subunit of RNA polymerase II (ref.1), hijack this essential enzyme and drive neoplasia."</div>
 
 
-                <div class="evidence-explanation">Title-level cached reference supports POLR2A as a recurrent meningioma mutation subgroup.</div>
+                <div class="evidence-explanation">The study identifies recurrent somatic POLR2A mutations in a genomic analysis of 775 meningiomas and connects them to neoplasia.</div>
 
 
 
@@ -7173,6 +7510,9 @@ This disease-associated gene is NOTCH3 (hgnc:7883). hgnc:7883 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7187,6 +7527,8 @@ This disease-associated gene is NOTCH3 (hgnc:7883). hgnc:7883 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7243,6 +7585,9 @@ This disease-associated gene is CD36 (hgnc:1663). hgnc:1663 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7257,6 +7602,8 @@ This disease-associated gene is CD36 (hgnc:1663). hgnc:1663 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7313,6 +7660,9 @@ This disease-associated gene is CTAG1B (hgnc:2491). hgnc:2491 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7327,6 +7677,8 @@ This disease-associated gene is CTAG1B (hgnc:2491). hgnc:2491 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7409,6 +7761,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgical intervention with tissue diagnosis remains central to definitive classification; gross total resection is frequently curative when feasible.</div>
 
 
@@ -7430,6 +7807,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7493,6 +7872,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Asymptomatic or elderly patients with incidentally diagnosed meningioma may be managed conservatively with serial imaging surveillance.</div>
 
 
@@ -7514,6 +7907,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7577,6 +7972,20 @@ This treatment is stereotactic radiosurgery (NCIT:C15358). NCIT:C15358 is a clin
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Repeated SRS is used for recurrent or residual high-grade meningioma and has a manageable toxicity profile in retrospective clinical experience.</div>
 
 
@@ -7598,6 +8007,8 @@ This treatment is stereotactic radiosurgery (NCIT:C15358). NCIT:C15358 is a clin
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7661,6 +8072,31 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Radiotherapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Fractionated RT is an accepted treatment option when tumors are inoperable or recur and require additional local control.</div>
 
 
@@ -7682,6 +8118,8 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7745,6 +8183,20 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Preclinical adoptive cell transfer using NY-ESO-1-directed TCR-T cells shows anti-tumor activity and survival benefit in high-grade meningioma models.</div>
 
 
@@ -7775,6 +8227,8 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7817,6 +8271,8 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7882,6 +8338,8 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7903,6 +8361,691 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-multiparameter-mri-based-differentiation-from-intracranial-sft">
+                <div class="item-name">
+                    Multiparameter MRI-based differentiation from intracranial SFT
+
+                </div>
+
+                <div class="item-desc">Preoperative imaging-based differentiation between meningioma and intracranial solitary fibrous tumor remains clinically important and can be improved with integrated multiparameter MRI models.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        magnetic resonance imaging procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-41">NCIT:C16809</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40625299" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40625299" target="_blank">PMID:40625299</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Their similar imaging features make preoperative differentiation difficult, resulting in high misdiagnosis rates."</div>
+
+
+                <div class="evidence-explanation">This captures the core diagnostic challenge in routine imaging assessment.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40625299" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40625299" target="_blank">PMID:40625299</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The comprehensive system integrating automatic segmentation with diagnostic models can differentiate SFTs from meningiomas precisely."</div>
+
+
+                <div class="evidence-explanation">The study reports improved differential classification using integrated imaging models.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-who-2021-grade-informed-prognostic-stratification">
+                <div class="item-name">
+                    WHO 2021 grade-informed prognostic stratification
+
+                </div>
+
+                <div class="item-desc">WHO 2021 grading and selected proliferative/imaging features stratify progression and survival risk in long-term follow-up cohorts.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41094320" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41094320" target="_blank">PMID:41094320</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"PFS was independently associated with WHO 2021 grade 2 (HR 3.72, 95% CI 1.49-9.32), MIB-1 &gt; 5% (HR 2.56, 95% CI 1.17-5.60), and PTBE ratio (HR 1.22 per 0.1 increment, 95% CI 1.04-1.43)."</div>
+
+
+                <div class="evidence-explanation">Supports grade-informed prognostic stratification in a long-term clinical cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-somatostatin-receptor-pet-for-extent-and-recurrence-assessment">
+                <div class="item-name">
+                    Somatostatin receptor PET for extent and recurrence assessment
+
+                </div>
+
+                <div class="item-desc">SSTR-ligand PET can improve meningioma tissue detection and aid differential diagnosis, extent delineation, and recurrence-vs-scar assessment beyond structural MRI/CT alone.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        positron emission tomography procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C17007" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-42">NCIT:C17007</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38898354" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38898354" target="_blank">PMID:38898354</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Positron emission tomography (PET) using somatostatin receptor (SSTR) ligands can detect meningioma tissue with high sensitivity and specificity and may provide clinically relevant information beyond that obtained from structural magnetic resonance imaging (MRI) or computed tomography (CT) imaging alone."</div>
+
+
+                <div class="evidence-explanation">Multi-society guideline supports added diagnostic value of SSTR PET.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-clinical-behavior-spectrum">
+                <div class="item-name">Clinical behavior spectrum</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Clinical course ranges from indolent to aggressive and potentially fatal disease.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34618539" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34618539" target="_blank">PMID:34618539</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patient outcome varies widely from benign to highly aggressive, ultimately fatal courses."</div>
+
+
+                <div class="evidence-explanation">Captures broad meningioma progression heterogeneity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-post-srs-progression-free-survival-by-grade">
+                <div class="item-name">Post-SRS progression-free survival by grade</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">PFS declines with increasing WHO grade, with poorer outcomes in grade III recurrence.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40940847" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40940847" target="_blank">PMID:40940847</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"For WHO Grade I tumors, 3- to 5-year progression-free survival (PFS) ranged from 85% to 100%."</div>
+
+
+                <div class="evidence-explanation">Establishes favorable recurrent-disease PFS for grade I tumors after SRS.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40940847" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40940847" target="_blank">PMID:40940847</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Grade II meningiomas demonstrated more variable outcomes, with 3-year PFS ranging from 23% to 100%."</div>
+
+
+                <div class="evidence-explanation">Shows intermediate and heterogeneous grade II recurrence trajectory.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40940847" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40940847" target="_blank">PMID:40940847</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Grade III tumors had consistently poorer outcomes, with reported 1-year and 2-year PFS rates as low as 0% and 46%, respectively."</div>
+
+
+                <div class="evidence-explanation">Supports markedly worse progression trajectory in recurrent grade III disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-long-term-prognostic-covariates">
+                <div class="item-name">Long-term prognostic covariates</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Grade and extent of resection significantly influence long-term outcomes.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41094320" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41094320" target="_blank">PMID:41094320</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"OS was associated with subtotal resection (HR 2.69, 95% CI 1.28-5.65) and WHO 2021 grade 2 (HR 4.27, 95% CI 1.61-11.33)."</div>
+
+
+                <div class="evidence-explanation">Supports resection extent and grade as major long-term survival determinants.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-individuals-with-incidental-brain-mri-findings-in-a-population-based-70-year-cohort">
+                <div class="item-name">Individuals with incidental brain MRI findings in a population-based 70-year cohort</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        1800.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+                <div class="item-notes">Observed prevalence in an age-homogeneous population cohort.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40178655" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40178655" target="_blank">PMID:40178655</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The prevalence of meningioma was 1.8% (n = 14)."</div>
+
+
+                <div class="evidence-explanation">Provides a direct population-based prevalence estimate in older adults.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-proportion-among-central-nervous-system-neoplasms">
+                <div class="item-name">Proportion among central nervous system neoplasms</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">40</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Relative burden among CNS neoplasms in a large meta-analytic literature summary.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40645150" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40645150" target="_blank">PMID:40645150</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Meningiomas comprise 40% of all central nervous system neoplasms, with peak prevalence occurring in the fifth and sixth decades of life."</div>
+
+
+                <div class="evidence-explanation">Supports meningioma as a major share of CNS neoplasms and age-related prevalence peak.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+        <div class="card" id="epidemiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">🌍</div>
+                <h2 class="card-title">Epidemiology</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-primary-intracranial-tumor-frequency">
+                <div class="item-name">Primary intracranial tumor frequency</div>
+
+                <div class="item-desc">Meningiomas are the most frequent primary intracranial tumors.</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34618539" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34618539" target="_blank">PMID:34618539</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Meningiomas are the most frequent primary intracranial tumors."</div>
+
+
+                <div class="evidence-explanation">Supports meningioma as the leading primary intracranial tumor category.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7966,6 +9109,8 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8037,11 +9182,11 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0010506" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-41">UBERON:0010506</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0010506" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-43">UBERON:0010506</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Uberon multi-species anatomy ontology (UBERON)
 Relation: this dataset samples this sample type
 This dataset samples meningioma tissue, annotated with meningeal dura mater (UBERON:0010506). UBERON:0010506 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -8086,6 +9231,8 @@ This dataset samples meningioma tissue, annotated with meningeal dura mater (UBE
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8145,11 +9292,11 @@ This dataset samples meningioma tissue, annotated with meningeal dura mater (UBE
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0010506" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-42">UBERON:0010506</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0010506" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-44">UBERON:0010506</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Uberon multi-species anatomy ontology (UBERON)
 Relation: this dataset samples this sample type
 This dataset samples meningioma tissue nuclei, annotated with meningeal dura mater (UBERON:0010506). UBERON:0010506 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -8194,6 +9341,8 @@ This dataset samples meningioma tissue nuclei, annotated with meningeal dura mat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8364,7 +9513,7 @@ pathophysiology:
     snippet: Loss of the NF2 tumor suppressor gene is the most common genetic alteration in meningiomas, and the NF2 gene product, Merlin, acts upstream of the Hippo pathway.
     explanation: This establishes NF2/Merlin loss as a central meningioma driver and links it to Hippo pathway control.
   - reference: DOI:10.3390/cancers15112945
-    reference_title: &#34;Epigenetic, Genetic, and Transcriptomic Profiling of Meningiomas: Molecular Patterns Correlate with Clinical Prognosis&#34;
+    reference_title: &#34;Meningioma Grading beyond Histopathology: Relevance of Epigenetic and Genetic Features to Predict Clinical Outcome&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Meningiomas in the second group have an intermediate prognosis and are characterized by NF2 alterations, mild chromosomal instability, and enrichment in immune cells.
@@ -8487,8 +9636,14 @@ pathophysiology:
     reference_title: Recurrent somatic mutations in POLR2A define a distinct subset of meningiomas
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Recurrent somatic mutations in POLR2A define a distinct subset of meningiomas
-    explanation: This title-level cached reference supports POLR2A as a recurrent driver defining a distinct meningioma subset.
+    snippet: &gt;-
+      On the basis of a combination of next-generation genomic analyses of 775 meningiomas, we
+      report that recurrent somatic p.Gln403Lys or p.Leu438_His439del mutations inPOLR2A, which
+      encodes the catalytic subunit of RNA polymerase II (ref.1), hijack this essential enzyme and
+      drive neoplasia.
+    explanation: &gt;-
+      The study identifies recurrent somatic POLR2A mutations in a genomic analysis of 775
+      meningiomas and connects them to neoplasia.
 - name: CDKN2A/B Deletion-Associated Progression
   description: &gt;-
     CDKN2A and CDKN2B deletion marks aggressive meningioma biology and is linked
@@ -8511,7 +9666,7 @@ pathophysiology:
     snippet: Both hetero- or homozygous CDKN2A/B deletions were significantly associated with shortened time to meningioma progression.
     explanation: Patient-level meta-analysis supports CDKN2A/B deletion as progression-associated meningioma biology.
   - reference: DOI:10.3390/cancers15112945
-    reference_title: &#34;Epigenetic, Genetic, and Transcriptomic Profiling of Meningiomas: Molecular Patterns Correlate with Clinical Prognosis&#34;
+    reference_title: &#34;Meningioma Grading beyond Histopathology: Relevance of Epigenetic and Genetic Features to Predict Clinical Outcome&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The grading system established by the World Health Organization (WHO) has recently included pTERT mutations and CDKN2A/B homozygous deletions as criteria for grade 3, owing to their association with increased recurrence risk.
@@ -8528,7 +9683,7 @@ pathophysiology:
       label: TERT
   evidence:
   - reference: DOI:10.3390/cancers15112945
-    reference_title: &#34;Epigenetic, Genetic, and Transcriptomic Profiling of Meningiomas: Molecular Patterns Correlate with Clinical Prognosis&#34;
+    reference_title: &#34;Meningioma Grading beyond Histopathology: Relevance of Epigenetic and Genetic Features to Predict Clinical Outcome&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The grading system established by the World Health Organization (WHO) has recently included pTERT mutations and CDKN2A/B homozygous deletions as criteria for grade 3, owing to their association with increased recurrence risk.
@@ -8721,7 +9876,7 @@ genetic:
       label: TERT
   evidence:
   - reference: DOI:10.3390/cancers15112945
-    reference_title: &#34;Epigenetic, Genetic, and Transcriptomic Profiling of Meningiomas: Molecular Patterns Correlate with Clinical Prognosis&#34;
+    reference_title: &#34;Meningioma Grading beyond Histopathology: Relevance of Epigenetic and Genetic Features to Predict Clinical Outcome&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The grading system established by the World Health Organization (WHO) has recently included pTERT mutations and CDKN2A/B homozygous deletions as criteria for grade 3, owing to their association with increased recurrence risk.
@@ -8808,8 +9963,14 @@ genetic:
     reference_title: Recurrent somatic mutations in POLR2A define a distinct subset of meningiomas
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Recurrent somatic mutations in POLR2A define a distinct subset of meningiomas
-    explanation: Title-level cached reference supports POLR2A as a recurrent meningioma mutation subgroup.
+    snippet: &gt;-
+      On the basis of a combination of next-generation genomic analyses of 775 meningiomas, we
+      report that recurrent somatic p.Gln403Lys or p.Leu438_His439del mutations inPOLR2A, which
+      encodes the catalytic subunit of RNA polymerase II (ref.1), hijack this essential enzyme and
+      drive neoplasia.
+    explanation: &gt;-
+      The study identifies recurrent somatic POLR2A mutations in a genomic analysis of 775
+      meningiomas and connects them to neoplasia.
 - name: NOTCH3
   association: Upregulated signaling in aggressive meningioma models
   gene_term:
@@ -9245,6 +10406,14 @@ datasets:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Here, by applying multiomic profiling and multiple lines of orthogonal computational evaluation in multiple independent datasets, we found that not only tumor cell characteristics but also incremental changes in the tumor microenvironment (TME) have impact on epigenetic meningioma classification and clinical outcome.&#34;
     explanation: Supports multiomic dataset use for microenvironment-linked meningioma classification refinement.
+classifications:
+  icdo_morphology:
+    classification_value: Meningioma
+    notes: &gt;-
+      Bound to NCIT:C3230 (Meningioma, ICD-O-3 9530/0). Meningiomas are
+      meningothelial, not glial, so ``Glioma`` would have been wrong despite
+      the shared intracranial site - the same trap recorded on the
+      Medulloblastoma entry.
 references:
 - reference: DOI:10.1158/1541-7786.MCR-12-0116
   title: Yes-Associated Protein 1 Is Activated and Functions as an Oncogene in Meningiomas
@@ -9844,6 +11013,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9951,6 +11122,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10019,6 +11192,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10128,6 +11303,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10196,6 +11373,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10268,6 +11447,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10336,6 +11517,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10408,6 +11591,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10476,6 +11661,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10548,6 +11735,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10616,6 +11805,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -10688,6 +11879,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10758,6 +11951,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10792,6 +11987,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11816,7 +13013,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Meningioma", "mondoId": "MONDO:0016642", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Meningioma", "yamlRevision": "5f891c4446c5"};
+        const OS_CONFIG = {"diseaseName": "Meningioma", "mondoId": "MONDO:0016642", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Meningioma", "yamlRevision": "b0efa561bab7"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

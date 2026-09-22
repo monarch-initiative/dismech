@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3726,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3899,7 +4006,19 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
+
+            <a class="stat-link" href="#mappings">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔗</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Mappings</div>
+            </div>
+            </a>
 
 
 
@@ -3984,6 +4103,64 @@
 
         <!-- Mappings -->
 
+        <div class="card" id="mappings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
+                <h2 class="card-title">Mappings</h2>
+            </div>
+
+            <div class="mapping-section">
+                <div class="classification-category">MONDO</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0019567" target="_blank" class="missing-ontology-link">MONDO:0019567</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">Ehlers-Danlos syndrome, classic type, 1</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">MONDO:0019567 is a direct child of this entry&#39;s disease_term MONDO:0007522 and its own MONDO definition reads &#34;Any Ehlers-Danlos syndrome in which the cause of the disease is a mutation in the COL5A1 gene&#34; -- exactly this entry&#39;s scope, which is curated entirely around COL5A1 pathophysiology and evidence. disease_term is left at the general classic-type term because the entry&#39;s own prevalence/progression evidence (PMID:20847697) describes classic EDS as a whole rather than the COL5A1-specific subset; the narrower concept is recorded here so the coverage index sees it. Recovered from stubs/Ehlers-Danlos_Syndrome_Classic_Type_1.yaml, folded by PR #9855 (dismech#9868).
+</div>
+
+                </div>
+
+            </div>
+
+
+
+
+
+        </div>
+
 
         <!-- Definitions -->
 
@@ -4014,6 +4191,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-collagen-type-v-abnormalities" data-dismech-node="Collagen Type V Abnormalities" data-dismech-type="pathophysiology">
                 <div class="item-name">Collagen Type V Abnormalities</div>
+
 
                 <div class="item-desc">Mutations in the COL5A1 gene lead to defective collagen type V synthesis and assembly.</div>
 
@@ -4130,6 +4308,8 @@ This pathophysiological event involves collagen biosynthetic process (GO:0032964
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"The mutation causes the substitution of the most 5&#39; cysteine residue by a serine within a highly conserved sequence of the pro(alpha)1(V) C-propeptide domain and causes reduction of collagen V by preventing incorporation of the mutant pro(alpha)1(V) chains in the collagen V trimers."</div>
@@ -4150,6 +4330,7 @@ This pathophysiological event involves collagen biosynthetic process (GO:0032964
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-connective-tissue-fragility" data-dismech-node="Connective Tissue Fragility" data-dismech-type="pathophysiology">
                 <div class="item-name">Connective Tissue Fragility</div>
+
 
                 <div class="item-desc">Abnormal collagen type V leads to weakened connective tissues throughout the body.</div>
 
@@ -4353,6 +4534,8 @@ This pathophysiological event involves extracellular matrix (GO:0031012). GO:003
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"In the majority of patients with molecularly characterized classic Ehlers-Danlos syndrome, the disease is caused by a mutation leading to a nonfunctional COL5A1 allele and resulting in haploinsufficiency of type V collagen."</div>
@@ -4372,6 +4555,8 @@ This pathophysiological event involves extracellular matrix (GO:0031012). GO:003
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4397,6 +4582,8 @@ This pathophysiological event involves extracellular matrix (GO:0031012). GO:003
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"The classical form of the syndrome, which will be principally discussed in this review, can be due to mutations on collagen V, a fibrillar collagen present in small amounts in affected tissues."</div>
@@ -4417,6 +4604,7 @@ This pathophysiological event involves extracellular matrix (GO:0031012). GO:003
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tissue-injury-and-dysfunction" data-dismech-node="Tissue Injury and Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Tissue Injury and Dysfunction</div>
+
 
                 <div class="item-desc">Fragile tissues are prone to damage, leading to manifestations like joint dislocations, skin hyperextensibility, and poor wound healing. Impaired wound healing involves altered mechanosensitive integrin signaling and defective re-epithelialization.</div>
 
@@ -4703,14 +4891,16 @@ This pathophysiological event occurs in corneal stroma, annotated with substanti
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:19370768" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:19370768" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19370768" target="_blank">PMID:19370768</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4724,14 +4914,16 @@ This pathophysiological event occurs in corneal stroma, annotated with substanti
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:19592142" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:19592142" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19592142" target="_blank">PMID:19592142</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4745,14 +4937,16 @@ This pathophysiological event occurs in corneal stroma, annotated with substanti
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20697718" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:20697718" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20697718" target="_blank">PMID:20697718</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4825,13 +5019,11 @@ This pathophysiological event occurs in corneal stroma, annotated with substanti
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Constitutional<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4876,6 +5068,9 @@ This clinical feature is Easy Bruising, annotated with Bruising susceptibility (
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -4890,6 +5085,8 @@ This clinical feature is Easy Bruising, annotated with Bruising susceptibility (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4913,6 +5110,8 @@ This clinical feature is Easy Bruising, annotated with Bruising susceptibility (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"The Ehlers-Danlos syndromes (EDSs) comprise a group of connective tissue disorders that manifest with... easy bruising..."</div>
@@ -4932,6 +5131,8 @@ This clinical feature is Easy Bruising, annotated with Bruising susceptibility (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4994,20 +5195,25 @@ This clinical feature is Mitral Valve Prolapse (HP:0001634). HP:0001634 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:21193204" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:21193204" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21193204" target="_blank">PMID:21193204</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5029,6 +5235,8 @@ This clinical feature is Mitral Valve Prolapse (HP:0001634). HP:0001634 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5091,20 +5299,25 @@ This clinical feature is Gastroesophageal Reflux (HP:0002020). HP:0002020 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26376608" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:26376608" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26376608" target="_blank">PMID:26376608</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5134,7 +5347,7 @@ This clinical feature is Gastroesophageal Reflux (HP:0002020). HP:0002020 is a p
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-skin-hyperextensibility" data-dismech-node="Skin Hyperextensibility" data-dismech-type="phenotype">
@@ -5169,6 +5382,9 @@ This clinical feature is Skin Hyperextensibility, annotated with Hyperextensible
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5183,6 +5399,8 @@ This clinical feature is Skin Hyperextensibility, annotated with Hyperextensible
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5206,12 +5424,88 @@ This clinical feature is Skin Hyperextensibility, annotated with Hyperextensible
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"A high prevalence of skin hyperextensibility, bruising, and soft skin were noted."</div>
 
 
                 <div class="evidence-explanation">Skin hyperextensibility is identified as a common feature in Ehlers-Danlos syndromes, supporting the statement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-soft-doughy-skin" data-dismech-node="Soft, Doughy Skin" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Soft, Doughy Skin
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001027</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Soft, doughy skin (HP:0001027). HP:0001027 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:287" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:287" target="_blank">ORPHA:287</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001027 | Soft, doughy skin | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records soft, doughy skin as a very frequent classic EDS phenotype.</div>
 
 
 
@@ -5245,15 +5539,18 @@ This clinical feature is Skin Hyperextensibility, annotated with Hyperextensible
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001075" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001075</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001075" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001075</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Atrophic scars (HP:0001075). HP:0001075 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5275,6 +5572,8 @@ This clinical feature is Atrophic scars (HP:0001075). HP:0001075 is a phenotype 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Classic Ehlers-Danlos syndrome is a heritable connective tissue disorder characterized by skin hyperextensibility, fragile and soft skin, delayed wound healing with formation of atrophic scars."</div>
@@ -5294,6 +5593,8 @@ This clinical feature is Atrophic scars (HP:0001075). HP:0001075 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5335,15 +5636,18 @@ This clinical feature is Atrophic scars (HP:0001075). HP:0001075 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001065" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001065</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001065" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001065</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Striae distensae (HP:0001065). HP:0001065 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5363,6 +5667,8 @@ This clinical feature is Striae distensae (HP:0001065). HP:0001065 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5404,15 +5710,18 @@ This clinical feature is Striae distensae (HP:0001065). HP:0001065 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000993" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000993</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000993" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000993</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Molluscoid Pseudotumors (HP:0000993). HP:0000993 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5432,6 +5741,8 @@ This clinical feature is Molluscoid Pseudotumors (HP:0000993). HP:0000993 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5473,15 +5784,18 @@ This clinical feature is Molluscoid Pseudotumors (HP:0000993). HP:0000993 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001058" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001058</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001058" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001058</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Poor wound healing (HP:0001058). HP:0001058 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5503,6 +5817,8 @@ This clinical feature is Poor wound healing (HP:0001058). HP:0001058 is a phenot
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Classic Ehlers-Danlos syndrome is a heritable connective tissue disorder characterized by skin hyperextensibility, fragile and soft skin, delayed wound healing with formation of atrophic scars."</div>
@@ -5522,6 +5838,8 @@ This clinical feature is Poor wound healing (HP:0001058). HP:0001058 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5572,15 +5890,18 @@ This clinical feature is Poor wound healing (HP:0001058). HP:0001058 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001382</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001382</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Joint Hypermobility (HP:0001382). HP:0001382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5611,6 +5932,8 @@ This clinical feature is Joint Hypermobility (HP:0001382). HP:0001382 is a pheno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Currently, musculoskeletal manifestations related to joint hypermobility are perceived as the most prevalent determinants of the quality of life of affected individuals."</div>
@@ -5632,6 +5955,8 @@ This clinical feature is Joint Hypermobility (HP:0001382). HP:0001382 is a pheno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Classical Ehlers-Danlos syndrome (EDS) is a heritable disorder characterized by joint hypermobility, skin hyperextensibility, and abnormal wound healing."</div>
@@ -5643,14 +5968,16 @@ This clinical feature is Joint Hypermobility (HP:0001382). HP:0001382 is a pheno
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35964930" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:35964930" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35964930" target="_blank">PMID:35964930</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5692,15 +6019,18 @@ This clinical feature is Joint Hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001373" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001373</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001373" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001373</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent Joint Dislocations, annotated with Joint dislocation (HP:0001373). HP:0001373 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5720,6 +6050,8 @@ This clinical feature is Recurrent Joint Dislocations, annotated with Joint disl
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5770,10 +6102,10 @@ This clinical feature is Recurrent Joint Dislocations, annotated with Joint disl
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002829</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002829</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chronic Joint Pain, annotated with Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5784,20 +6116,25 @@ This clinical feature is Chronic Joint Pain, annotated with Arthralgia (HP:00028
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:10906878" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:10906878" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10906878" target="_blank">PMID:10906878</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5806,84 +6143,6 @@ This clinical feature is Chronic Joint Pain, annotated with Arthralgia (HP:00028
 
 
                 <div class="evidence-explanation">Supports joint pain in an EDS subgroup, but only partially supports this COL5A1-related phenotype frequency claim.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-soft-doughy-skin" data-dismech-node="Soft, Doughy Skin" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Soft, Doughy Skin
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001027</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Soft, doughy skin (HP:0001027). HP:0001027 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:287" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:287" target="_blank">ORPHA:287</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001027 | Soft, doughy skin | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records soft, doughy skin as a very frequent classic EDS phenotype.</div>
 
 
 
@@ -5969,6 +6228,9 @@ This disease-associated gene is COL5A1 (hgnc:2209). hgnc:2209 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
@@ -5993,6 +6255,8 @@ This disease-associated gene is COL5A1 (hgnc:2209). hgnc:2209 is a gene from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Among all tested patients, nine mutations of COL5A1 gene were detected (8 missense mutations and 1 splice site)."</div>
@@ -6014,6 +6278,8 @@ This disease-associated gene is COL5A1 (hgnc:2209). hgnc:2209 is a gene from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Glycine substitution mutation of COL5A1 in classic Ehlers-Danlos syndrome: a case report and literature review."</div>
@@ -6025,14 +6291,16 @@ This disease-associated gene is COL5A1 (hgnc:2209). hgnc:2209 is a gene from the
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35241120" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:35241120" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35241120" target="_blank">PMID:35241120</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6066,6 +6334,12 @@ This disease-associated gene is COL5A1 (hgnc:2209). hgnc:2209 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Single nucleotide changes resulting in altered amino acid sequence.</div>
 
 
@@ -6090,6 +6364,12 @@ This disease-associated gene is COL5A1 (hgnc:2209). hgnc:2209 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Changes affecting mRNA splicing and leading to exon skipping or intronic retention.</div>
 
 
@@ -6112,6 +6392,12 @@ This disease-associated gene is COL5A1 (hgnc:2209). hgnc:2209 is a gene from the
         Frameshift Mutations
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Insertions or deletions causing a shift in the reading frame and often resulting in a premature stop codon.</div>
@@ -6192,6 +6478,31 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management of pain, physical therapy to strengthen joints, and prevention of complications.</div>
 
 
@@ -6205,14 +6516,16 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:22616833" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:22616833" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22616833" target="_blank">PMID:22616833</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6226,14 +6539,16 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33741806" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33741806" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33741806" target="_blank">PMID:33741806</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6297,6 +6612,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Careful attention to wound healing and scar management.</div>
 
 
@@ -6310,14 +6639,16 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:8274350" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:8274350" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8274350" target="_blank">PMID:8274350</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6331,14 +6662,16 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:2728341" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:2728341" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2728341" target="_blank">PMID:2728341</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6354,14 +6687,16 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:28387435" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:28387435" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28387435" target="_blank">PMID:28387435</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6393,6 +6728,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Regular evaluation for mitral valve prolapse and other cardiovascular complications.</div>
 
 
@@ -6416,6 +6765,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Echocardiography may still be warranted as part of cardiovascular assessment, but decreased frequency of screening is recommended especially in symptom-free adults."</div>
@@ -6427,14 +6778,16 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:15607555" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:15607555" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15607555" target="_blank">PMID:15607555</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6518,6 +6871,20 @@ This treatment uses gastrointestinal agent, annotated with Agent Affecting Diges
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Treatment of gastroesophageal reflux and other GI symptoms as needed.</div>
 
 
@@ -6531,14 +6898,16 @@ This treatment uses gastrointestinal agent, annotated with Agent Affecting Diges
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26376608" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:26376608" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26376608" target="_blank">PMID:26376608</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6601,6 +6970,20 @@ This treatment is Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical int
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Avoiding high-impact activities and contact sports to prevent injury, and using protective gear when necessary.</div>
 
 
@@ -6614,14 +6997,16 @@ This treatment is Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical int
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:17067502" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:17067502" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17067502" target="_blank">PMID:17067502</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6635,14 +7020,16 @@ This treatment is Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical int
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32899328" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32899328" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32899328" target="_blank">PMID:32899328</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6694,14 +7081,16 @@ This treatment is Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical int
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26452443" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:26452443" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26452443" target="_blank">PMID:26452443</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6715,14 +7104,16 @@ This treatment is Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical int
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34740257" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:34740257" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34740257" target="_blank">PMID:34740257</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6738,14 +7129,16 @@ This treatment is Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical int
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36405827" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36405827" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36405827" target="_blank">PMID:36405827</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6797,14 +7190,16 @@ This treatment is Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical int
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:21697718" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:21697718" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21697718" target="_blank">PMID:21697718</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6828,6 +7223,8 @@ This treatment is Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical int
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6841,14 +7238,16 @@ This treatment is Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical int
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20979576" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:20979576" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20979576" target="_blank">PMID:20979576</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6872,6 +7271,153 @@ This treatment is Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical int
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-onset">
+                <div class="item-name">Onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Birth-20</span>
+
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20847697" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20847697" target="_blank">PMID:20847697</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Classic Ehlers-Danlos syndrome is a heritable connective tissue disorder characterized by skin hyperextensibility, fragile and soft skin, delayed wound healing with formation of atrophic scars, easy bruising, and generalized joint hypermobility."</div>
+
+
+                <div class="evidence-explanation">While the COL5A1-related Ehlers-Danlos Syndrome (classic type) is described as a heritable connective tissue disorder with certain clinical features observable from birth, the literature does not specifically detail the age range for the onset of symptoms as &#39;Birth-20&#39;.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-global">
+                <div class="item-name">Global</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">2.0&ndash;10.0 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 100,000</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20847697" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20847697" target="_blank">PMID:20847697</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"It is currently estimated that approximately 50% of patients with a clinical diagnosis of classic Ehlers-Danlos syndrome harbor mutations in the COL5A1 and the COL5A2 gene."</div>
+
+
+                <div class="evidence-explanation">This reference indicates that COL5A1-related EDS is a subset of classic EDS, making up about 50% of classic EDS cases. However, it does not provide specific global prevalence rates of COL5A1-related EDS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6925,7 +7471,7 @@ prevalence:
   evidence:
   - reference: PMID:20847697
     reference_title: &#34;Clinical and genetic aspects of Ehlers-Danlos syndrome, classic type.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: It is currently estimated that approximately 50% of patients with a clinical diagnosis of classic Ehlers-Danlos syndrome harbor mutations in the COL5A1 and the COL5A2 gene.
     explanation: This reference indicates that COL5A1-related EDS is a subset of classic EDS, making up about 50% of classic EDS cases. However, it does not provide specific global prevalence rates of COL5A1-related EDS.
 progression:
@@ -6934,7 +7480,7 @@ progression:
   evidence:
   - reference: PMID:20847697
     reference_title: &#34;Clinical and genetic aspects of Ehlers-Danlos syndrome, classic type.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Classic Ehlers-Danlos syndrome is a heritable connective tissue disorder characterized by skin hyperextensibility, fragile and soft skin, delayed wound healing with formation of atrophic scars, easy bruising, and generalized joint hypermobility.
     explanation: While the COL5A1-related Ehlers-Danlos Syndrome (classic type) is described as a heritable connective tissue disorder with certain clinical features observable from birth, the literature does not specifically detail the age range for the onset of symptoms as &#39;Birth-20&#39;.
 pathophysiology:
@@ -7048,22 +7594,22 @@ pathophysiology:
   evidence:
   - reference: PMID:19370768
     reference_title: &#34;Molecular mechanisms of classical Ehlers-Danlos syndrome (EDS).&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Classical Ehlers-Danlos syndrome (EDS) is a heritable disorder characterized by joint hypermobility, skin hyperextensibility, and abnormal wound healing.
     explanation: Supports core cEDS tissue fragility features, but only partially supports the full mechanistic descriptor.
   - reference: PMID:19592142
     reference_title: &#34;Bleeding in the heritable connective tissue disorders: mechanisms, diagnosis and treatment.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: The bleeding tendency is most prominent in the Ehlers-Danlos syndrome (EDS), a heterogeneous group of HDCT sharing clinical manifestations of fragility in skin, ligaments, blood vessels and internal organs.
     explanation: Supports generalized tissue fragility in EDS, but only partially supports this COL5A1-specific mechanism statement.
   - reference: PMID:20697718
     reference_title: &#34;Ehlers-Danlos syndrome and neurological features: a review.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Ehlers-Danlos Syndrome is a term that comprises a variety of inherited connective tissue disorders characterized primarily by skin hyperextensibility, joints hypermobility and excessive dislocations, easy bruisability, generalized fragility.
     explanation: Supports broad EDS clinical fragility features, but not the full mechanistic details in this descriptor.
   - reference: PMID:19055167
     reference_title: &#34;A \&#34;hyperextensive\&#34; review of Ehlers-Danlos syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Ehlers-Danlos syndrome (EDS) is a heterogeneous group of connective tissue disorders characterized by hyperextensibility, delayed wound healing, joint hypermobility, thin skin, easy bruising, tissue fragility, &#39;cigarette-paper&#39; scarring over bony prominences.
     explanation: Supports core cEDS phenotype features, but only partially supports this detailed pathophysiology statement.
   downstream:
@@ -7103,12 +7649,12 @@ phenotypes:
     explanation: The reference supports the musculoskeletal phenotype involving joint hypermobility and associated symptoms like joint pain.
   - reference: PMID:35964930
     reference_title: &#34;Phenotype of COL3A1/COL5A2 deletion patients.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Classical (cEDS) and vascular type (vEDS) are the most prevalent subtypes and are caused by heterozygous pathogenic variants in COL5A1, COL5A2, COL1A1 or, respectively, in COL3A1.
     explanation: Supports COL5A1 association with cEDS, but only indirectly supports the specific joint hypermobility claim.
   - reference: PMID:10906878
     reference_title: &#34;Orthopaedic manifestations of Ehlers-Danlos syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Thirty patients with Type III Ehlers-Danlos syndrome reported joint pain more frequently than did patients with Types I, II, or IV.
     explanation: Supports joint pain burden in an EDS subgroup, but only partially supports this COL5A1-specific joint hypermobility descriptor.
   phenotype_term:
@@ -7149,7 +7695,7 @@ phenotypes:
   diagnostic: true
   evidence:
   - reference: ORPHA:287
-    reference_title: &#34;Ehlers-Danlos syndrome, classic type (Orphanet structured-database record)&#34;
+    reference_title: &#34;Classical Ehlers-Danlos syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001027 | Soft, doughy skin | Very frequent (99-80%)&#34;
@@ -7166,7 +7712,7 @@ phenotypes:
     snippet: Classic Ehlers-Danlos syndrome is a heritable connective tissue disorder characterized by skin hyperextensibility, fragile and soft skin, delayed wound healing with formation of atrophic scars.
     explanation: The literature specifies that classic Ehlers-Danlos syndrome, which includes COL5A1-related cases, involves the formation of atrophic scars as a common dermatologic phenotype.
   - reference: ORPHA:287
-    reference_title: &#34;Ehlers-Danlos syndrome, classic type (Orphanet structured-database record)&#34;
+    reference_title: &#34;Classical Ehlers-Danlos syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001075 | Atrophic scars | Very frequent (99-80%)&#34;
@@ -7187,7 +7733,7 @@ phenotypes:
   frequency: VERY_FREQUENT
   evidence:
   - reference: ORPHA:287
-    reference_title: &#34;Ehlers-Danlos syndrome, classic type (Orphanet structured-database record)&#34;
+    reference_title: &#34;Classical Ehlers-Danlos syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001065 | Striae distensae | Very frequent (99-80%)&#34;
@@ -7224,7 +7770,7 @@ phenotypes:
   evidence:
   - reference: PMID:21193204
     reference_title: &#34;Cross-sectional and longitudinal assessment of aortic root dilation and valvular anomalies in hypermobile and classic Ehlers-Danlos syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Fifteen of the 252 patients (6.0%) had mitral valve prolapse (MVP), although only one patient (0.4%) had MVP that was mild to moderate.
     explanation: The literature shows an occasional incidence of mitral valve prolapse in Ehlers-Danlos Syndrome, and while the exact subtype related to COL5A1 is not specified, it partially supports the statement.
   - reference: PMID:34776077
@@ -7244,7 +7790,7 @@ phenotypes:
   evidence:
   - reference: PMID:26376608
     reference_title: &#34;Ehlers Danlos syndrome and gastrointestinal manifestations: a 20-year experience at Mayo Clinic.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#39;Commonest GI symptoms were: abdominal pain (56.1%), nausea (42.3%), constipation (38.6%), heartburn (37.6%), and irritable bowel syndrome-like symptoms (27.5%)... Among 37.8% of the 378 patients who underwent esophagogastroduodenoscopy, the commonest abnormalities were gastritis, hiatal hernia and reflux esophagitis.&#39;
     explanation: The study indicates that reflux esophagitis, which is related to gastroesophageal reflux, is one of the common abnormalities observed in EDS patients. However, it does not explicitly distinguish the frequency of this phenotype for COL5A1-related EDS specifically.
   phenotype_term:
@@ -7289,7 +7835,7 @@ phenotypes:
   evidence:
   - reference: PMID:10906878
     reference_title: &#34;Orthopaedic manifestations of Ehlers-Danlos syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Thirty patients with Type III Ehlers-Danlos syndrome reported joint pain more frequently than did patients with Types I, II, or IV.
     explanation: Supports joint pain in an EDS subgroup, but only partially supports this COL5A1-related phenotype frequency claim.
   phenotype_term:
@@ -7309,7 +7855,7 @@ phenotypes:
     snippet: Classic Ehlers-Danlos syndrome is a heritable connective tissue disorder characterized by skin hyperextensibility, fragile and soft skin, delayed wound healing with formation of atrophic scars.
     explanation: Delayed wound healing is a core feature of classic EDS due to defective collagen V.
   - reference: ORPHA:287
-    reference_title: &#34;Ehlers-Danlos syndrome, classic type (Orphanet structured-database record)&#34;
+    reference_title: &#34;Classical Ehlers-Danlos syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001058 | Poor wound healing | Frequent (79-30%)&#34;
@@ -7325,7 +7871,7 @@ biochemical:
   evidence:
   - reference: PMID:21697718
     reference_title: &#34;Type V collagen genotype and exercise-related phenotype relationships: a novel hypothesis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: We have shown that a variant within COL5A1, which encodes a subunit of type V collagen, is associated with injury and performance phenotypes. Although seemingly unrelated, these phenotypes are associated directly or indirectly with the mechanical properties of musculoskeletal soft tissue.
     explanation: Supports COL5A1 variant functional relevance, but only indirectly supports this biochemical presence claim.
   - reference: PMID:33189937
@@ -7336,7 +7882,7 @@ biochemical:
     explanation: The decrease in collagen alpha1(V) chain expression indicates a biochemical abnormality.
   - reference: PMID:20979576
     reference_title: &#34;Identification of binding partners interacting with the α1-N-propeptide of type V collagen.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Mutations in COL5A1 or COL5A2, encoding respectively the alpha1(V)- and alpha2(V)-collagen chain, cause classic EDS (Ehlers-Danlos syndrome).
     explanation: Supports genetic causation of cEDS by COL5A1/COL5A2, but only partially supports biochemical abundance/state.
   - reference: PMID:15095409
@@ -7376,7 +7922,7 @@ genetic:
     explanation: This reference supports the presence of missense mutations specifically related to COL5A1 in Ehlers-Danlos Syndrome.
   - reference: PMID:35241120
     reference_title: &#34;Association of COL5A1 gene polymorphisms and musculoskeletal soft tissue injuries: a meta-analysis based on 21 observational studies.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: This study supports that rs12722 is associated with an elevated susceptibility to ligament injury, especially in the Caucasian population.
     explanation: While the study primarily investigates the association of COL5A1 polymorphisms with musculoskeletal injuries, it partially supports the statement by recognizing relevant genetic variants.
   - reference: CGGV:assertion_3133eacb-2ef9-4463-8031-11d10f0e91b9-2021-03-24T151331.225Z
@@ -7386,7 +7932,7 @@ genetic:
     snippet: &#34;COL5A1 | HGNC:2209 | Ehlers-Danlos syndrome, classic type | MONDO:0007522 | AD | Definitive&#34;
     explanation: ClinGen classifies the COL5A1-Ehlers-Danlos syndrome, classic type gene-disease relationship as definitive with autosomal dominant inheritance.
   - reference: PMID:16278879
-    reference_title: &#34;Classical Ehlers-Danlos syndrome.&#34;
+    reference_title: &#34;Molecular genetics in classic Ehlers-Danlos syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7404,18 +7950,18 @@ environmental:
   evidence:
   - reference: PMID:26452443
     reference_title: &#34;Ehlers-Danlos syndrome(s) mimicking child abuse: Is there an impact on clinical practice?&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Ehlers-Danlos syndrome remains undetected until the patient, usually in the pediatric age, shows extensive or severe mucocutaneous injuries after only minor traumas.
     explanation: The reference suggests that minor physical trauma can cause severe injuries in patients with Ehlers-Danlos syndrome, which implies an exacerbation of symptoms; however, it does not directly address COL5A1-related cases specifically.
   - reference: PMID:34740257
     reference_title: &#34;Molecular alterations due to Col5a1 haploinsufficiency in a mouse model of classic Ehlers-Danlos syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: Haploinsufficiency of the Col5a1 gene encoding alpha(1) chain of type V collagen is the primary cause of classic Ehlers-Danlos syndrome.
     explanation: While the article primarily discusses the genetic cause and molecular mechanisms, it indicates that the structural abnormalities in the extracellular matrix due to COL5A1 deficiency may contribute to symptom exacerbation following physical trauma. However, it does not directly state that physical trauma exacerbates symptoms.
   - reference: PMID:36405827
     reference_title: &#34;Case report: Lingering post-concussive symptoms in a pediatric patient with presumed Ehlers-Danlos syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Compromised brain tissues and cerebrovasculature could leave these patients vulnerable to mild traumatic brain injury (TBI), with increased severity and duration of post-concussive symptoms and delayed recovery.
     explanation: Supports trauma vulnerability in EDS context, but only partially supports this COL5A1-specific environmental effect claim.
 treatments:
@@ -7425,12 +7971,12 @@ treatments:
   evidence:
   - reference: PMID:22616833
     reference_title: &#34;Ehlers-Danlos syndrome and chronic pain.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: The topics addressed in this issue are Ehlers-Danlos syndrome and associated chronic pain; the information is meant to help readers understand the mechanisms for pain in this connective tissue disorder as well as general treatment principles for chronic pain management.
     explanation: Supports chronic pain management principles in EDS, but only partially supports the full supportive-care descriptor.
   - reference: PMID:33741806
     reference_title: &#34;Practical management strategies for benign hypermobility syndromes.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Evidence supporting physical therapy and occupational therapy is provided... Treatment should be individualized.
     explanation: Supports individualized physical and occupational therapy in hypermobility syndromes, but the cohort is hypermobile EDS / hypermobility spectrum disorder rather than COL5A1-related classic EDS, so it only partially supports this entry&#39;s supportive-care claim.
@@ -7444,18 +7990,18 @@ treatments:
   evidence:
   - reference: PMID:8274350
     reference_title: &#34;Understanding Ehlers-Danlos syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Manifestations are highly variable, and include numerous skin abnormalities. Nurses play an important role in helping patients and their families live with this unusual disorder.
     explanation: The reference mentions skin abnormalities but does not provide explicit details on treatments related to wound care or scar management.
   - reference: PMID:2728341
     reference_title: &#34;Cutaneous wound healing in Ehlers-Danlos syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: Although delayed wound healing has been reported to be a complication of Ehlers-Danlos syndrome in humans, using clinical and histologic criteria, wound healing in dogs and cats with Ehlers-Danlos syndrome appears to be similar to nonaffected animals.
     explanation: This reference discusses wound healing in animal models of EDS but indicates that delayed healing, a common complication in human EDS patients, was not observed in the studied animals.
   - reference: PMID:28387435
     reference_title: &#34;Collagen V haploinsufficiency in a murine model of classic Ehlers-Danlos syndrome is associated with deficient structural and mechanical healing in tendons.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: Classic Ehlers-Danlos syndrome (EDS) patients suffer from connective tissue hyperelasticity, joint instability, skin hyperextensibility, tissue fragility, and poor wound healing due to heterozygous mutations in COL5a1 or COL5a2 genes.
     explanation: Supports poor wound-healing burden in cEDS, but only indirectly supports wound-care intervention efficacy.
@@ -7474,7 +8020,7 @@ treatments:
     explanation: This reference supports cardiovascular monitoring in Ehlers-Danlos Syndrome, particularly for mitral valve prolapse and aortic dilation.
   - reference: PMID:15607555
     reference_title: &#34;A novel therapeutic strategy for Ehlers-Danlos syndrome based on nutritional supplements.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: This proposal is specifically concerned with Ehlers-Danlos syndrome classic type (formerly Types I-III), which is characterized by ... cardiac mitral valve prolapse.
     explanation: Supports cardiovascular phenotype association, but only partially supports ongoing monitoring recommendations.
 - name: Gastrointestinal Management
@@ -7482,7 +8028,7 @@ treatments:
   evidence:
   - reference: PMID:26376608
     reference_title: &#34;Ehlers Danlos syndrome and gastrointestinal manifestations: a 20-year experience at Mayo Clinic.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#39;CONCLUSIONS &amp; INFERENCES: EDS HM and other subtypes should be considered in patients with chronic functional GI symptoms and abdominal vascular lesions.&#39;
     explanation: Establishes a clinically significant functional GI symptom burden in EDS that warrants management, but the cohort is predominantly hypermobile-type EDS and the study reports no treatment efficacy data, so it only partially supports this treatment claim.
@@ -7501,12 +8047,12 @@ treatments:
   evidence:
   - reference: PMID:17067502
     reference_title: &#34;Ehlers-Danlos syndrome in athletes.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Preparticipation cardiothoracic and orthopedic screening is highly recommended for athletes with EDS, and appropriate cardiovascular, orthopedic, gastrointestinal, neurologic, and dermatologic management can often allow patients with EDS to remain active.
     explanation: The literature emphasizes careful screening and multidisciplinary management for athletes with EDS, which implicitly supports the avoidance of high-impact activities to prevent injuries but does not explicitly mention the use of protective gear or contact sports.
   - reference: PMID:32899328
     reference_title: &#34;Psychosocial Influence of Ehlers-Danlos Syndrome in Daily Life of Patients: A Qualitative Study.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: The major clinical manifestations of EDS include joint hypermobility, skin hyperextensibility, and generalized connective tissue fragility. ... These findings allow healthcare providers to know more about this disease in order to support and give advice to patients about the changes they will have to make.
     explanation: The study highlights the importance of providing advice to patients about lifestyle changes due to EDS but does not specifically mention avoiding high-impact activities or using protective gear.
   treatment_term:
@@ -7519,6 +8065,24 @@ disease_term:
   term:
     id: MONDO:0007522
     label: Ehlers-Danlos syndrome, classic type
+mappings:
+  mondo_mappings:
+  - term:
+      id: MONDO:0019567
+      label: Ehlers-Danlos syndrome, classic type, 1
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;
+      MONDO:0019567 is a direct child of this entry&#39;s disease_term MONDO:0007522
+      and its own MONDO definition reads &#34;Any Ehlers-Danlos syndrome in which the
+      cause of the disease is a mutation in the COL5A1 gene&#34; -- exactly this
+      entry&#39;s scope, which is curated entirely around COL5A1 pathophysiology and
+      evidence. disease_term is left at the general classic-type term because the
+      entry&#39;s own prevalence/progression evidence (PMID:20847697) describes
+      classic EDS as a whole rather than the COL5A1-specific subset; the narrower
+      concept is recorded here so the coverage index sees it. Recovered from
+      stubs/Ehlers-Danlos_Syndrome_Classic_Type_1.yaml, folded by PR #9855
+      (dismech#9868).
 </pre>
             </div>
         </div>
@@ -7537,6 +8101,8 @@ disease_term:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7784,7 +8350,7 @@ COL5A1-related cEDS is driven by type V collagen deficiency or structural dysfun
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Ehlers-Danlos Syndrome, COL5A1-related", "mondoId": "MONDO:0007522", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ehlers-Danlos_Syndrome,_COL5A1-related", "yamlRevision": "95246af3ea01"};
+        const OS_CONFIG = {"diseaseName": "Ehlers-Danlos Syndrome, COL5A1-related", "mondoId": "MONDO:0007522", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ehlers-Danlos_Syndrome,_COL5A1-related", "yamlRevision": "fdfcec4e4851"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

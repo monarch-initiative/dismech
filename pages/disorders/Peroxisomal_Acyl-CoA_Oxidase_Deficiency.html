@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3726,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4035,6 +4142,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acox1-straight-chain-acyl-coa-oxidase-deficiency" data-dismech-node="ACOX1 Straight-Chain Acyl-CoA Oxidase Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">ACOX1 Straight-Chain Acyl-CoA Oxidase Deficiency</div>
 
+
                 <div class="item-desc">Biallelic ACOX1 pathogenic variants reduce straight-chain acyl-CoA oxidase activity, disrupting the first acyl-CoA oxidase step of peroxisomal very-long-chain fatty-acid beta-oxidation.</div>
 
 
@@ -4260,6 +4368,8 @@ This pathophysiological event involves peroxisome (GO:0005777). GO:0005777 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4281,6 +4391,8 @@ This pathophysiological event involves peroxisome (GO:0005777). GO:0005777 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4305,6 +4417,7 @@ This pathophysiological event involves peroxisome (GO:0005777). GO:0005777 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-very-long-chain-fatty-acid-accumulation" data-dismech-node="Very-Long-Chain Fatty Acid Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Very-Long-Chain Fatty Acid Accumulation</div>
+
 
                 <div class="item-desc">Impaired peroxisomal beta-oxidation causes accumulation of very-long-chain fatty acids, including abnormal plasma VLCFA values and deficient C26:0 oxidation in cellular testing.</div>
 
@@ -4464,6 +4577,8 @@ This pathophysiological event involves peroxisome (GO:0005777). GO:0005777 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4485,6 +4600,8 @@ This pathophysiological event involves peroxisome (GO:0005777). GO:0005777 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4509,6 +4626,7 @@ This pathophysiological event involves peroxisome (GO:0005777). GO:0005777 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibroblast-il-1-cytokine-inflammatory-response" data-dismech-node="Fibroblast IL-1 Cytokine Inflammatory Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Fibroblast IL-1 Cytokine Inflammatory Response</div>
+
 
                 <div class="item-desc">Patient fibroblast transcriptomic and PCR-array studies show IL-1 pathway activation with increased IL-6 and IL-8 secretion, linking ACOX1 loss and VLCFA exposure to inflammatory signaling.</div>
 
@@ -4718,6 +4836,8 @@ This pathophysiological event involves increased cytokine-mediated signaling pat
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4739,6 +4859,8 @@ This pathophysiological event involves increased cytokine-mediated signaling pat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4763,6 +4885,7 @@ This pathophysiological event involves increased cytokine-mediated signaling pat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-microglial-disease-associated-inflammatory-phenotype" data-dismech-node="Microglial Disease-Associated Inflammatory Phenotype" data-dismech-type="pathophysiology">
                 <div class="item-name">Microglial Disease-Associated Inflammatory Phenotype</div>
+
 
                 <div class="item-desc">Acox1-deficient and other peroxisomal beta-oxidation-defect microglial cell models show broad lipid, immune, lysosomal, autophagy, and disease-associated microglial programs, suggesting microglial pathology as an additional contributor to peroxisomal leukodystrophy.</div>
 
@@ -4972,6 +5095,8 @@ This pathophysiological event involves abnormal cholesterol homeostasis (GO:0042
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4993,6 +5118,8 @@ This pathophysiological event involves abnormal cholesterol homeostasis (GO:0042
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5017,6 +5144,7 @@ This pathophysiological event involves abnormal cholesterol homeostasis (GO:0042
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodegenerative-white-matter-disease" data-dismech-node="Neurodegenerative White Matter Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodegenerative White Matter Disease</div>
+
 
                 <div class="item-desc">ACOX1 deficiency produces progressive central nervous system disease with inflammatory demyelination, cerebral and cerebellar white-matter involvement, cortical and cerebellar atrophy, neuronal loss, and secondary functional decline.</div>
 
@@ -5282,6 +5410,8 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5305,6 +5435,8 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5326,6 +5458,8 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5449,6 +5583,9 @@ This clinical feature is Hepatic dysfunction, annotated with Decreased liver fun
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5463,6 +5600,8 @@ This clinical feature is Hepatic dysfunction, annotated with Decreased liver fun
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5545,6 +5684,9 @@ This clinical feature is Hearing impairment (HP:0000365), qualified as course pr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5559,6 +5701,8 @@ This clinical feature is Hearing impairment (HP:0000365), qualified as course pr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5623,6 +5767,9 @@ This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5637,6 +5784,8 @@ This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5701,6 +5850,9 @@ This clinical feature is Retinitis pigmentosa, annotated with Rod-cone dystrophy
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -5724,6 +5876,8 @@ This clinical feature is Retinitis pigmentosa, annotated with Rod-cone dystrophy
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5797,6 +5951,9 @@ This clinical feature is Visual impairment (HP:0000505), qualified as course pro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5811,6 +5968,8 @@ This clinical feature is Visual impairment (HP:0000505), qualified as course pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5877,6 +6036,9 @@ This clinical feature is Facial dysmorphism, annotated with Abnormal facial shap
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5891,6 +6053,8 @@ This clinical feature is Facial dysmorphism, annotated with Abnormal facial shap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5982,6 +6146,9 @@ This clinical feature is Hypotonia (HP:0001252), qualified as infantile onset. H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5996,6 +6163,8 @@ This clinical feature is Hypotonia (HP:0001252), qualified as infantile onset. H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6087,6 +6256,9 @@ This clinical feature is Seizure (HP:0001250), qualified as infantile onset. HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6101,6 +6273,8 @@ This clinical feature is Seizure (HP:0001250), qualified as infantile onset. HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6185,6 +6359,9 @@ This clinical feature is Global developmental delay (HP:0001263), qualified as i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6199,6 +6376,8 @@ This clinical feature is Global developmental delay (HP:0001263), qualified as i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6283,6 +6462,9 @@ This clinical feature is Developmental regression (HP:0002376), qualified as cou
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6297,6 +6479,8 @@ This clinical feature is Developmental regression (HP:0002376), qualified as cou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6368,6 +6552,9 @@ This clinical feature is Leukodystrophy (HP:0002415), qualified as course progre
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6382,6 +6569,8 @@ This clinical feature is Leukodystrophy (HP:0002415), qualified as course progre
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6455,6 +6644,9 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500),
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6469,6 +6661,8 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500),
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6492,6 +6686,8 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500),
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6545,6 +6741,9 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6559,6 +6758,8 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6658,6 +6859,9 @@ This disease-associated gene is ACOX1 (hgnc:119). hgnc:119 is a gene from the HU
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -6680,6 +6884,8 @@ This disease-associated gene is ACOX1 (hgnc:119). hgnc:119 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6713,6 +6919,12 @@ This disease-associated gene is ACOX1 (hgnc:119). hgnc:119 is a gene from the HU
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A homozygous deletion removing a large part of intron 3 and exons 4-14 was reported in one patient.</div>
 
 
@@ -6737,6 +6949,8 @@ This disease-associated gene is ACOX1 (hgnc:119). hgnc:119 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6770,6 +6984,12 @@ This disease-associated gene is ACOX1 (hgnc:119). hgnc:119 is a gene from the HU
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A homozygous acceptor splice-site variant was identified in a fatal infantile case after fibroblast biochemical testing.</div>
 
 
@@ -6794,6 +7014,8 @@ This disease-associated gene is ACOX1 (hgnc:119). hgnc:119 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6881,6 +7103,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Care is supportive and symptom-directed, including seizure management, developmental support, feeding and respiratory support, and surveillance for sensory and neurologic decline. No disease-modifying standard therapy is established.</div>
 
 
@@ -6894,14 +7130,16 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24619150" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:24619150" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24619150" target="_blank">PMID:24619150</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6965,6 +7203,31 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Cell therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">HSCT has been attempted in ACOX1 deficiency but did not halt the neurodegenerative course; available evidence suggests possible reduction of white-matter inflammation rather than disease arrest.</div>
 
 
@@ -6987,14 +7250,16 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24619150" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:24619150" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24619150" target="_blank">PMID:24619150</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7029,14 +7294,16 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24619150" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:24619150" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24619150" target="_blank">PMID:24619150</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7134,6 +7401,8 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7155,6 +7424,8 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7237,6 +7508,8 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7317,6 +7590,8 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7338,6 +7613,398 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-peroxisomal-vlcfa-and-c26-0-oxidation-testing">
+                <div class="item-name">
+                    Peroxisomal VLCFA and C26:0 oxidation testing
+
+                </div>
+
+                <div class="item-desc">Plasma VLCFA testing and fibroblast oxidation assays support diagnosis, but normal first-line plasma VLCFA values do not exclude ACOX1 deficiency.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        disease screening
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15419" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-38">NCIT:C15419</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Elevated VLCFAs or deficient C26:0 oxidation support an isolated peroxisomal beta-oxidation defect.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16773508" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16773508" target="_blank">PMID:16773508</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Subsequent biochemical investigation in cultured skin fibroblasts of the patient, however, revealed elevated concentrations of VLCFAs, deficient oxidation of C26:0, but normal oxidation of both phytanic acid and pristanic acid and normal DE NOVO plasmalogen synthesis, indicative for a defect in..."</div>
+
+
+                <div class="evidence-explanation">This supports fibroblast biochemical testing as a key diagnostic approach.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-acox1-molecular-genetic-testing">
+                <div class="item-name">
+                    ACOX1 molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">ACOX1 sequencing or deletion/splice analysis confirms the molecular diagnosis and distinguishes isolated ACOX1 deficiency from overlapping peroxisomal disorders.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Biallelic pathogenic ACOX1 variants confirm peroxisomal acyl-CoA oxidase deficiency.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18536048" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18536048" target="_blank">PMID:18536048</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Subsequent molecular analysis of ACOX1 showed a homozygous deletion, which removes a large part of intron 3 and exons 4-14 in the first patient."</div>
+
+
+                <div class="evidence-explanation">This supports ACOX1 molecular analysis as confirmatory testing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-infantile-onset-neurologic-disease">
+                <div class="item-name">Infantile-onset neurologic disease</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: infancy</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Most affected children present in infancy with hypotonia, seizures, and delayed acquisition of developmental milestones.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24619150" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24619150" target="_blank">PMID:24619150</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the natural history of the disease follows a fairly consistent pattern of infantile-onset hypotonia, seizures, delayed acquisition of early developmental milestones, followed by rapid developmental regression between 24 and 48 months of age."</div>
+
+
+                <div class="evidence-explanation">This directly supports infantile onset and the typical early clinical course.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-early-childhood-regression-and-fatal-neurodegeneration">
+                <div class="item-name">Early-childhood regression and fatal neurodegeneration</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: early childhood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Regression usually follows limited early development, with loss of motor, communication, visual, and auditory function and death in childhood in severe cases.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24619150" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24619150" target="_blank">PMID:24619150</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Advanced patients become non-interactive, non-ambulatory, areflexic, and die in early childhood."</div>
+
+
+                <div class="evidence-explanation">This supports the severe progressive neurodegenerative prognosis in classic infantile ACOX1 deficiency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+        <div class="card" id="epidemiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">🌍</div>
+                <h2 class="card-title">Epidemiology</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-ultra-rare-reported-patient-disorder">
+                <div class="item-name">Ultra-rare reported-patient disorder</div>
+
+                <div class="item-desc">Published clinical literature supports extreme rarity rather than a robust population prevalence estimate.</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+                <div class="item-notes">No population-level prevalence or incidence estimate was identified in the Falcon report.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24619150" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24619150" target="_blank">PMID:24619150</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Since the disorder was first recognized, a total of 31 patients have been reported"</div>
+
+
+                <div class="evidence-explanation">This sibling-comparison study summarized the literature and supports the disorder as ultra-rare.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7401,6 +8068,8 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7474,6 +8143,8 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7545,6 +8216,8 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7606,11 +8279,11 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                         fibroblast
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-38">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-40">CL:0000057</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Cell Ontology (CL)
 Relation: this experimental model uses this cell type
 This experimental model uses fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -7629,11 +8302,11 @@ This experimental model uses fibroblast (CL:0000057). CL:0000057 is a cell type 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-39">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-41">NCBITaxon:9606</a>
 
 
 
-                            <span class="pill-tip" role="tooltip" id="pill-tip-39">NCBI Taxonomy (NCBITaxon)
+                            <span class="pill-tip" role="tooltip" id="pill-tip-41">NCBI Taxonomy (NCBITaxon)
 Relation: this experimental model is built in this organism
 This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
@@ -7743,6 +8416,8 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7785,11 +8460,11 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         microglial cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-40">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-42">CL:0000129</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Cell Ontology (CL)
 Relation: this experimental model uses this cell type
 This experimental model uses microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -7911,6 +8586,8 @@ This experimental model uses microglial cell (CL:0000129). CL:0000129 is a cell 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8926,7 +9603,7 @@ treatments:
     evidence:
       - reference: PMID:24619150
         reference_title: &#34;Effects of hematopoietic stem cell transplantation on acyl-CoA oxidase deficiency: a sibling comparison study.&#34;
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &#34;Supportive care was initially recommended due to the degenerative natural history of the disorder.&#34;
         explanation: &gt;-
@@ -8950,7 +9627,7 @@ treatments:
         evidence:
           - reference: PMID:24619150
             reference_title: &#34;Effects of hematopoietic stem cell transplantation on acyl-CoA oxidase deficiency: a sibling comparison study.&#34;
-            supports: PARTIAL
+            supports: SUPPORT
             evidence_source: HUMAN_CLINICAL
             snippet: &#34;Although HSCT did not halt the course of ACOX1 deficiency, it reduced the extent of white matter inflammation in the brain.&#34;
             explanation: &gt;-
@@ -8959,7 +9636,7 @@ treatments:
     evidence:
       - reference: PMID:24619150
         reference_title: &#34;Effects of hematopoietic stem cell transplantation on acyl-CoA oxidase deficiency: a sibling comparison study.&#34;
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &#34;Although HSCT did not halt the course of ACOX1 deficiency, it reduced the extent of white matter inflammation in the brain.&#34;
         explanation: &gt;-
@@ -9127,6 +9804,8 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10157,7 +10836,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Peroxisomal Acyl-CoA Oxidase Deficiency", "mondoId": "MONDO:0009919", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Peroxisomal_Acyl-CoA_Oxidase_Deficiency", "yamlRevision": "62036789c957"};
+        const OS_CONFIG = {"diseaseName": "Peroxisomal Acyl-CoA Oxidase Deficiency", "mondoId": "MONDO:0009919", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Peroxisomal_Acyl-CoA_Oxidase_Deficiency", "yamlRevision": "fa7f7b690587"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

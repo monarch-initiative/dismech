@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4111,6 +4218,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoimmune-adrenalitis" data-dismech-node="Autoimmune Adrenalitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoimmune Adrenalitis</div>
 
+
                 <div class="item-desc">The immune system mistakenly attacks the adrenal cortex, leading to destruction of adrenal tissue and decreased hormone production. Lymphocytic infiltration of zona glomerulosa and zona fasciculata causes progressive loss of steroidogenic cells.</div>
 
 
@@ -4439,6 +4547,8 @@ This pathophysiological event occurs in zona fasciculata of adrenal gland (UBERO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4462,6 +4572,8 @@ This pathophysiological event occurs in zona fasciculata of adrenal gland (UBERO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4483,6 +4595,8 @@ This pathophysiological event occurs in zona fasciculata of adrenal gland (UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4509,6 +4623,7 @@ This pathophysiological event occurs in zona fasciculata of adrenal gland (UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-cortisol-production" data-dismech-node="Reduced Cortisol Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Cortisol Production</div>
+
 
                 <div class="item-desc">Lack of cortisol impacts the body&#39;s ability to respond to stress and maintain various metabolic functions. Impaired gluconeogenesis, decreased vascular tone, and altered immune responses result from cortisol deficiency.</div>
 
@@ -4671,6 +4786,8 @@ This pathophysiological event involves abnormal response to stress (GO:0006950).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4692,6 +4809,8 @@ This pathophysiological event involves abnormal response to stress (GO:0006950).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4716,6 +4835,7 @@ This pathophysiological event involves abnormal response to stress (GO:0006950).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-aldosterone-production" data-dismech-node="Reduced Aldosterone Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Aldosterone Production</div>
+
 
                 <div class="item-desc">Insufficient aldosterone affects the balance of sodium and potassium in the body, leading to dehydration and low blood pressure. Impaired sodium retention and potassium excretion in renal tubules cause electrolyte disturbances.</div>
 
@@ -4899,6 +5019,8 @@ This pathophysiological event occurs in zona glomerulosa of adrenal gland (UBERO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4920,6 +5042,8 @@ This pathophysiological event occurs in zona glomerulosa of adrenal gland (UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4945,6 +5069,8 @@ This pathophysiological event occurs in zona glomerulosa of adrenal gland (UBERO
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4967,6 +5093,7 @@ This pathophysiological event occurs in zona glomerulosa of adrenal gland (UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polygenic-susceptibility" data-dismech-node="Polygenic Susceptibility" data-dismech-type="pathophysiology">
                 <div class="item-name">Polygenic Susceptibility</div>
+
 
                 <div class="item-desc">Multiple genetic risk loci contribute to autoimmune Addison&#39;s disease susceptibility, including HLA class II haplotypes and immune regulatory genes. HLA-DR3-DQ2 and HLA-DR4-DQ8 alter antigen presentation, while non-HLA genes affect T-cell regulation, checkpoint signaling, and inflammatory responses.</div>
 
@@ -5607,6 +5734,9 @@ This clinical feature is Hypotension (HP:0002615). HP:0002615 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5621,6 +5751,8 @@ This clinical feature is Hypotension (HP:0002615). HP:0002615 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5646,6 +5778,8 @@ This clinical feature is Hypotension (HP:0002615). HP:0002615 is a phenotype fro
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5667,6 +5801,8 @@ This clinical feature is Hypotension (HP:0002615). HP:0002615 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5726,6 +5862,9 @@ This clinical feature is Nausea and vomiting (HP:0002017). HP:0002017 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Common gastrointestinal manifestations of glucocorticoid deficiency</div>
@@ -5795,6 +5934,9 @@ This clinical feature is Adrenal Crisis, annotated with Adrenal insufficiency (H
                     </div>
 
 
+
+
+
                     <div class="item-desc">Acute life-threatening decompensation with severe hypotension and shock, often precipitated by stress, infection, or trauma. Also known as Addisonian crisis.</div>
 
 
@@ -5844,6 +5986,9 @@ This clinical feature is Hyperpigmentation, annotated with Hyperpigmentation of 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Especially noticeable in areas exposed to friction, such as knuckles, elbows, and knees.</div>
 
 
@@ -5863,6 +6008,8 @@ This clinical feature is Hyperpigmentation, annotated with Hyperpigmentation of 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5888,6 +6035,8 @@ This clinical feature is Hyperpigmentation, annotated with Hyperpigmentation of 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5909,6 +6058,8 @@ This clinical feature is Hyperpigmentation, annotated with Hyperpigmentation of 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5972,6 +6123,9 @@ This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Due to decreased cortisol impairing gluconeogenesis</div>
 
 
@@ -6010,6 +6164,9 @@ This clinical feature is Hyponatremia (HP:0002902). HP:0002902 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Low sodium due to aldosterone deficiency and impaired sodium retention</div>
 
 
@@ -6046,6 +6203,9 @@ This clinical feature is Hyperkalemia (HP:0002153). HP:0002153 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Elevated potassium due to aldosterone deficiency and impaired potassium excretion</div>
@@ -6098,6 +6258,9 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6112,6 +6275,8 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6137,6 +6302,8 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6150,14 +6317,16 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:21365946" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:21365946" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21365946" target="_blank">PMID:21365946</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6222,6 +6391,9 @@ This clinical feature is Salt Craving (HP:0030083). HP:0030083 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6236,6 +6408,8 @@ This clinical feature is Salt Craving (HP:0030083). HP:0030083 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6300,6 +6474,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6314,6 +6491,8 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6339,6 +6518,8 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6360,6 +6541,8 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6415,6 +6598,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6429,6 +6615,8 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6454,6 +6642,8 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6475,6 +6665,8 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6539,6 +6731,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -6553,6 +6748,8 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6578,6 +6775,8 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6599,6 +6798,8 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6676,6 +6877,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6690,6 +6894,8 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6746,6 +6952,9 @@ This disease-associated gene is AIRE (hgnc:360). hgnc:360 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -6760,6 +6969,8 @@ This disease-associated gene is AIRE (hgnc:360). hgnc:360 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6785,6 +6996,8 @@ This disease-associated gene is AIRE (hgnc:360). hgnc:360 is a gene from the HUG
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6806,6 +7019,8 @@ This disease-associated gene is AIRE (hgnc:360). hgnc:360 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6842,6 +7057,9 @@ This disease-associated gene is AIRE (hgnc:360). hgnc:360 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6856,6 +7074,8 @@ This disease-associated gene is AIRE (hgnc:360). hgnc:360 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6912,6 +7132,9 @@ This disease-associated gene is CTLA4 (hgnc:2505). hgnc:2505 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6926,6 +7149,8 @@ This disease-associated gene is CTLA4 (hgnc:2505). hgnc:2505 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6982,6 +7207,9 @@ This disease-associated gene is PTPN22 (hgnc:9652). hgnc:9652 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6996,6 +7224,8 @@ This disease-associated gene is PTPN22 (hgnc:9652). hgnc:9652 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7054,6 +7284,9 @@ This disease-associated gene is BACH2 (hgnc:14078). hgnc:14078 is a gene from th
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-clec16a" data-dismech-node="CLEC16A" data-dismech-type="genetic">
@@ -7085,6 +7318,9 @@ This disease-associated gene is CLEC16A (hgnc:29013). hgnc:29013 is a gene from 
 
 
                 </div>
+
+
+
 
 
 
@@ -7128,6 +7364,9 @@ This disease-associated gene is NLRP1 (hgnc:14374). hgnc:14374 is a gene from th
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-ciita" data-dismech-node="CIITA" data-dismech-type="genetic">
@@ -7165,6 +7404,9 @@ This disease-associated gene is CIITA (hgnc:7067). hgnc:7067 is a gene from the 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-stat4" data-dismech-node="STAT4" data-dismech-type="genetic">
@@ -7196,6 +7438,9 @@ This disease-associated gene is STAT4 (hgnc:11365). hgnc:11365 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -7263,6 +7508,20 @@ This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCI
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Hydrocortisone or prednisone to replace cortisol.</div>
 
 
@@ -7276,14 +7535,16 @@ This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCI
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:18363515" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:18363515" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18363515" target="_blank">PMID:18363515</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7299,14 +7560,16 @@ This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCI
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:22695777" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:22695777" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22695777" target="_blank">PMID:22695777</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7322,14 +7585,16 @@ This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCI
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23624135" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:23624135" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23624135" target="_blank">PMID:23624135</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7395,6 +7660,20 @@ This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCI
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Fludrocortisone to replace aldosterone and manage electrolyte balance.</div>
 
 
@@ -7408,14 +7687,16 @@ This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCI
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:476980" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:476980" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/476980" target="_blank">PMID:476980</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7441,6 +7722,8 @@ This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCI
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7462,6 +7745,8 @@ This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCI
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7525,6 +7810,20 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Increased salt intake to manage hyponatremia.</div>
 
 
@@ -7548,6 +7847,8 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7561,14 +7862,16 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20964584" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:20964584" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20964584" target="_blank">PMID:20964584</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7584,14 +7887,16 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:18471672" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:18471672" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18471672" target="_blank">PMID:18471672</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7655,6 +7960,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Patients should carry an ID indicating their condition for emergency situations.</div>
 
 
@@ -7668,14 +7987,16 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:19776201" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:19776201" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19776201" target="_blank">PMID:19776201</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7691,14 +8012,16 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31321757" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31321757" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31321757" target="_blank">PMID:31321757</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7761,6 +8084,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Increased dose of corticosteroids during illness or stress.</div>
 
 
@@ -7784,6 +8121,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7805,6 +8144,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7891,6 +8232,8 @@ This environmental factor is Infectious agent exposure, annotated with exposure 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7904,14 +8247,16 @@ This environmental factor is Infectious agent exposure, annotated with exposure 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30144040" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30144040" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30144040" target="_blank">PMID:30144040</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7935,6 +8280,8 @@ This environmental factor is Infectious agent exposure, annotated with exposure 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8002,6 +8349,8 @@ This environmental factor is Infectious agent exposure, annotated with exposure 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8025,6 +8374,8 @@ This environmental factor is Infectious agent exposure, annotated with exposure 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8046,6 +8397,8 @@ This environmental factor is Infectious agent exposure, annotated with exposure 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8100,6 +8453,8 @@ This environmental factor is Infectious agent exposure, annotated with exposure 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8123,6 +8478,8 @@ This environmental factor is Infectious agent exposure, annotated with exposure 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8144,6 +8501,8 @@ This environmental factor is Infectious agent exposure, annotated with exposure 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8184,14 +8543,16 @@ This environmental factor is Infectious agent exposure, annotated with exposure 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24428320" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:24428320" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24428320" target="_blank">PMID:24428320</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8217,6 +8578,8 @@ This environmental factor is Infectious agent exposure, annotated with exposure 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8238,6 +8601,8 @@ This environmental factor is Infectious agent exposure, annotated with exposure 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8263,6 +8628,496 @@ This environmental factor is Infectious agent exposure, annotated with exposure 
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-acth-stimulation-test">
+                <div class="item-name">
+                    ACTH Stimulation Test
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">Evaluates adrenal gland function by measuring cortisol response to synthetic ACTH</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30855285" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30855285" target="_blank">PMID:30855285</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The ACTH stimulation test is commonly performed in patients suspected of having adrenal insufficiency when the basal serum cortisol levels are inconclusive."</div>
+
+
+                <div class="evidence-explanation">This reference discusses the use of the ACTH stimulation test to evaluate adrenal gland function by measuring cortisol response.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2008821" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2008821" target="_blank">PMID:2008821</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The rapid adrenocorticotropic hormone (ACTH) stimulation test is useful for identifying adrenal insufficiency."</div>
+
+
+                <div class="evidence-explanation">This reference confirms the use of the ACTH stimulation test for evaluating adrenal function.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29572711" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29572711" target="_blank">PMID:29572711</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients were tested with 1 µg ACTH for serum and salivary cortisol."</div>
+
+
+                <div class="evidence-explanation">This reference supports the use of the ACTH stimulation test to measure cortisol response, which is relevant to evaluating adrenal gland function.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-serum-electrolyte-panel">
+                <div class="item-name">
+                    Serum Electrolyte Panel
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">May show hyponatremia and hyperkalemia</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (5 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20964584" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20964584" target="_blank">PMID:20964584</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Primary adrenal insufficiency (i.e. Addison&#39;s disease) may well be recognized by clear hall-marks of the disease, such as pigmentation, salt craving, hypotension, and concomitant hyperkalemia."</div>
+
+
+                <div class="evidence-explanation">The literature indicates that hyperkalemia is a hallmark of Addison&#39;s disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32086340" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32086340" target="_blank">PMID:32086340</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Many paediatricians will be faced with a sick infant who on investigation is found to have hyponatraemia and hyperkalaemia at some time in their career."</div>
+
+
+                <div class="evidence-explanation">The literature describes cases where patients with Addison&#39;s disease present with hyponatremia and hyperkalemia.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14433865" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14433865" target="_blank">PMID:14433865</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hyperkalemic neuromyopathy in Addison&#39;s disease."</div>
+
+
+                <div class="evidence-explanation">The title itself indicates that hyperkalemia is associated with Addison&#39;s disease.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 2 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-onset">
+                <div class="item-name">Onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: 30-50</span>
+
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (5 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12072049" data-dismech-supports="NO_EVIDENCE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12072049" target="_blank">PMID:12072049</a>
+                    </span>
+
+
+                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"OBJECTIVE: Estimates of the prevalence of Addison&#39;s disease in Caucasians have varied from 39 to 117 per million. We have carried out an epidemiological study to obtain a confident point prevalence estimate in the Norwegian population for the end of 1999, and to find out whether the incidence is..."</div>
+
+
+                <div class="evidence-explanation">The study provides prevalence and incidence data but does not specify the age range for the onset of Addison&#39;s disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33143829" data-dismech-supports="NO_EVIDENCE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33143829" target="_blank">PMID:33143829</a>
+                    </span>
+
+
+                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"OBJECTIVE: To determine the clinical presentation of Addison&#39;s disease in order to increase the awareness of presentation in Pakistani children."</div>
+
+
+                <div class="evidence-explanation">The study focuses on the clinical presentation of Addison&#39;s disease in children, not in the age range of 30-50 years.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23322510" data-dismech-supports="NO_EVIDENCE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23322510" target="_blank">PMID:23322510</a>
+                    </span>
+
+
+                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"INTRODUCTION: Several studies have shown a reduced quality of life in patients with Addison&#39;s disease, but little is known about the potential influences."</div>
+
+
+                <div class="evidence-explanation">The study discusses quality of life in Addison&#39;s disease patients but does not provide information on the age range of onset.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 2 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-published-caucasian-population-estimates">
+                <div class="item-name">Published Caucasian population estimates</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        7.8 per 100,000
+                        (3.9&ndash;11.7)
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000</span>
+
+                </div>
+
+                <div class="item-notes">Published estimates in Caucasian populations ranged from 39 to 117 per million (3.9-11.7 per 100,000); 7.8 per 100,000 is the midpoint used to assign the prevalence band. The later western Norway estimate is recorded separately because it was higher than this historical range.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12072049" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12072049" target="_blank">PMID:12072049</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Estimates of the prevalence of Addison&#39;s disease in Caucasians have varied from 39 to 117 per million."</div>
+
+
+                <div class="evidence-explanation">The epidemiologic study directly reports the historical prevalence range represented by this record.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-western-norway-end-of-1999">
+                <div class="item-name">Western Norway, end of 1999</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        14.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 10,000</span>
+
+                </div>
+
+                <div class="item-notes">The study identified 128 patients in a source population of 916,000 and reported a higher point prevalence than prior Caucasian estimates.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12072049" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12072049" target="_blank">PMID:12072049</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified 128 patients with Addison&#39;s disease (59 men and 69 women), yielding a prevalence of 140 per million."</div>
+
+
+                <div class="evidence-explanation">The western Norway epidemiologic study directly reports a point prevalence of 140 per million, equivalent to 14 per 100,000.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8695,7 +9550,7 @@ phenotypes:
     explanation: This reference discusses acute muscle weakness as a common disorder, implying that muscle weakness can be a frequent symptom in various conditions, including Addison&#39;s disease.
   - reference: PMID:21365946
     reference_title: &#34;[Addison&#39;s disease imitating fibromyalgia].&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Supplementation with adrenal hormones resulted in total remission of pain and of other symptoms.
     explanation: This case report mentions muscle pain and weakness that were misdiagnosed as fibromyalgia but were actually due to Addison&#39;s disease, which resolved with appropriate treatment.
@@ -8882,7 +9737,7 @@ biochemical:
   evidence:
   - reference: PMID:24428320
     reference_title: &#34;Evaluation of aldosterone concentrations in dogs with hypoadrenocorticism.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: Baseline and ACTH-stimulated aldosterone was significantly lower in dogs with HA than in the other groups. Aldosterone was low or undetectable in 67/70 dogs with HA independently of sodium and potassium levels.
     explanation: The study shows that aldosterone levels are significantly lower in dogs with hypoadrenocorticism (HA), which is analogous to Addison&#39;s disease in humans.
@@ -8949,7 +9804,7 @@ diagnosis:
     explanation: The literature indicates that hyperkalemia is a hallmark of Addison&#39;s disease.
   - reference: PMID:32086340
     reference_title: &#34;Problem solving in clinical practice: the sick infant with low sodium and high potassium.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Many paediatricians will be faced with a sick infant who on investigation is found to have hyponatraemia and hyperkalaemia at some time in their career.
     explanation: The literature describes cases where patients with Addison&#39;s disease present with hyponatremia and hyperkalemia.
@@ -8961,7 +9816,7 @@ diagnosis:
     explanation: The title itself indicates that hyperkalemia is associated with Addison&#39;s disease.
   - reference: PMID:8680923
     reference_title: &#34;Atypical Addison&#39;s disease in the dog: a retrospective survey of 14 cases.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: Ninety-three percent of the cases had either hyponatremia without hyperkalemia or normal serum electrolyte concentrations.
     explanation: The literature shows that while hyponatremia is common, hyperkalemia is not always present in dogs with Addison&#39;s disease.
@@ -9113,7 +9968,7 @@ environmental:
     explanation: The reference mentions tuberculosis as a possible cause of Addison&#39;s disease, supporting the statement that infections can lead to this condition.
   - reference: PMID:30144040
     reference_title: &#34;The potential role for infections in the pathogenesis of autoimmune Addison&#39;s disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: AAD is thought to be caused by an unfortunate combination of genetic and environmental factors. ... A major environmental factor commonly proposed for autoimmune diseases ... is viral infections.
     explanation: While this reference discusses viral infections as a potential environmental factor for autoimmune Addison&#39;s disease, it does not confirm the role of infections in general.
@@ -9146,31 +10001,31 @@ treatments:
   evidence:
   - reference: PMID:18363515
     reference_title: &#34;Replacement therapy for Addison&#39;s disease: recent developments.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Starting doses of glucocorticoids should be 15 - 20 mg for hydrocortisone or 20 - 30 mg for cortisone acetate, divided into two or three doses, and preferentially weight-adjusted. There are indications that the synthetic glucocorticoids have undesirable metabolic long-term effects, which make them less suitable as first-line treatment.
     explanation: The statement mentions prednisone, but the reference specifically discusses hydrocortisone and cortisone acetate, not prednisone.
   - reference: PMID:22695777
     reference_title: &#34;[Perioperative Addisonian crisis].&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: This necessitated an aggressive volume therapy in addition to an initial therapy with 100 mg hydrocortisone, 8 g glucose and a continuous administration of catecholamines.
     explanation: The reference supports the use of hydrocortisone but does not mention prednisone.
   - reference: PMID:23624135
     reference_title: &#34;Salivary cortisol day curves in assessing glucocorticoid replacement therapy in Addison&#39;s disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Patients with Addison&#39;s disease require lifelong treatment with glucocorticoids. At present, no glucocorticoid replacement therapy (GRT) can exactly mimic normal physiology.
     explanation: The reference supports the need for glucocorticoid replacement therapy but does not specify prednisone.
   - reference: PMID:35100642
     reference_title: &#34;[Adrenal gland diseases: Addison&#39;s Disease].&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Addison&#39;s disease typically results from the autoimmune destruction of the adrenal cortex and requires lifelong replacement with glucocorticoids and mineralocorticoids.
     explanation: The reference supports the need for glucocorticoid replacement but does not specify prednisone.
   - reference: PMID:33993277
     reference_title: &#34;Mortality Risk in Patients With Adrenal Insufficiency Using Prednisolone or Hydrocortisone: A Retrospective Cohort Study.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: In primary but not in secondary adrenal insufficiency, mortality was higher with prednisolone.
     explanation: The reference discusses prednisolone (a form of prednisone) but indicates higher mortality associated with its use in primary adrenal insufficiency.
@@ -9184,7 +10039,7 @@ treatments:
   evidence:
   - reference: PMID:476980
     reference_title: &#34;Mineralocorticoid replacement in Addison&#39;s disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: In four others, PRA remained normal throughout the study, even after fludrocortisone had been discontinued, suggesting that the drug was unnecessary for the maintenance of normal sodium balance in these patients.
     explanation: &gt;-
@@ -9220,13 +10075,13 @@ treatments:
     explanation: The literature mentions the normalization of sodium concentration as part of the treatment for Addison&#39;s disease, which supports the statement about increased salt intake.
   - reference: PMID:20964584
     reference_title: &#34;Endocrine disorders: causes of hyponatremia not to neglect.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Primary adrenal insufficiency (i.e. Addison&#39;s disease) may well be recognized by clear hall-marks of the disease, such as pigmentation, salt craving, hypotension, and concomitant hyperkalemia.
     explanation: The literature indicates salt craving as a hallmark of Addison&#39;s disease, supporting the need for increased salt intake.
   - reference: PMID:18471672
     reference_title: &#34;Cerebral salt wasting syndrome: review.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Mineral corticoids may be useful in complicated cases.
     explanation: While this reference mentions mineral corticoids, which are related to sodium balance, it does not explicitly support or refute increased salt intake.
@@ -9240,13 +10095,13 @@ treatments:
   evidence:
   - reference: PMID:19776201
     reference_title: &#34;Adrenal crisis in treated Addison&#39;s disease: a predictable but under-managed event.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The endocrinologist has a responsibility to ensure that Addison&#39;s patients have adequate access to life-saving emergency injection materials and repeated, practical training sessions in how to use them, while the general practitioner plays a vital role as in arranging prompt emergency admissions.
     explanation: The literature emphasizes the importance of emergency preparedness for Addison&#39;s patients, which implicitly supports the need for carrying an ID indicating their condition.
   - reference: PMID:31321757
     reference_title: &#34;Epidemiology, pathogenesis, and diagnosis of Addison&#39;s disease in adults.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Progress in optimizing replacement therapy for patients with AD has allowed the patients to lead a normal life. However, continuous education of patients and health care professionals of ever-present danger of adrenal crisis is essential to save lives of patients with AD.
     explanation: The mention of continuous education and the ever-present danger of adrenal crisis supports the need for patients to carry an ID for emergency situations.
@@ -9303,6 +10158,8 @@ classifications:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9728,7 +10585,7 @@ Autoimmune Addison’s disease results from a confluence of genetic susceptibili
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Addison\u0027s Disease", "mondoId": "MONDO:0015128", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Addison\u0027s_Disease", "yamlRevision": "b01d1803c99d"};
+        const OS_CONFIG = {"diseaseName": "Addison\u0027s Disease", "mondoId": "MONDO:0015128", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Addison\u0027s_Disease", "yamlRevision": "493614876c5e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

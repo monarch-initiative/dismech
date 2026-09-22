@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4072,6 +4179,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4178,6 +4287,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4214,7 +4325,7 @@
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-PARTIAL">1 partial</span>
+                    <span class="evidence-support support-SUPPORT">1 support</span>
 
                 </div>
 
@@ -4256,14 +4367,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:15107402" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:15107402" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15107402" target="_blank">PMID:15107402</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4588,6 +4701,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rhobtb2-btb-domain-missense-variant" data-dismech-node="RHOBTB2 BTB-Domain Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">RHOBTB2 BTB-Domain Missense Variant</div>
 
+
                 <div class="item-desc">The initiating lesion. Variants cluster in the BTB-domain-encoding region, and three were already recurrent in the founding cohort. Domain location is not incidental detail here - it is what separates this disorder from the other RHOBTB2-related phenotypes, because GTPase-domain variants and biallelic truncating variants do not produce the same cellular consequence.</div>
 
 
@@ -4639,6 +4753,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4661,6 +4777,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-proteasomal-degradation-of-rhobtb2" data-dismech-node="Impaired Proteasomal Degradation of RHOBTB2" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Proteasomal Degradation of RHOBTB2</div>
+
 
                 <div class="item-desc">RHOBTB2 binds the CUL3 ubiquitin ligase scaffold through its first BTB domain and is itself a substrate of that complex, so a BTB-domain variant disrupts the protein&#39;s own destruction rather than only its adaptor function. This node is the turnover defect; the resulting abundance change is curated separately below because they are measured separately and, in the GTPase-domain variants, they come apart.</div>
 
@@ -4772,6 +4889,8 @@ This pathophysiological event involves cullin-RING ubiquitin ligase complex (GO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4793,6 +4912,8 @@ This pathophysiological event involves cullin-RING ubiquitin ligase complex (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4817,6 +4938,7 @@ This pathophysiological event involves cullin-RING ubiquitin ligase complex (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-rhobtb2-protein-abundance" data-dismech-node="Increased RHOBTB2 Protein Abundance" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased RHOBTB2 Protein Abundance</div>
+
 
                 <div class="item-desc">Mutant RHOBTB2 accumulates above wild-type levels. This is the node that makes the disorder a gain rather than a loss, and it is the reason a knockout is not a model of it. Later work adds subcellular detail: hotspot mutants accumulate specifically in the nucleus and mitochondria, and GTPase-domain mutants do not accumulate at all.</div>
 
@@ -4905,6 +5027,8 @@ This pathophysiological event involves cullin-RING ubiquitin ligase complex (GO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4926,6 +5050,8 @@ This pathophysiological event involves cullin-RING ubiquitin ligase complex (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4950,6 +5076,7 @@ This pathophysiological event involves cullin-RING ubiquitin ligase complex (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deregulated-ion-channel-gene-expression" data-dismech-node="Deregulated Ion Channel Gene Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Deregulated Ion Channel Gene Expression</div>
+
 
                 <div class="item-desc">Transcriptomic work in flies overexpressing RhoBTB found ion channel genes enriched among the differentially expressed set, and the enriched molecular functions among downregulated genes are receptor, channel and transporter activities. An independent inducible cell model found the R489Q hotspot mutant robustly downregulates ion-channel-related genes.</div>
 
@@ -5040,6 +5167,8 @@ This pathophysiological event involves dysregulated regulation of ion channel ge
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5061,6 +5190,8 @@ This pathophysiological event involves dysregulated regulation of ion channel ge
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5086,6 +5217,8 @@ This pathophysiological event involves dysregulated regulation of ion channel ge
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5108,6 +5241,7 @@ This pathophysiological event involves dysregulated regulation of ion channel ge
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-neuronal-excitability" data-dismech-node="Altered Neuronal Excitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Neuronal Excitability</div>
+
 
                 <div class="item-desc">Patch-clamp recordings from human iPSC-derived neurons show increased action potential firing frequency at all current injections, increased AP half width, and decreased depolarization speed. The direction is curated as measured rather than summarised as &#34;hyperexcitability&#34;, because the three parameters do not all point the same way - the cell fires more often but each spike is broader and rises more slowly.</div>
 
@@ -5211,6 +5345,8 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5232,6 +5368,8 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5256,6 +5394,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-domain-specific-divergence-of-cellular-consequence" data-dismech-node="Domain-Specific Divergence of Cellular Consequence" data-dismech-type="pathophysiology">
                 <div class="item-name">Domain-Specific Divergence of Cellular Consequence</div>
+
 
                 <div class="item-desc">A negative-result node, curated because it carries more weight than most positive ones here. In the same iPSC system, GTPase-domain missense variants and complete loss of RHOBTB2 produced no excitability phenotype, while BTB-domain variants did. This excludes haploinsufficiency as the mechanism of DEE64 and is what makes the accumulation account the operative one.</div>
 
@@ -5293,6 +5432,8 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5314,6 +5455,8 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5338,6 +5481,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-sodium-potassium-atpase-abundance" data-dismech-node="Reduced Sodium-Potassium ATPase Abundance" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Sodium-Potassium ATPase Abundance</div>
+
 
                 <div class="item-desc">A separate molecular arm, and the one that complicates the tidy BTB-versus-GTPase story. Mutant RHOBTB2 lowers Na+/K+-ATPase protein through a lysosome-dependent route, and the effect is most prominent in the GTPase-domain mutants - the same class that shows no excitability phenotype. Curated as its own node rather than folded into the excitability chain, because it is a distinct measurement in a different variant class.</div>
 
@@ -5375,6 +5519,8 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5396,6 +5542,8 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5420,6 +5568,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-respiration" data-dismech-node="Impaired Mitochondrial Respiration" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mitochondrial Respiration</div>
+
 
                 <div class="item-desc">Mitochondrial respiration is impaired by some mutants and not others, cutting across the domain boundary: one hotspot mutant and one GTPase-domain mutant, but not the rest. Curated because the accumulated hotspot protein localises to mitochondria, which makes a mitochondrial consequence mechanistically plausible rather than incidental.</div>
 
@@ -5485,14 +5634,16 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41478322" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41478322" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41478322" target="_blank">PMID:41478322</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5517,6 +5668,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-seizures-and-developmental-encephalopathy" data-dismech-node="Seizures and Developmental Encephalopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Seizures and Developmental Encephalopathy</div>
+
 
                 <div class="item-desc">The clinical syndrome - early-onset epilepsy with severe intellectual disability, postnatal microcephaly and movement disorders.</div>
 
@@ -5572,6 +5724,8 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5638,9 +5792,13 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(9)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(11)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5649,13 +5807,13 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">9</span>
+                    Head and Neck
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-early-onset-epilepsy" data-dismech-node="Early-Onset Epilepsy" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-postnatal-microcephaly" data-dismech-node="Postnatal Microcephaly" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Early-Onset Epilepsy
+                        Postnatal Microcephaly
 
 
 
@@ -5664,20 +5822,23 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Seizure</span>
+                        <span class="phenotype-term-label">Progressive microcephaly</span>
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000253" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0000253</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Progressive microcephaly (HP:0000253). HP:0000253 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5697,6 +5858,199 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"severe intellectual disability, postnatal microcephaly, and movement disorders"</div>
+
+
+                <div class="evidence-explanation">Records the microcephaly as postnatal, which is what the progressive term captures.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-drug-resistant-epilepsy" data-dismech-node="Drug-Resistant Epilepsy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Drug-Resistant Epilepsy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Refractory drug response</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0020174" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0020174</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Refractory drug response (HP:0020174). HP:0020174 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35315256" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35315256" target="_blank">PMID:35315256</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"with approximately 4-5 seizures/month despite having started an antiepileptic tritherapy with the optimal posologies"</div>
+
+
+                <div class="evidence-explanation">Quantifies the residual seizure burden on optimally dosed triple therapy in a genotype-confirmed patient, which is stronger than a general statement of drug resistance.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35315256" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35315256" target="_blank">PMID:35315256</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"she is under a triple antiepileptic medication with partial control of her epileptic seizures"</div>
+
+
+                <div class="evidence-explanation">Records partial rather than absent response, which is the accurate characterisation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">11</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-early-onset-epilepsy" data-dismech-node="Early-Onset Epilepsy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Early-Onset Epilepsy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Seizure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29276004" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29276004" target="_blank">PMID:29276004</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5736,15 +6090,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010864" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0010864</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010864" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0010864</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5764,6 +6121,8 @@ This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5807,10 +6166,10 @@ This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100022" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0100022</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100022" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0100022</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormality of movement (HP:0100022). HP:0100022 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5821,6 +6180,9 @@ This clinical feature is Abnormality of movement (HP:0100022). HP:0100022 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5835,6 +6197,8 @@ This clinical feature is Abnormality of movement (HP:0100022). HP:0100022 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5845,490 +6209,6 @@ This clinical feature is Abnormality of movement (HP:0100022). HP:0100022 is a p
 
 
                 <div class="evidence-explanation">11/11 is 100 percent, the OBLIGATE band, and the source states the count as &#34;all&#34;.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ataxia" data-dismech-node="Ataxia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ataxia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001251</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35315256" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35315256" target="_blank">PMID:35315256</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The movement disorder appears characteristic, associating ataxia, dystonia"</div>
-
-
-                <div class="evidence-explanation">Names ataxia as part of the characteristic movement-disorder composite. No cohort-wide count is given for ataxia alone, so no frequency band is asserted.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dystonia" data-dismech-node="Dystonia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dystonia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001332</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35315256" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35315256" target="_blank">PMID:35315256</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The movement disorder appears characteristic, associating ataxia, dystonia"</div>
-
-
-                <div class="evidence-explanation">Names dystonia as part of the characteristic composite. No cohort-wide count is given for dystonia alone, so no frequency band is asserted.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chorea" data-dismech-node="Chorea" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Chorea
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002072</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35315256" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35315256" target="_blank">PMID:35315256</a>
-                    </span>
-
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The movement disorder appears characteristic, associating ataxia, dystonia and paroxysmal chorea"</div>
-
-
-                <div class="evidence-explanation">Curated PARTIAL because the source describes the movements as chorea-like rather than as chorea, so the HP term is a close but not exact fit for the reported observation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual Disability" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Intellectual Disability
-
-                        <span class="phenotype-freq">OBLIGATE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001249</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33504645" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33504645" target="_blank">PMID:33504645</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All patients had intellectual disability, usually moderate to severe"</div>
-
-
-                <div class="evidence-explanation">11/11 is 100 percent, the OBLIGATE band, stated as &#34;all&#34; by the source.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-and-generalized-tonic-clonic-seizures" data-dismech-node="Focal and Generalized Tonic-Clonic Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Focal and Generalized Tonic-Clonic Seizures
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Bilateral tonic-clonic seizure</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002069</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35315256" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35315256" target="_blank">PMID:35315256</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The severity of the seizure types varied, from early‐onset epilepsy to focal, complex partial, and generalized tonic–clonic seizures"</div>
-
-
-                <div class="evidence-explanation">The reported semiology range, quoted in full. The source renders its hyphens as U+2010 and its dash as U+2013 and those codepoints are reproduced here rather than the quote being cut short of them. No cohort-wide count is given per seizure type, so no frequency band is asserted.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-developmental-regression" data-dismech-node="Developmental Regression" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Developmental Regression
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002376</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35315256" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35315256" target="_blank">PMID:35315256</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"moderate to severe intellectual disability that was sometimes associated with developmental regression or plateauing"</div>
-
-
-                <div class="evidence-explanation">Records regression as a reported course. The source&#39;s &#34;sometimes&#34; gives no count, so no frequency band is asserted.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-postnatal-microcephaly" data-dismech-node="Postnatal Microcephaly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Postnatal Microcephaly
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Progressive microcephaly</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000253" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000253</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Progressive microcephaly (HP:0000253). HP:0000253 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29276004" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29276004" target="_blank">PMID:29276004</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"severe intellectual disability, postnatal microcephaly, and movement disorders"</div>
-
-
-                <div class="evidence-explanation">Records the microcephaly as postnatal, which is what the progressive term captures.</div>
 
 
 
@@ -6362,15 +6242,18 @@ This clinical feature is Progressive microcephaly (HP:0000253). HP:0000253 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0007166</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0007166</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Paroxysmal dyskinesia (HP:0007166). HP:0007166 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6390,6 +6273,8 @@ This clinical feature is Paroxysmal dyskinesia (HP:0007166). HP:0007166 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6431,15 +6316,18 @@ This clinical feature is Paroxysmal dyskinesia (HP:0007166). HP:0007166 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012194" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0012194</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012194" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0012194</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Episodic hemiplegia (HP:0012194). HP:0012194 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6459,6 +6347,8 @@ This clinical feature is Episodic hemiplegia (HP:0012194). HP:0012194 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6484,6 +6374,8 @@ This clinical feature is Episodic hemiplegia (HP:0012194). HP:0012194 is a pheno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6507,9 +6399,9 @@ This clinical feature is Episodic hemiplegia (HP:0012194). HP:0012194 is a pheno
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-drug-resistant-epilepsy" data-dismech-node="Drug-Resistant Epilepsy" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ataxia" data-dismech-node="Ataxia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Drug-Resistant Epilepsy
+                        Ataxia
 
 
 
@@ -6518,17 +6410,15 @@ This clinical feature is Episodic hemiplegia (HP:0012194). HP:0012194 is a pheno
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Refractory drug response</span>
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001251</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0020174" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0020174</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Refractory drug response (HP:0020174). HP:0020174 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6537,9 +6427,12 @@ This clinical feature is Refractory drug response (HP:0020174). HP:0020174 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
@@ -6553,37 +6446,16 @@ This clinical feature is Refractory drug response (HP:0020174). HP:0020174 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"with approximately 4-5 seizures/month despite having started an antiepileptic tritherapy with the optimal posologies"</div>
-
-
-                <div class="evidence-explanation">Quantifies the residual seizure burden on optimally dosed triple therapy in a genotype-confirmed patient, which is stronger than a general statement of drug resistance.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35315256" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35315256" target="_blank">PMID:35315256</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"she is under a triple antiepileptic medication with partial control of her epileptic seizures"</div>
+                <div class="evidence-snippet">"The movement disorder appears characteristic, associating ataxia, dystonia"</div>
 
 
-                <div class="evidence-explanation">Records partial rather than absent response, which is the accurate characterisation.</div>
+                <div class="evidence-explanation">Names ataxia as part of the characteristic movement-disorder composite. No cohort-wide count is given for ataxia alone, so no frequency band is asserted.</div>
 
 
 
@@ -6599,12 +6471,388 @@ This clinical feature is Refractory drug response (HP:0020174). HP:0020174 is a 
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dystonia" data-dismech-node="Dystonia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dystonia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001332</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35315256" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35315256" target="_blank">PMID:35315256</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The movement disorder appears characteristic, associating ataxia, dystonia"</div>
+
+
+                <div class="evidence-explanation">Names dystonia as part of the characteristic composite. No cohort-wide count is given for dystonia alone, so no frequency band is asserted.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chorea" data-dismech-node="Chorea" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chorea
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002072</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35315256" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35315256" target="_blank">PMID:35315256</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The movement disorder appears characteristic, associating ataxia, dystonia and paroxysmal chorea"</div>
+
+
+                <div class="evidence-explanation">Curated PARTIAL because the source describes the movements as chorea-like rather than as chorea, so the HP term is a close but not exact fit for the reported observation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual Disability" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Intellectual Disability
+
+                        <span class="phenotype-freq">OBLIGATE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33504645" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33504645" target="_blank">PMID:33504645</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All patients had intellectual disability, usually moderate to severe"</div>
+
+
+                <div class="evidence-explanation">11/11 is 100 percent, the OBLIGATE band, stated as &#34;all&#34; by the source.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-and-generalized-tonic-clonic-seizures" data-dismech-node="Focal and Generalized Tonic-Clonic Seizures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Focal and Generalized Tonic-Clonic Seizures
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Bilateral tonic-clonic seizure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002069</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35315256" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35315256" target="_blank">PMID:35315256</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The severity of the seizure types varied, from early‐onset epilepsy to focal, complex partial, and generalized tonic–clonic seizures"</div>
+
+
+                <div class="evidence-explanation">The reported semiology range, quoted in full. The source renders its hyphens as U+2010 and its dash as U+2013 and those codepoints are reproduced here rather than the quote being cut short of them. No cohort-wide count is given per seizure type, so no frequency band is asserted.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-developmental-regression" data-dismech-node="Developmental Regression" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Developmental Regression
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002376</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35315256" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35315256" target="_blank">PMID:35315256</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"moderate to severe intellectual disability that was sometimes associated with developmental regression or plateauing"</div>
+
+
+                <div class="evidence-explanation">Records regression as a reported course. The source&#39;s &#34;sometimes&#34; gives no count, so no frequency band is asserted.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-variable-brain-mri-findings" data-dismech-node="Variable Brain MRI Findings" data-dismech-type="phenotype">
                     <div class="item-name">
                         Variable Brain MRI Findings
 
 
                     </div>
+
+
+
 
 
 
@@ -6624,6 +6872,8 @@ This clinical feature is Refractory drug response (HP:0020174). HP:0020174 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6647,6 +6897,8 @@ This clinical feature is Refractory drug response (HP:0020174). HP:0020174 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6746,6 +6998,9 @@ This disease-associated gene is RHOBTB2 (hgnc:18756). hgnc:18756 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -6760,6 +7015,8 @@ This disease-associated gene is RHOBTB2 (hgnc:18756). hgnc:18756 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6785,6 +7042,8 @@ This disease-associated gene is RHOBTB2 (hgnc:18756). hgnc:18756 is a gene from 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6806,6 +7065,8 @@ This disease-associated gene is RHOBTB2 (hgnc:18756). hgnc:18756 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6945,6 +7206,31 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management is symptomatic, with antiseizure drugs the mainstay. Response is genuinely variable rather than uniformly poor: 4 of the 7 patients with epilepsy in the movement-disorder series achieved seizure freedom, one infant remained seizure-free on oral sodium valproate over three months of follow-up, and valproate, carbamazepine and pyridoxine are each reported to work well in some patients - while another patient retained only partial control on triple therapy. No agent has disease-specific efficacy evidence, and no trial exists, so the agents named here are those reported to have helped rather than a recommended sequence.</div>
 
 
@@ -6966,6 +7252,8 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6991,6 +7279,8 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7012,6 +7302,8 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7079,6 +7371,8 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7127,6 +7421,8 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7184,6 +7480,8 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7234,6 +7532,8 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7262,6 +7562,306 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-trio-whole-exome-sequencing">
+                <div class="item-name">
+                    Trio Whole-Exome Sequencing
+
+                </div>
+
+                <div class="item-desc">The primary diagnostic modality. Every reported case has been ascertained molecularly, and the trio design is what establishes the de novo status that the variant interpretation depends on - a heterozygous missense variant in RHOBTB2 is only interpretable as causative once both parents are shown not to carry it.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Whole Exome Sequencing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C101295" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-24">NCIT:C101295</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39831600" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39831600" target="_blank">PMID:39831600</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We performed whole-exome and Sanger sequencing on the patient and his parents"</div>
+
+
+                <div class="evidence-explanation">The trio design - proband plus both parents - stated as the method used to reach the diagnosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29276004" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29276004" target="_blank">PMID:29276004</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We have now identified de novo missense variants clustering in the BTB-domain-encoding region of RHOBTB2"</div>
+
+
+                <div class="evidence-explanation">The de novo determination that trio sequencing exists to make.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-electroencephalography">
+                <div class="item-name">
+                    Electroencephalography
+
+                </div>
+
+                <div class="item-desc">EEG typically shows focal epileptic discharges during seizures. It supports the epilepsy diagnosis but does not distinguish this disorder from other developmental and epileptic encephalopathies, so the diagnosis remains genotype-driven.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Electroencephalography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38054" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-25">NCIT:C38054</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39831600" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39831600" target="_blank">PMID:39831600</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"EEG typically reveals focal epileptic discharges during seizures"</div>
+
+
+                <div class="evidence-explanation">States the characteristic EEG finding for RHOBTB2-related encephalopathy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">60 reported DEE64 cases as of the 2025 hotspot analysis. No population prevalence estimate exists for this disorder.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39831600" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39831600" target="_blank">PMID:39831600</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"To date, 60 cases of DEE patients with RHOBTB2 variants have been reported"</div>
+
+
+                <div class="evidence-explanation">The reported case count, which is the only occurrence measure available.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7378,6 +7978,8 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7436,6 +8038,8 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7475,6 +8079,8 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7626,6 +8232,8 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7665,6 +8273,8 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8043,7 +8653,7 @@ pathophysiology:
   evidence:
   - reference: PMID:41478322
     reference_title: &#34;Mutant-specific dysfunction of RHOBTB2 impairs mitochondrial function and Na(+)/K(+)-ATPase levels in a cell model.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;the R489Q and W217C mutants impaired mitochondrial respiration, whereas other
       mutants did not show detectable mitochondrial dysfunction&#34;
@@ -8098,7 +8708,7 @@ mechanistic_hypotheses:
   evidence:
   - reference: PMID:15107402
     reference_title: &#34;RhoBTB2 is a substrate of the mammalian Cul3 ubiquitin ligase complex.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;RhoBTB2 binds to the ubiquitin ligase scaffold, Cul3, via its first BTB
       domain&#34;
@@ -8298,7 +8908,7 @@ phenotypes:
   evidence:
   - reference: PMID:35315256
     reference_title: &#34;Developmental and epileptic encephalopathy related to a heterozygous variant of the RHOBTB2 gene: A case report from French Guiana.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The movement disorder appears characteristic, associating ataxia, dystonia and
       paroxysmal chorea&#34;
@@ -8702,7 +9312,7 @@ treatments:
       the patients with epilepsy in this series became seizure-free.
   - reference: PMID:35315256
     reference_title: &#34;Developmental and epileptic encephalopathy related to a heterozygous variant of the RHOBTB2 gene: A case report from French Guiana.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;she is under a triple antiepileptic medication with partial control of her
       epileptic seizures&#34;
@@ -8948,6 +9558,50 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope: this entry curates DEE64, the disorder caused by heterozygous missense variants in the BTB-domain-encoding region. RHOBTB2 GTPase-domain missense variants and biallelic truncating variants are associated with other neurological and neurodevelopmental phenotypes that the electrophysiology paper concludes act by different pathomechanisms; they are referenced here for contrast and are deliberately not modeled as part of DEE64. The deep-research report used to build this entry proposed GO:0004871 for the GTPase-domain function; that term is obsolete and was not used. It also advised excluding CL:0000598 on the ground that it is &#34;dendritic cell&#34; - the exclusion was right but the reason was not, since CL:0000598 is pyramidal neuron. No cell type narrower than neuron is bound here, because the iPSC recordings are from mature differentiated neurons without a stated cortical subtype.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review response: consume committed evidence (movement disorder, triggers, hotspots, treatment response)</strong> · 2026-08-20T13:14:00Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/RHOBTB2-Related_Developmental_and_Epileptic_Encephalopathy/2026-08-20T131400Z-claude-code-e23f48.yaml">View source</a></p>
+                        <p class="research-review-text">Addresses the eight IMPORTANT findings and four suggestions in the ai4c-reviewer CHANGES_REQUESTED review of PR #9092. Every finding was a case of under-consuming evidence already committed in the PR, plus one incorrect ontology binding.
+
+Item 1. GO:0032413 was bound inverted - preferred_term said &#39;regulation of ion transmembrane transporter activity&#39; while the bound label was &#39;negative regulation of...&#39;, modifier DYSREGULATED contradicted that baked-in direction, and the evidence is about gene expression rather than transporter activity. Rebound to GO:0010468 regulation of gene expression, which is what the measurement is actually of, with the ion-channel specificity carried by preferred_term. The obvious alternative GO:0032412 (the non-directional parent) is obsolete; recorded in a node note.
+
+Items 2 and 3. Movement-disorder phenotypes added from PMID:33504645 (fetched for this round) and PMID:35315256 (already committed): Complex Motor Phenotype OBLIGATE 11/11, Paroxysmal Movement Disorder VERY_FREQUENT 10/11, Episodic Hemiplegia FREQUENT 8/11 with the 20-month onset that distinguishes it from ATP1A3 AHC, plus ataxia, dystonia, chorea (PARTIAL - the source says chorea-like) and Intellectual Disability OBLIGATE. HP:0100022 retained but retargeted as the explicit umbrella carrying the &#39;at least 2 different kinds&#39; claim, with the specific components curated separately beneath it.
+
+Item 4. New environmental section with hyperthermia and head trauma, both linked via influences_mechanisms TRIGGERS to Seizures and Developmental Encephalopathy, each with its own link evidence. Both left without exposure_term: ECTO&#39;s temperature terms describe environmental heat exposure while the source says only &#39;hyperthermia&#39; without stating whether it was febrile, and ECTO has no head-trauma or physical-injury term. Both searches recorded in notes.
+
+Item 5. Treatment description corrected. The earlier &#39;at best partial control on multi-drug regimens&#39; was contradicted by the entry&#39;s own cited sources: 4 of 7 patients with epilepsy achieved seizure freedom (PMID:33504645) and one infant remained seizure-free on valproate monotherapy (PMID:39831600). Rewritten as genuinely variable response, with the retraction recorded in treatment notes rather than silently overwritten.
+
+Item 6. therapeutic_agent added: valproic acid (CHEBI:39867), carbamazepine (CHEBI:3387), pyridoxine (CHEBI:16709), from the source sentence naming all three.
+
+Item 7. Trio whole-exome sequencing added to diagnosis (NCIT:C101295) as the primary modality, with the de novo determination it exists to make.
+
+Item 8. Hotspot residues Arg483 and Arg511 added to the genetic association with their share of the spectrum (about 50 percent of about 30 variants across about 60 reported cases), the over-10-percent individual incidence of p.Arg511Gln, p.Arg483His and p.Arg511Trp, and the non-conservation finding (curated COMPUTATIONAL, a homology analysis).
+
+Suggestions also taken: seizure semiology and developmental regression phenotypes added, and a CASES_IN_LITERATURE prevalence record (60 reported cases).
+
+One new reference fetched and committed: PMID:33504645 (Zagaglia 2021, Neurology), the dedicated movement-disorder cohort. The deep-research report&#39;s approximately-84-percent figure for AHC was NOT used - the primary source reports 8 of 11, which is 73 percent, and the entry curates the counted figure.
+
+Validation: just validate passed, snippets 58/58 verified (was 36/36); just validate-terms passed; check-duplicate-keys, check-title-snippets, check-snippet-length, check-folded-hyphens and check-environmental-evidence all clean.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: RHOBTB2-Related DEE (DEE64)</strong> · 2026-08-20T12:25:16Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/RHOBTB2-Related_Developmental_and_Epileptic_Encephalopathy/2026-08-20T122516Z-claude-code-c9997a.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for DEE64 (MONDO:0033373, OMIM 618004, RHOBTB2 hgnc:18756), curated from a claude_code deep-research run. NEC preflight PASS: RHOBTB2 at 68 mentions with CUL3 and RBX1 appearing as its ligase-complex partners rather than rival entities, and OMIM 618004 matching the MONDO xref. The report&#39;s own validator flagged one unsupported quote from DOI:10.3389/fped.2024.1448793; that source is not cited in this entry. Two ontology bindings proposed by the report were wrong and were corrected against OAK before use: GO:0004871 is obsolete, and the report advised excluding CL:0000598 on the stated ground that it is dendritic cell, which is incorrect since CL:0000598 is pyramidal neuron. The exclusion was kept but for the correct reason, that the iPSC recordings are from mature differentiated neurons with no stated cortical subtype, so only CL:0000540 neuron is bound. No GeneReviews chapter exists for RHOBTB2, verified with a query form validated against SCN1A as a positive control. Six references cited, three with full text mined beyond the abstract. The entry is built around a three-way dissociation the deep-research report understated: in one iPSC system, BTB-domain missense variants altered excitability while GTPase-domain variants and complete loss of RHOBTB2 did not. The complete-loss negative is curated as an UNCHANGED readout because it is what excludes haploinsufficiency and makes the protein-accumulation account operative. A 2026 paper the report did not cite, PMID:41478322, adds a second molecular arm in which Na+/K+-ATPase is reduced through a lysosome-dependent route most prominently in the GTPase-domain mutants, which is the class showing no excitability phenotype; that tension is recorded as an open knowledge gap rather than smoothed over. Two competing mechanistic_hypotheses are curated for the route from accumulated RHOBTB2 to channel deregulation, transcriptional versus direct substrate ubiquitination, with the causal edge tagged to both groups. Validation: just validate passed with 36 of 36 snippets verified; validate-terms, check-duplicate-keys, check_folded_hyphens, check_environmental_evidence, check-title-snippets and check_snippet_length all pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9487,7 +10141,7 @@ Antiseizure medications are the mainstay, with the most frequently used agents b
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "RHOBTB2-Related Developmental and Epileptic Encephalopathy", "mondoId": "MONDO:0033373", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "RHOBTB2-Related_Developmental_and_Epileptic_Encephalopathy", "yamlRevision": "cacbf8543ed9"};
+        const OS_CONFIG = {"diseaseName": "RHOBTB2-Related Developmental and Epileptic Encephalopathy", "mondoId": "MONDO:0033373", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "RHOBTB2-Related_Developmental_and_Epileptic_Encephalopathy", "yamlRevision": "5f2cd3c1e95b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

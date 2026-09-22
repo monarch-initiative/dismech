@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -289,6 +290,16 @@
             border: 1px solid var(--teal-light);
         }
 
+        /* Study-area category pills. Colour comes from ModuleCategoryEnum via
+           the renderer, so only the shape is set here. */
+        .badge-study-area {
+            border: 1px solid;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 5px 13px;
+            cursor: help;
+        }
+
         .badge-module {
             background: #e0f2fe;
             color: #0369a1;
@@ -457,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -634,9 +657,7 @@
             font-weight: 600;
         }
         .support-SUPPORT { background: #d1fae5; color: #065f46; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
-        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
@@ -974,6 +995,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -982,7 +1017,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -1022,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1037,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1091,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1104,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1262,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1272,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1313,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1519,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1552,9 +1626,18 @@
         <header class="page-header">
             <h1>Antifungal Intrinsic Resistance Gating Module</h1>
             <div class="header-meta">
+                
+                <span class="badge badge-study-area"
+                      title="Drug mechanism of action and therapeutic targeting: modules built around a molecular drug target, a therapeutic modality, or an acquired-resistance pathway that gates drug choice. Typically carries the target_mechanisms drug pattern."
+                      style="background: hsl(153, 68%, 96%); border-color: hsl(153, 52%, 78%); color: hsl(153, 62%, 26%);">Pharmacology</span>
+                
+                <span class="badge badge-study-area"
+                      title="Host-pathogen mechanism and antimicrobial therapy: pathogen entry, replication, persistence and immune evasion, together with the antibacterial, antifungal, and antiviral drug-target modules."
+                      style="background: hsl(68, 68%, 96%); border-color: hsl(68, 52%, 78%); color: hsl(68, 62%, 26%);">Infectious disease</span>
+                
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">antifungal_intrinsic_resistance_gating</span>
-                <span class="badge badge-count">1 disorder</span>
+                <span class="badge badge-count">2 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 3</a>
                 
@@ -1662,14 +1745,36 @@ This mechanism module involves Response to Xenobiotic Stimulus (GO:0009410). GO:
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">2</span>
             </div>
             
             <div class="crosslink-list">
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Aspergillosis.html">Aspergillosis</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Aspergillus Intrinsic Fluconazole Resistance → Species-Level Intrinsic Antifungal Resistance
+                        
+                        
+                        , 
+                        
+                        Resistance-Gated Narrowing of Antifungal Options
+                        
+                        
+                    </span>
+                    
+                </div>
                 
                 <div class="crosslink-item">
                     <a href="../disorders/Otomycosis.html">Otomycosis</a>
@@ -1725,11 +1830,13 @@ This mechanism module involves Response to Xenobiotic Stimulus (GO:0009410). GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-species-level-intrinsic-antifungal-resistance" data-dismech-node="Species-Level Intrinsic Antifungal Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Species-Level Intrinsic Antifungal Resistance</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">intrinsic resistance</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The lineage identity of the infecting fungus excludes a named antifungal agent or whole mechanistic class before any susceptibility result, because a required target is absent, divergent, or non-viable, or the agent otherwise has negligible lineage-wide activity. This is the central gating principle of the module and its canonical conformance / gating target. Three fixed, phylogeny-determined exclusions recur clinically: (1) Aspergillus species are intrinsically resistant to fluconazole, so invasive aspergillosis requires a mold-active azole (voriconazole, isavuconazole, posaconazole, itraconazole) or amphotericin B; (2) Cryptococcus species display negligible susceptibility to the echinocandins — the β-1,3-glucan-synthase target exists but is not a viable drug target — so cryptococcosis is treated with amphotericin B, flucytosine, and fluconazole, never an echinocandin; and (3) the Mucorales (agents of mucormycosis) are intrinsically resistant to both voriconazole and the echinocandins, leaving amphotericin B (typically lipid formulations) or isavuconazole as the only active options. Because these exclusions track monophyletic taxonomic groups, members of the same order behave alike, and empiric drug choice is therefore gated by organism identification rather than by in-vitro testing of the individual isolate.</div>
                 
@@ -1768,6 +1875,13 @@ This pathophysiological event involves Species-level intrinsic insusceptibility 
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Aspergillosis.html">Aspergillosis</a>
+                            
+                            <span class="crosslink-desc">as Aspergillus Intrinsic Fluconazole Resistance</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Otomycosis.html">Otomycosis</a>
                             
                             <span class="crosslink-desc">as Aspergillus intrinsic fluconazole resistance</span>
@@ -1797,11 +1911,13 @@ This pathophysiological event involves Species-level intrinsic insusceptibility 
             
             <div class="item-box anchor-target" id="module-pathophysiology-acquired-multidrug-resistance-in-emerging-species-candida-auris" data-dismech-node="Acquired Multidrug Resistance in Emerging Species (Candida auris)" data-dismech-type="pathophysiology">
                 <div class="item-name">Acquired Multidrug Resistance in Emerging Species (Candida auris)</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">adaptive escape</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Beyond the phylogenetically fixed intrinsic exclusions, a second gating layer arises from emerging pathogens that acquire resistance across several antifungal classes at once. The exemplar is Candida auris, an emerging multidrug-resistant species in which acquired resistance to the azoles, echinocandins, and polyenes can co-occur, collapsing the available armamentarium and forcing susceptibility-guided, often last-line therapy. More broadly, multidrug resistance to the azoles, echinocandins, and polyenes is increasingly reported across Candida species (notably C. glabrata and now C. auris), driven by overall antifungal use, subtherapeutic drug levels, and biofilm sequestration. This node captures why species identification must be coupled to surveillance of acquired resistance: an organism whose class is nominally available may nonetheless be untreatable with it, so empiric choice and stewardship must account for the emergence of pan-resistant strains.</div>
                 
@@ -1863,11 +1979,13 @@ This pathophysiological event involves Response to Xenobiotic Stimulus (GO:00094
             
             <div class="item-box anchor-target" id="module-pathophysiology-resistance-gated-narrowing-of-antifungal-options" data-dismech-node="Resistance-Gated Narrowing of Antifungal Options" data-dismech-type="pathophysiology">
                 <div class="item-name">Resistance-Gated Narrowing of Antifungal Options</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The shared consequence of the two parallel resistance arms is a smaller set of viable antifungal choices. Fixed lineage-level exclusions constrain empiric therapy from organism identification, while acquired multidrug resistance can remove additional agents after susceptibility testing. Convergence on this node does not assert that intrinsic resistance causes acquired resistance or vice versa.</div>
                 
@@ -1879,11 +1997,26 @@ This pathophysiological event involves Response to Xenobiotic Stimulus (GO:00094
                 
 
                 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Aspergillosis.html">Aspergillosis</a>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
 
                 
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

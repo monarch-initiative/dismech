@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4511,6 +4618,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4616,6 +4725,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4708,6 +4819,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4788,6 +4901,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4843,7 +4958,7 @@
 
 
 
-    <span class="entity-ref-chip">progression#Spontaneous viral clearance</span>
+    <a class="entity-ref-chip" href="#progression-spontaneous-viral-clearance">progression#Spontaneous viral clearance</a>
 
 
 
@@ -4873,6 +4988,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4909,6 +5026,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hcv-attachment-and-hepatocyte-entry" data-dismech-node="HCV attachment and hepatocyte entry" data-dismech-type="pathophysiology">
                 <div class="item-name">HCV attachment and hepatocyte entry</div>
+
 
                 <div class="item-desc">HCV first attaches to cell-surface proteoglycans, SR-BI, and CD81, then uses the tight-junction proteins claudin-1 and occludin and clathrin-mediated endocytosis to enter human liver cells.</div>
 
@@ -5076,6 +5194,8 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5098,6 +5218,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hcv-polyprotein-translation" data-dismech-node="HCV Polyprotein Translation" data-dismech-type="pathophysiology">
                 <div class="item-name">HCV Polyprotein Translation</div>
+
 
                 <div class="item-desc">The positive-sense HCV RNA genome is translated as a single long polyprotein in infected hepatocytes. Host and viral proteases subsequently process this precursor into structural and nonstructural proteins.</div>
 
@@ -5265,6 +5386,8 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5287,6 +5410,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hcv-ns3-4a-dependent-processing-of-the-nonstructural-polyprotein" data-dismech-node="HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein" data-dismech-type="pathophysiology">
                 <div class="item-name">HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein</div>
+
 
                 <div class="item-desc">HCV NS3/4A is a virus-encoded serine protease complex that cleaves four defined junctions in the nonstructural region of the HCV polyprotein. This processing is essential for viral replication and produces active viral proteins, including NS3/4A itself. The active protease can also cleave host innate-sensing adaptors, a distinct downstream immune-evasion effect.</div>
 
@@ -5507,6 +5631,8 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5528,6 +5654,8 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5552,6 +5680,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hcv-genome-replication-and-early-viremia" data-dismech-node="HCV genome replication and early viremia" data-dismech-type="pathophysiology">
                 <div class="item-name">HCV genome replication and early viremia</div>
+
 
                 <div class="item-desc">Processed HCV nonstructural proteins assemble the replication complex that synthesizes viral RNA in infected hepatocytes, producing the circulating HCV RNA that marks productive acute infection. In one tertiary-center cohort, RNA was detectable at presentation in 26 of 30 patients; this cohort proportion is not assigned as a universal frequency.</div>
 
@@ -5738,6 +5867,8 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5760,6 +5891,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-interferon-driven-innate-and-nk-cell-activation" data-dismech-node="Interferon-driven innate and NK-cell activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Interferon-driven innate and NK-cell activation</div>
+
 
                 <div class="item-desc">During acute HCV, a highly activated NK-cell subset shows a strong type I interferon imprint and largely returns toward baseline after viral clearance.</div>
 
@@ -5940,6 +6072,8 @@ This pathophysiological event involves increased type I interferon-mediated sign
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5962,6 +6096,7 @@ This pathophysiological event involves increased type I interferon-mediated sign
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ns3-4a-mediated-innate-immune-evasion" data-dismech-node="NS3/4A-mediated innate immune evasion" data-dismech-type="pathophysiology">
                 <div class="item-name">NS3/4A-mediated innate immune evasion</div>
+
 
                 <div class="item-desc">HCV NS3/4A protease cleaves and inactivates MAVS and TRIF, blunting pathogen-sensing pathways that induce interferons. Viral escape mutations can additionally reduce antibody and T-cell recognition.</div>
 
@@ -6185,6 +6320,8 @@ This pathophysiological event involves decreased type I interferon-mediated sign
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6206,6 +6343,8 @@ This pathophysiological event involves decreased type I interferon-mediated sign
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6230,6 +6369,7 @@ This pathophysiological event involves decreased type I interferon-mediated sign
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hcv-specific-adaptive-immune-response" data-dismech-node="HCV-specific adaptive immune response" data-dismech-type="pathophysiology">
                 <div class="item-name">HCV-specific adaptive immune response</div>
+
 
                 <div class="item-desc">Virus-specific T-cell responses emerge after the early innate response. Strong multispecific responses are associated with spontaneous clearance, whereas the recent liver-enriched Tfh1-like helper-cell refinement is based on chimpanzee data and remains unconfirmed in humans.</div>
 
@@ -6435,6 +6575,8 @@ This pathophysiological event involves increased T cell activation (GO:0042110).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6456,6 +6598,8 @@ This pathophysiological event involves increased T cell activation (GO:0042110).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6480,6 +6624,7 @@ This pathophysiological event involves increased T cell activation (GO:0042110).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ifnl3-rs12979860-host-clearance-modifier" data-dismech-node="IFNL3 rs12979860 host-clearance modifier" data-dismech-type="pathophysiology">
                 <div class="item-name">IFNL3 rs12979860 host-clearance modifier</div>
+
 
                 <div class="item-desc">The rs12979860 C/C genotype near IFNL3 (formerly IL28B) is associated with a higher probability of untreated HCV clearance in both European- and African-ancestry cohorts. The associated locus is established, but its precise functional mechanism remains unresolved.</div>
 
@@ -6597,6 +6742,8 @@ This pathophysiological event involves IFNL3 (hgnc:18365). hgnc:18365 is a gene 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6619,6 +6766,7 @@ This pathophysiological event involves IFNL3 (hgnc:18365). hgnc:18365 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-spontaneous-viral-clearance" data-dismech-node="Spontaneous viral clearance" data-dismech-type="pathophysiology">
                 <div class="item-name">Spontaneous viral clearance</div>
+
 
                 <div class="item-desc">Some acute infections lose detectable viremia without antiviral therapy. Clearance proportions vary by population and ascertainment; a small tertiary-center cohort observed clearance in 9 of 30 patients.</div>
 
@@ -6694,6 +6842,8 @@ This pathophysiological event involves increased response to virus (GO:0009615).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6716,6 +6866,7 @@ This pathophysiological event involves increased response to virus (GO:0009615).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistent-hcv-viremia" data-dismech-node="Persistent HCV viremia" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistent HCV viremia</div>
+
 
                 <div class="item-desc">When host responses do not eradicate HCV, viremia persists despite ongoing innate and adaptive responses and can progress to chronic infection.</div>
 
@@ -6862,6 +7013,8 @@ This pathophysiological event involves increased viral genome replication (GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6884,6 +7037,7 @@ This pathophysiological event involves increased viral genome replication (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-hepatitis-c-virus-infection" data-dismech-node="Chronic hepatitis C virus infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic hepatitis C virus infection</div>
+
 
                 <div class="item-desc">Chronic HCV is the natural-history outcome in which viremia persists for more than six months after recent acquisition.</div>
 
@@ -6993,6 +7147,8 @@ This pathophysiological event involves increased viral process (GO:0016032). GO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7015,6 +7171,7 @@ This pathophysiological event involves increased viral process (GO:0016032). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-associated-hepatocellular-injury" data-dismech-node="Immune-associated hepatocellular injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune-associated hepatocellular injury</div>
+
 
                 <div class="item-desc">Hepatocellular injury during acute HCV releases alanine aminotransferase and may produce symptomatic hepatitis. Human iNKT-cell activation correlates with ALT, but available data do not determine whether those cells cause injury or respond to the same inflammatory drivers.</div>
 
@@ -7220,6 +7377,8 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7329,6 +7488,9 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7343,6 +7505,8 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7396,20 +7560,25 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:29642211" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:29642211" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29642211" target="_blank">PMID:29642211</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7463,20 +7632,25 @@ This clinical feature is Anorexia (HP:0002039). HP:0002039 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:29642211" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:29642211" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29642211" target="_blank">PMID:29642211</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7541,6 +7715,9 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7555,6 +7732,8 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7617,20 +7796,25 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:29642211" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:29642211" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29642211" target="_blank">PMID:29642211</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7732,6 +7916,9 @@ This disease-associated gene is IFNL3 (hgnc:18365). hgnc:18365 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7746,6 +7933,8 @@ This disease-associated gene is IFNL3 (hgnc:18365). hgnc:18365 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7828,6 +8017,20 @@ This treatment is antiviral therapy (NCIT:C16119). NCIT:C16119 is a clinical int
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Published AASLD-IDSA guidance recommends initiating direct-acting antiviral treatment after acute HCV with quantifiable RNA is diagnosed rather than waiting for possible spontaneous resolution.</div>
 
 
@@ -7849,6 +8052,8 @@ This treatment is antiviral therapy (NCIT:C16119). NCIT:C16119 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7951,6 +8156,31 @@ This treatment uses pibrentasvir (NCIT:C166601). NCIT:C166601 is a therapeutic a
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">An eight-week oral glecaprevir/pibrentasvir direct-acting antiviral regimen produced high sustained virologic response rates in a completed single-arm phase IIIb study of adults with acute HCV. Glecaprevir is the regimen&#39;s NS3/4A protease inhibitor, whereas pibrentasvir inhibits NS5A. The absence of a randomized untreated comparator and geography-specific regulatory status should be considered when applying the result.</div>
 
 
@@ -7983,6 +8213,8 @@ This treatment uses pibrentasvir (NCIT:C166601). NCIT:C166601 is a therapeutic a
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8004,6 +8236,8 @@ This treatment uses pibrentasvir (NCIT:C166601). NCIT:C166601 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8052,6 +8286,8 @@ This treatment uses pibrentasvir (NCIT:C166601). NCIT:C166601 is a therapeutic a
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8098,6 +8334,8 @@ This treatment uses pibrentasvir (NCIT:C166601). NCIT:C166601 is a therapeutic a
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8140,6 +8378,8 @@ This treatment uses pibrentasvir (NCIT:C166601). NCIT:C166601 is a therapeutic a
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8161,6 +8401,8 @@ This treatment uses pibrentasvir (NCIT:C166601). NCIT:C166601 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8247,6 +8489,8 @@ This environmental factor is blood exposure, annotated with exposure to blood (E
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8295,6 +8539,8 @@ This environmental factor is blood exposure, annotated with exposure to blood (E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8385,6 +8631,8 @@ This environmental factor is blood exposure, annotated with exposure to blood (E
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8424,6 +8672,8 @@ This environmental factor is blood exposure, annotated with exposure to blood (E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8474,6 +8724,8 @@ This environmental factor is blood exposure, annotated with exposure to blood (E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8548,6 +8800,8 @@ This environmental factor is blood exposure, annotated with exposure to blood (E
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8589,6 +8843,8 @@ This environmental factor is blood exposure, annotated with exposure to blood (E
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8610,6 +8866,870 @@ This environmental factor is blood exposure, annotated with exposure to blood (E
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-combined-hcv-rna-and-anti-hcv-testing-with-evidence-of-recent-acquisition">
+                <div class="item-name">
+                    Combined HCV RNA and anti-HCV testing with evidence of recent acquisition
+
+                </div>
+
+                <div class="item-desc">Acute infection is best supported by HCV RNA during the antibody-negative window, documented anti-HCV seroconversion, de novo RNA detection, or RNA loss during untreated recovery. RNA or antibody at one time point cannot by itself reliably distinguish acute from chronic infection.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-42">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Current HCV RNA plus a documented recent negative result, seroconversion, or compatible longitudinal course supports acute HCV.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30927209" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30927209" target="_blank">PMID:30927209</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thus, reliable diagnosis of acute hepatitis C usually requires testing at two time points demonstrating seroconversion to anti-HCV reactivity, de novo development of HCV RNA, or loss of HCV RNA during recovery."</div>
+
+
+                <div class="evidence-explanation">This directly supports longitudinal antibody/RNA evidence for recent infection.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-serial-hcv-rna-assessment">
+                <div class="item-name">
+                    Serial HCV RNA assessment
+
+                </div>
+
+                <div class="item-desc">Repeat HCV RNA assessment is important when timing is uncertain because untreated viremia may fluctuate and a transient decline does not establish spontaneous clearance.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-43">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Persistent, recurrent, or cleared RNA across serial measurements resolves uncertainty that remains after a single result.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21139063" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21139063" target="_blank">PMID:21139063</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The latter group included a significant proportion of &#39;fluctuating&#39; progressors (37.5%), in whom a fall followed by a rise (&gt;1 log₁₀) in viraemia was observed."</div>
+
+
+                <div class="evidence-explanation">This directly supports serial rather than single-point interpretation of viremia, with the cohort context stated in progression.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-combined-hcv-antibody-and-antigen-immunoassay">
+                <div class="item-name">
+                    Combined HCV antibody and antigen immunoassay
+
+                </div>
+
+                <div class="item-desc">A fourth-generation antibody/antigen assay can shorten the diagnostic window but does not eliminate the need for nucleic-acid testing.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        serology testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C25294" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-44">NCIT:C25294</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Antibody/antigen reactivity is an early-detection adjunct and should be interpreted with HCV RNA testing.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39283072" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39283072" target="_blank">PMID:39283072</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Fourth generation HCV Duo Ab/Ag assay demonstrated comparable performance to SOC testing and shortens the diagnostic window but does not eliminate the need for NAAT in all patients."</div>
+
+
+                <div class="evidence-explanation">This diagnostic study directly supports the stated adjunctive role and limitation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">5</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-recent-acquisition-and-early-viremia">
+                <div class="item-name">Recent acquisition and early viremia</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">Duration: Up to six months before persistent infection is classified as chronic</span>
+
+
+                </div>
+
+                <div class="item-notes">Acute infection begins with recent HCV acquisition and detectable viremia. The six-month boundary is a clinical definition of chronicity rather than a claim that every untreated infection remains biologically unchanged until that time.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39599853" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39599853" target="_blank">PMID:39599853</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"approximately 50-70% of individuals with recently acquired hepatitis C will develop a chronic infection, defined as the persistence of viremia for a period exceeding six months."</div>
+
+
+                <div class="evidence-explanation">This defines the recent-infection phase and the six-month chronicity boundary.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-clinically-silent-or-symptomatic-acute-presentation">
+                <div class="item-name">Clinically silent or symptomatic acute presentation</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Many infections are not diagnosed during the acute phase because the course is predominantly asymptomatic. A minority present with clinically apparent hepatitis.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23481134" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23481134" target="_blank">PMID:23481134</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Acute hepatitis C is rarely diagnosed due to its predominantly asymptomatic course."</div>
+
+
+                <div class="evidence-explanation">This directly supports clinically silent presentation as a major feature of the acute phase.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-spontaneous-viral-clearance">
+                <div class="item-name">Spontaneous viral clearance</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Clearance can occur without antiviral treatment. The observed proportion varies by cohort; one tertiary-center series reported clearance in 9 of 30 patients and should not be treated as a universal population frequency.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23481134" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23481134" target="_blank">PMID:23481134</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Totally, 9 patients (30%) experienced spontaneous viral eradication."</div>
+
+
+                <div class="evidence-explanation">This cohort directly documents untreated spontaneous clearance while the note limits generalization of its frequency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-fluctuating-viremia-during-unresolved-infection">
+                <div class="item-name">Fluctuating viremia during unresolved infection</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Serial viral loads can fall and then rise. The quantified 37.5% fluctuation estimate came from an HIV-1-positive male cohort and is retained only as evidence that a single decline does not establish clearance.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21139063" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21139063" target="_blank">PMID:21139063</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The latter group included a significant proportion of &#39;fluctuating&#39; progressors (37.5%), in whom a fall followed by a rise (&gt;1 log₁₀) in viraemia was observed."</div>
+
+
+                <div class="evidence-explanation">This cohort directly demonstrates fluctuating viremia among patients who progressed.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-chronic-hcv-infection">
+                <div class="item-name">Chronic HCV infection</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">Duration: More than six months of persistent viremia</span>
+
+
+                </div>
+
+                <div class="item-notes">Failure to clear HCV leads to persistent viremia and classification as chronic hepatitis C.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39599853" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39599853" target="_blank">PMID:39599853</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"approximately 50-70% of individuals with recently acquired hepatitis C will develop a chronic infection, defined as the persistence of viremia for a period exceeding six months."</div>
+
+
+                <div class="evidence-explanation">This directly supports both the outcome frequency range and definition of chronicity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-global-all-ages">
+                <div class="item-name">Global (all ages)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Annual Incidence</span>
+
+
+
+                    <span class="tag">Unknown</span>
+
+                </div>
+
+                <div class="item-notes">The Global Burden of Disease 2019 analysis estimated 6.2 million new HCV infections worldwide in 2019. This is an incidence estimate for newly acquired infection, not the prevalence of symptomatic acute hepatitis.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36935711" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36935711" target="_blank">PMID:36935711</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It was estimated that 6.2 million new HCV infections, 0.54 million HCV-related deaths, and 15.3 million DALYs worldwide in 2019, with an increase of 25.4, 59.1, and 43.6%, respectively, from 1990"</div>
+
+
+                <div class="evidence-explanation">This GBD analysis quantifies global incident HCV infection in 2019.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-global-women-of-reproductive-age-15-49-years">
+                <div class="item-name">Global women of reproductive age (15-49 years)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Annual Incidence</span>
+
+
+
+                    <span class="tag">Unknown</span>
+
+                </div>
+
+                <div class="item-notes">In a GBD analysis restricted to reproductive-age women, global acute-HCV incidence increased by 46.45% from 1990 through 2019; this is a trend rather than an individual-level risk estimate.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38638097" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38638097" target="_blank">PMID:38638097</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Over the 30 years, global incidences of AHC and HCV-related cirrhosis in reproductive-age women increased by 46.45 and 72.74%, respectively."</div>
+
+
+                <div class="evidence-explanation">This directly supports the acute-HCV incidence trend in the specified population.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-hepatitis-c-virus">
+                <div class="item-name">Hepatitis C virus</div>
+
+                <div class="item-desc">Hepacivirus hominis is the enveloped RNA virus whose productive entry into human liver cells initiates acute hepatitis C.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Hepacivirus hominis
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_3052230" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-45">NCBITaxon:3052230</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-45">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31427285" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31427285" target="_blank">PMID:31427285</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Numerous host factors including proteins, lipids, and glycans promote productive uptake of HCV particles into human liver cells."</div>
+
+
+                <div class="evidence-explanation">This review directly identifies HCV particles as the agent productively entering human liver cells.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Transmission -->
+
+        <div class="card" id="transmission">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">↔️</div>
+                <h2 class="card-title">Transmission</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-parenteral-and-blood-borne-acquisition">
+                <div class="item-name">Parenteral and blood-borne acquisition</div>
+
+                <div class="item-desc">Acute HCV is acquired through blood exposure. Important observed contexts include injection drug use and unsafe medical procedures.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36800699" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36800699" target="_blank">PMID:36800699</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"People who have received unsafe medical procedures, used injection drugs, and lived with human immunodeficiency virus are reported to be most susceptible to acute HCV infection."</div>
+
+
+                <div class="evidence-explanation">This review identifies major human exposure contexts for acute HCV acquisition.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23481134" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23481134" target="_blank">PMID:23481134</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The source of infection was mainly injection drug use in 17/30 (56.7) and medical procedures 6/30 (20%)."</div>
+
+
+                <div class="evidence-explanation">This acute-HCV cohort documents injection drug use and medical procedures as observed acquisition sources.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8676,6 +9796,8 @@ This environmental factor is blood exposure, annotated with exposure to blood (E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8745,6 +9867,8 @@ This environmental factor is blood exposure, annotated with exposure to blood (E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8952,6 +10076,8 @@ This environmental factor is blood exposure, annotated with exposure to blood (E
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8973,6 +10099,8 @@ This environmental factor is blood exposure, annotated with exposure to blood (E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9337,7 +10465,7 @@ pathophysiology:
     evidence:
     - reference: PMID:31427285
       reference_title: &#34;Hepatitis C Virus Entry: Protein Interactions and Fusion Determinants Governing Productive Hepatocyte Invasion.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         Numerous host factors including proteins, lipids, and glycans promote
@@ -9548,7 +10676,7 @@ pathophysiology:
     evidence:
     - reference: PMID:34905514
       reference_title: Peripheral blood iNKT cell activation correlates with liver damage during acute hepatitis C.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Given the correlative nature of our study, we cannot distinguish whether
@@ -9599,7 +10727,7 @@ pathophysiology:
     evidence:
     - reference: PMID:25443342
       reference_title: Innate and adaptive immune responses in HCV infections.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         Elimination of HCV during acute infection correlates with a rapid
@@ -9664,7 +10792,7 @@ pathophysiology:
     evidence:
     - reference: PMID:25443342
       reference_title: Innate and adaptive immune responses in HCV infections.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         However, the majority of patients is unable to clear the virus and
@@ -9719,7 +10847,7 @@ pathophysiology:
     evidence:
     - reference: PMID:21139063
       reference_title: Predicting spontaneous clearance of acute hepatitis C virus in a large cohort of HIV-1-infected men.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Evolution to spontaneous clearance occurred in patients with low viral
@@ -9734,7 +10862,7 @@ pathophysiology:
     evidence:
     - reference: PMID:34905514
       reference_title: Peripheral blood iNKT cell activation correlates with liver damage during acute hepatitis C.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         activated CD38+ or CD69+ iNKT cells strongly correlated with alanine
@@ -9945,7 +11073,7 @@ pathophysiology:
     evidence:
     - reference: PMID:29642211
       reference_title: A case report of sofosbuvir and daclatasvirto treat a patient with acute hepatitis C virus genotype 2 monoinfection.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         a 26 year-old Chinese female acquired a tattoo and developed fatigue,
@@ -9959,7 +11087,7 @@ pathophysiology:
     evidence:
     - reference: PMID:29642211
       reference_title: A case report of sofosbuvir and daclatasvirto treat a patient with acute hepatitis C virus genotype 2 monoinfection.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         a 26 year-old Chinese female acquired a tattoo and developed fatigue,
@@ -9973,7 +11101,7 @@ pathophysiology:
     evidence:
     - reference: PMID:29642211
       reference_title: A case report of sofosbuvir and daclatasvirto treat a patient with acute hepatitis C virus genotype 2 monoinfection.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         a 26 year-old Chinese female acquired a tattoo and developed fatigue,
@@ -10006,7 +11134,7 @@ phenotypes:
   evidence:
   - reference: PMID:29642211
     reference_title: A case report of sofosbuvir and daclatasvirto treat a patient with acute hepatitis C virus genotype 2 monoinfection.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       a 26 year-old Chinese female acquired a tattoo and developed fatigue,
@@ -10023,7 +11151,7 @@ phenotypes:
   evidence:
   - reference: PMID:29642211
     reference_title: A case report of sofosbuvir and daclatasvirto treat a patient with acute hepatitis C virus genotype 2 monoinfection.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       a 26 year-old Chinese female acquired a tattoo and developed fatigue,
@@ -10040,7 +11168,7 @@ phenotypes:
   evidence:
   - reference: PMID:29642211
     reference_title: A case report of sofosbuvir and daclatasvirto treat a patient with acute hepatitis C virus genotype 2 monoinfection.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       a 26 year-old Chinese female acquired a tattoo and developed fatigue,
@@ -10564,6 +11692,36 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (4)</summary>
+
+                    <div>
+                        <p><strong>Cross-provider assessment</strong> · <a href="../research/Acute_Hepatitis_C_Virus_Infection-synthesis.html">Read assessment</a></p>
+
+                    </div>
+
+                    <div>
+                        <p><strong>Re-review: Acute Hepatitis C Virus Infection</strong> · 2026-07-20T21:28:38Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Acute_Hepatitis_C_Virus_Infection/2026-07-20T212838Z-codex-834b62.yaml">View source</a></p>
+                        <p class="research-review-text">Comprehensive evidence re-review rebuilt the entry around a connected exposure-to-entry-to-viremia-to-host-response-to-clearance-or-chronicity pathograph. Added infectious-agent and transmission context, longitudinal natural history, biomarkers, diagnosis and differential guidance, an evidence-backed 8-week glecaprevir/pibrentasvir regimen and completed phase IIIb result, current human immune-response evidence, model-system caveats, and explicit knowledge gaps. Removed the inherited broad deep-research bibliography in favor of claim-level evidence.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review response: fix evidence_source tags and boilerplate snippets (PR #5858)</strong> · 2026-07-09T16:26:42Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Acute_Hepatitis_C_Virus_Infection/2026-07-09T162642Z-claude-code-cdaad1.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed ai4c-agent CHANGES_REQUESTED review on the deep-research findings-evidence backfill. Two problem classes. (1) evidence_source misclassifications: retagged the three reviewer-named COMPUTATIONAL items to their correct study type [PMID:24445571 large longitudinal cohort and PMID:26381047 immune-determinant human study to HUMAN_CLINICAL, PMID:24984327 clinical guidelines to OTHER], and corrected further clearly-wrong tags exposed while rewriting boilerplate findings [PMID:25782010 and PMID:40899815 humanized-mouse to MODEL_ORGANISM, PMID:34565156 and PMID:37967063 and PMID:20538002 cell-based entry/in-vitro to IN_VITRO, PMID:39738554 and PMID:40779594 modeling to COMPUTATIONAL, PMID:41297677 phase IIIb trial to HUMAN_CLINICAL]. (2) 24 findings whose snippet was a citation header, author list, affiliation line, or extraction-artifact prefix were upgraded: statement, supporting_text, and snippet rewritten to a genuine abstract sentence quoted verbatim from each references_cache abstract, with evidence_source matched to study type. One finding (PMID:37579205, a perspective with no abstract body in cache) had its evidence dropped and statement reset to the paper title, joining the no-evidence bucket. All 24 replacement sentences verified as whitespace-normalized substrings of their cache before writing. Findings with evidence 74 to 73; without 6 to 7. Post-fix source distribution HUMAN_CLINICAL 37, OTHER 25, IN_VITRO 4, MODEL_ORGANISM 4, COMPUTATIONAL 3. Validated: linkml-validate passed, term validation passed, snippet substrings confirmed.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Backfill deep-research findings evidence</strong> · 2026-07-09T13:20:52Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Acute_Hepatitis_C_Virus_Infection/2026-07-09T132052Z-claude-code-c5784d.yaml">View source</a></p>
+                        <p class="research-review-text">Weekly compliance pass. Backfilled references findings evidence blocks for cached deep-research references so 74 of 80 findings now carry a SUPPORT evidence item whose snippet equals the cache-derived supporting_text. Also repaired pre-existing findings whose statement/supporting_text were PubMed citation-header lines. Two findings were pruned where the extracted snippet failed reference validation. Validated with schema, term, and reference validators. Weighted compliance rose from 43.8 to 96.4 percent.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -12672,7 +13830,7 @@ DAA TREATMENT: SVR 96-100% (8 weeks glecaprevir/pibrentasvir)
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Acute Hepatitis C Virus Infection", "mondoId": "MONDO:0100371", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Hepatitis_C_Virus_Infection", "yamlRevision": "f02c245c88f6"};
+        const OS_CONFIG = {"diseaseName": "Acute Hepatitis C Virus Infection", "mondoId": "MONDO:0100371", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Hepatitis_C_Virus_Infection", "yamlRevision": "b7211cf51bad"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

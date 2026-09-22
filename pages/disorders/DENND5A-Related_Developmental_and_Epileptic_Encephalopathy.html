@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4080,6 +4187,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4101,6 +4210,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4185,6 +4296,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4247,6 +4360,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4759,6 +4874,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-dennd5a-loss-of-function-variants" data-dismech-node="Biallelic DENND5A Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic DENND5A Loss-of-Function Variants</div>
 
+
                 <div class="item-desc">The initiating lesion. Thirty unique variants have been reported across 22 families, spread over the whole protein rather than clustering in one domain: nine in the DENN domain, two in RUN1, six in PLAT, four in RUN2 and four in the linkers, plus copy number and splice-site variants. That distribution is itself mechanistically informative - it is what a loss-of-function disorder looks like, as opposed to the domain-restricted clustering seen in gain-of-function DEEs.</div>
 
 
@@ -4853,6 +4969,8 @@ This pathophysiological event involves DENND5A (hgnc:19344). hgnc:19344 is a gen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4874,6 +4992,8 @@ This pathophysiological event involves DENND5A (hgnc:19344). hgnc:19344 is a gen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4898,6 +5018,7 @@ This pathophysiological event involves DENND5A (hgnc:19344). hgnc:19344 is a gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-dennd5a-protein" data-dismech-node="Reduced DENND5A Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced DENND5A Protein</div>
+
 
                 <div class="item-desc">The convergent proximal consequence. Cells from five cohort members - three iPSC-derived neural progenitor lines and two immortalized lymphoblast lines, spanning frameshift, nonsense and missense variants - all show reduced DENND5A protein. The reduction is post-transcriptional: patient mRNA levels do not differ significantly from controls, so the protein is lost after it is made rather than because the transcript is absent. This node is curated separately from the variants above because the protein and transcript measurements come apart, and it is the protein measurement that carries the loss-of-function claim.</div>
 
@@ -4992,6 +5113,8 @@ This pathophysiological event involves neural progenitor cell (CL:0011020). CL:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5013,6 +5136,8 @@ This pathophysiological event involves neural progenitor cell (CL:0011020). CL:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5037,6 +5162,7 @@ This pathophysiological event involves neural progenitor cell (CL:0011020). CL:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-dennd5a-mupp1-pals1-association-at-the-apical-membrane" data-dismech-node="Loss of DENND5A-MUPP1/PALS1 Association at the Apical Membrane" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of DENND5A-MUPP1/PALS1 Association at the Apical Membrane</div>
+
 
                 <div class="item-desc">DENND5A binds MUPP1 and PALS1, two components of the Crumbs apical polarity complex that is required for symmetric division of neural progenitors. The interaction is conformation-dependent: full-length DENND5A binds these partners only weakly, because the binding region makes intramolecular contacts with the DENN domain, and a conformational change is needed to expose it. Losing DENND5A therefore removes a conformationally gated link into the apical polarity machinery, which is the point at which this trafficking protein becomes a developmental one.</div>
 
@@ -5161,6 +5287,8 @@ This pathophysiological event involves apical plasma membrane (GO:0016324). GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5182,6 +5310,8 @@ This pathophysiological event involves apical plasma membrane (GO:0016324). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5207,6 +5337,8 @@ This pathophysiological event involves apical plasma membrane (GO:0016324). GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5229,6 +5361,7 @@ This pathophysiological event involves apical plasma membrane (GO:0016324). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-rab-directed-membrane-trafficking" data-dismech-node="Impaired Rab-Directed Membrane Trafficking" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Rab-Directed Membrane Trafficking</div>
+
 
                 <div class="item-desc">The second, older mechanistic thread, and the one the gene is named for. DENND5A carries a DENN domain, the module that confers guanine nucleotide exchange factor activity toward Rab GTPases, and two RUN domains through which it binds active Rab6 and sorting nexin 1. Structural modeling qualifies this: the predicted Rab enzymatic site may be occluded by the DENN-RUN1/PLAT interaction in the closed conformation, while Rab6 binding to RUN1 needs no conformational change - so the two functions are predicted to require different conformations of the same protein. This node is kept separate from the polarity arm rather than merged into it, because no source available to this entry shows that trafficking loss is what causes the spindle defect.</div>
 
@@ -5387,6 +5520,8 @@ This pathophysiological event involves decreased guanyl-nucleotide exchange fact
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5400,14 +5535,16 @@ This pathophysiological event involves decreased guanyl-nucleotide exchange fact
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -5432,6 +5569,7 @@ This pathophysiological event involves decreased guanyl-nucleotide exchange fact
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurotrophin-receptor-upregulation-and-enhanced-downstream-signaling" data-dismech-node="Neurotrophin Receptor Upregulation and Enhanced Downstream Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurotrophin Receptor Upregulation and Enhanced Downstream Signaling</div>
+
 
                 <div class="item-desc">In the founding study, knocking DENND5A down altered neuronal development, and the change appeared to be mediated by an increase in neurotrophin receptors and hence in downstream signaling. This is a knockdown-derived account from 2016 and has not been reproduced in the patient-derived systems used in the 2024 cohort study, so it is curated as a parallel arm reaching the same developmental endpoint rather than as a step in the spindle chain.</div>
 
@@ -5522,6 +5660,8 @@ This pathophysiological event involves increased neurotrophin TRK receptor signa
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5544,6 +5684,7 @@ This pathophysiological event involves increased neurotrophin TRK receptor signa
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitotic-spindle-misorientation-in-apical-neural-progenitors" data-dismech-node="Mitotic Spindle Misorientation in Apical Neural Progenitors" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitotic Spindle Misorientation in Apical Neural Progenitors</div>
+
 
                 <div class="item-desc">The rate-limiting cellular defect. In human iPSC-derived neural rosettes - a polarized in vitro model of early neural development - the angle between the cleavage plane and the apical surface collapses when DENND5A is absent. Wild-type progenitors divide with a mean spindle angle of 57.1 degrees, close to the plane that gives both daughters equal access to the apical surface; knockout progenitors divide at 26.0 degrees, and an overwhelming majority fall below 45 degrees.</div>
 
@@ -5706,6 +5847,8 @@ This pathophysiological event involves mitotic spindle (GO:0072686). GO:0072686 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5727,6 +5870,8 @@ This pathophysiological event involves mitotic spindle (GO:0072686). GO:0072686 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5751,6 +5896,7 @@ This pathophysiological event involves mitotic spindle (GO:0072686). GO:0072686 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-symmetric-proliferative-division" data-dismech-node="Loss of Symmetric Proliferative Division" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Symmetric Proliferative Division</div>
+
 
                 <div class="item-desc">An oblique cleavage plane means only one daughter keeps contact with the apical ventricular surface and inherits the apical determinants MUPP1 and PALS1. The other is displaced basally and receives less of the stem-cell-niche signal, so it is biased toward commitment. The division that should have produced two progenitors produces one progenitor and one committed cell.</div>
 
@@ -5917,6 +6063,8 @@ This pathophysiological event involves increased asymmetric cell division (GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5938,6 +6086,8 @@ This pathophysiological event involves increased asymmetric cell division (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5962,6 +6112,7 @@ This pathophysiological event involves increased asymmetric cell division (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-premature-neuronal-differentiation-and-cell-cycle-exit" data-dismech-node="Premature Neuronal Differentiation and Cell Cycle Exit" data-dismech-type="pathophysiology">
                 <div class="item-name">Premature Neuronal Differentiation and Cell Cycle Exit</div>
+
 
                 <div class="item-desc">Knockout progenitors do not merely divide differently, they are inherently more likely to leave the cycle. One day after passaging into progenitor maintenance medium - conditions meant to keep them undifferentiated - 47.29 percent of knockout cells had developed neuronal processes against 10.67 percent of wild-type. The same shift is present in the adult mouse: knock-in animals have a higher proportion of NeuN-positive post-mitotic neurons in the subventricular zone. This is a propensity of the cells themselves, which is why it is curated as its own node with an input from the division defect rather than only as its consequence.</div>
 
@@ -6165,6 +6316,8 @@ This pathophysiological event involves increased cell fate commitment (GO:004516
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6186,6 +6339,8 @@ This pathophysiological event involves increased cell fate commitment (GO:004516
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6211,6 +6366,8 @@ This pathophysiological event involves increased cell fate commitment (GO:004516
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6233,6 +6390,7 @@ This pathophysiological event involves increased cell fate commitment (GO:004516
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neural-progenitor-pool-depletion" data-dismech-node="Neural Progenitor Pool Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Neural Progenitor Pool Depletion</div>
+
 
                 <div class="item-desc">The two upstream defects - fewer self-renewing divisions and more cells leaving the cycle - both subtract from the same pool, and the pool is measurably smaller. Equal numbers of wild-type and knockout progenitors plated together diverge within two days: 1008 wild-type cells per well against 614 knockout, and by 72 hours 1685 against 683. Wild-type numbers climb while knockout numbers stay nearly flat.</div>
 
@@ -6374,6 +6532,8 @@ This pathophysiological event involves decreased neural precursor cell prolifera
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6396,6 +6556,7 @@ This pathophysiological event involves decreased neural precursor cell prolifera
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shortened-period-of-neurogenesis" data-dismech-node="Shortened Period of Neurogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Shortened Period of Neurogenesis</div>
+
 
                 <div class="item-desc">The developmental endpoint of the progenitor arithmetic. Neurogenesis in the developing cortex is bounded by how long a progenitor pool of sufficient size persists; when the pool is depleted early, the window closes early and fewer neurons, of fewer lineages, are produced.</div>
 
@@ -6520,6 +6681,8 @@ This pathophysiological event involves decreased cerebral cortex development (GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6541,6 +6704,8 @@ This pathophysiological event involves decreased cerebral cortex development (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6565,6 +6730,7 @@ This pathophysiological event involves decreased cerebral cortex development (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-brain-volume-and-cortical-malformation" data-dismech-node="Reduced Brain Volume and Cortical Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Brain Volume and Cortical Malformation</div>
+
 
                 <div class="item-desc">The structural phenotype: microcephaly, reduced white matter volume, pachygyria with an occipital predominance, basal ganglia and diencephalic-mesencephalic junction dysplasia, corpus callosum agenesis or hypoplasia, and striatal and periventricular calcifications. Corpus callosum volume in the cohort was normal, thin or absent, never increased - a detail that distinguishes this from the LIS1 tubulinopathy differential.</div>
 
@@ -6671,6 +6837,8 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6692,6 +6860,8 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6716,6 +6886,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-compensatory-ventriculomegaly" data-dismech-node="Compensatory Ventriculomegaly" data-dismech-type="pathophysiology">
                 <div class="item-name">Compensatory Ventriculomegaly</div>
+
 
                 <div class="item-desc">Ventricular enlargement is present in 15 of 24 individuals and is reproduced in the knock-in mouse by 7T MRI. The 2024 study reads it as compensatory - space vacated by the reduced neuronal volume - rather than as an independent obstructive or resorptive process. That reading is an interpretation offered by the source, not a measurement, and is recorded as such.</div>
 
@@ -6773,6 +6944,8 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6794,6 +6967,8 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6818,6 +6993,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-positioning-and-connectivity-of-prematurely-born-neurons" data-dismech-node="Aberrant Positioning and Connectivity of Prematurely Born Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Positioning and Connectivity of Prematurely Born Neurons</div>
+
 
                 <div class="item-desc">Neurons born too early and displaced from the ventricular surface end up in the wrong laminar position and, where they escape apoptosis, form synaptic contacts they should not have. This is the proposed bridge from the developmental defect to the epilepsy, and it is the least directly evidenced step in the chain: it is asserted in the authors&#39; disease model, not measured. The edge into seizure generation is marked accordingly.</div>
 
@@ -6894,14 +7070,16 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6926,6 +7104,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-seizure-generation-and-developmental-and-epileptic-encephalopathy" data-dismech-node="Seizure Generation and Developmental and Epileptic Encephalopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Seizure Generation and Developmental and Epileptic Encephalopathy</div>
+
 
                 <div class="item-desc">Recurrent, usually drug-resistant seizures in 21 of 24 individuals, with focal to bilateral tonic-clonic the most common type. Seizures then act back on development, the defining feature of a developmental and epileptic encephalopathy. Conformance attaches at the module&#39;s Recurrent Unprovoked Seizures node - the clinical endpoint - and not at the upstream excitation-inhibition or hyperexcitability nodes, because no ion-channel or synaptic measurement exists for this disorder to support those. The developmental encephalopathy here has an independent origin in the neurogenesis defect and is not solely seizure-driven.</div>
 
@@ -6983,6 +7162,8 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7004,6 +7185,8 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7070,13 +7253,13 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(8)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(8)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(13)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7086,8 +7269,107 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-primary-microcephaly" data-dismech-node="Primary Microcephaly" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Primary Microcephaly
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011451" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0011451</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Primary microcephaly (HP:0011451). HP:0011451 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All cases of microcephaly in the cohort were primary, with no cases of secondary microcephaly reported"</div>
+
+
+                <div class="evidence-explanation">Establishes the microcephaly as primary, which is what ties it to the prenatal neurogenesis defect rather than to postnatal degeneration.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"seizures (21/24), microcephaly (16/24), ventriculomegaly (15/24), hypertonia (14/24), cerebral hypoplasia (13/24), and hyperreflexia (13/24)"</div>
+
+
+                <div class="evidence-explanation">16/24 is 67 percent, in the FREQUENT band (30-79 percent).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-coarse-facial-features" data-dismech-node="Coarse Facial Features" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7103,15 +7385,18 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000280</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000280</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7131,6 +7416,8 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7161,15 +7448,13 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
+                    Metabolism
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypertonia" data-dismech-node="Hypertonia" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-drug-resistant-epilepsy" data-dismech-node="Drug-Resistant Epilepsy" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Hypertonia
-
-                        <span class="phenotype-freq">FREQUENT</span>
+                        Drug-Resistant Epilepsy
 
 
 
@@ -7178,18 +7463,23 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Refractory drug response</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001276" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001276</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0020174" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0020174</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Refractory drug response (HP:0020174). HP:0020174 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7209,6 +7499,91 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Seizures were generally drug-resistant, but control was achieved in 6 cases with variable antiepileptic treatment"</div>
+
+
+                <div class="evidence-explanation">States drug resistance as the general pattern with a minority achieving control.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypertonia" data-dismech-node="Hypertonia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypertonia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001276" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001276</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7234,13 +7609,85 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-calcification" data-dismech-node="Cerebral Calcification" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cerebral Calcification
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002514" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002514</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral calcification (HP:0002514). HP:0002514 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27866705" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27866705" target="_blank">PMID:27866705</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we have identified an epileptic encephalopathy additionally featuring cerebral calcifications and coarse facial features"</div>
+
+
+                <div class="evidence-explanation">Names calcifications as part of the founding clinical description. No cohort-wide frequency is reported for calcifications, so no frequency band is asserted.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">8</span>
+                    <span class="cat-count">13</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
@@ -7259,15 +7706,18 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7287,6 +7737,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7328,15 +7780,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7358,6 +7813,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7366,6 +7823,105 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                 <div class="evidence-explanation">14 of the 15 assessed individuals had intellectual disability, which is 93 percent and falls in the VERY_FREQUENT band. Note the denominator is the assessed subset, not the whole cohort - the band is over those old enough to be assessed.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-inability-to-walk-independently" data-dismech-node="Inability to Walk Independently" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Inability to Walk Independently
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002540" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002540</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Eight of twenty-four individuals (33%) could walk independently and 11/24 (46%) were able to reach for and grasp objects"</div>
+
+
+                <div class="evidence-explanation">The complement, 16/24 or 67 percent, falls in the FREQUENT band. The band is derived from the stated count rather than quoted directly, which is why the derivation is spelled out here.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Motor capabilities were more severely affected in those with microcephaly (MMicro = 3.2, MNo micro = 7.2, SDMicro = 3.5, SDNo micro = 3.4, two-tailed Mann-Whitney U, Z = −2.55, p = 0.011"</div>
+
+
+                <div class="evidence-explanation">Quantifies the association between microcephaly and motor outcome, which is the one within-cohort predictor of motor severity the study reports besides variant class.</div>
 
 
 
@@ -7397,15 +7953,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7427,6 +7986,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7435,6 +7996,82 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                 <div class="evidence-explanation">21/24 is 88 percent, which falls in the VERY_FREQUENT band (80-99 percent).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-to-bilateral-tonic-clonic-seizures" data-dismech-node="Focal to Bilateral Tonic-Clonic Seizures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Focal to Bilateral Tonic-Clonic Seizures
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Bilateral tonic-clonic seizure with focal onset</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007334" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0007334</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bilateral tonic-clonic seizure with focal onset (HP:0007334). HP:0007334 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Focal to bilateral tonic-clonic is the most prominent seizure type, diagnosed in 9 individuals"</div>
+
+
+                <div class="evidence-explanation">9/24 is 38 percent, in the FREQUENT band (30-79 percent).</div>
 
 
 
@@ -7466,15 +8103,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0011097</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0011097</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7494,6 +8134,8 @@ This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7535,15 +8177,18 @@ This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002119</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002119</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7565,6 +8210,8 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7573,6 +8220,80 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
                 <div class="evidence-explanation">15/24 is 63 percent, in the FREQUENT band (30-79 percent).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-hypoplasia" data-dismech-node="Cerebral Hypoplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cerebral Hypoplasia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006872" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0006872</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral hypoplasia (HP:0006872). HP:0006872 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"hypertonia (14/24), cerebral hypoplasia (13/24), and hyperreflexia (13/24)"</div>
+
+
+                <div class="evidence-explanation">13/24 is 54 percent, in the FREQUENT band (30-79 percent).</div>
 
 
 
@@ -7604,15 +8325,18 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001347</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001347</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7632,6 +8356,8 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7673,10 +8399,10 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001344</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001344</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7687,6 +8413,9 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7701,6 +8430,8 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7711,477 +8442,6 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
                 <div class="evidence-explanation">63 percent nonverbal falls in the FREQUENT band (30-79 percent); the figure is stated directly by the source.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-corpus-callosum-hypoplasia-or-agenesis" data-dismech-node="Corpus Callosum Hypoplasia or Agenesis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Corpus Callosum Hypoplasia or Agenesis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Hypoplasia of the corpus callosum</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002079</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002079 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In contrast, corpus callosum volumes were either normal, thin, or absent with no cases of increased volume in our cohort"</div>
-
-
-                <div class="evidence-explanation">Records the callosal finding and its direction, which is what distinguishes it from the LIS1 pattern.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">8</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-inability-to-walk-independently" data-dismech-node="Inability to Walk Independently" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Inability to Walk Independently
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002540" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002540</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Eight of twenty-four individuals (33%) could walk independently and 11/24 (46%) were able to reach for and grasp objects"</div>
-
-
-                <div class="evidence-explanation">The complement, 16/24 or 67 percent, falls in the FREQUENT band. The band is derived from the stated count rather than quoted directly, which is why the derivation is spelled out here.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Motor capabilities were more severely affected in those with microcephaly (MMicro = 3.2, MNo micro = 7.2, SDMicro = 3.5, SDNo micro = 3.4, two-tailed Mann-Whitney U, Z = −2.55, p = 0.011"</div>
-
-
-                <div class="evidence-explanation">Quantifies the association between microcephaly and motor outcome, which is the one within-cohort predictor of motor severity the study reports besides variant class.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-to-bilateral-tonic-clonic-seizures" data-dismech-node="Focal to Bilateral Tonic-Clonic Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Focal to Bilateral Tonic-Clonic Seizures
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Bilateral tonic-clonic seizure with focal onset</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007334" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0007334</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bilateral tonic-clonic seizure with focal onset (HP:0007334). HP:0007334 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Focal to bilateral tonic-clonic is the most prominent seizure type, diagnosed in 9 individuals"</div>
-
-
-                <div class="evidence-explanation">9/24 is 38 percent, in the FREQUENT band (30-79 percent).</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-drug-resistant-epilepsy" data-dismech-node="Drug-Resistant Epilepsy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Drug-Resistant Epilepsy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Refractory drug response</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0020174" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0020174</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Refractory drug response (HP:0020174). HP:0020174 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Seizures were generally drug-resistant, but control was achieved in 6 cases with variable antiepileptic treatment"</div>
-
-
-                <div class="evidence-explanation">States drug resistance as the general pattern with a minority achieving control.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-primary-microcephaly" data-dismech-node="Primary Microcephaly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Primary Microcephaly
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011451" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0011451</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Primary microcephaly (HP:0011451). HP:0011451 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All cases of microcephaly in the cohort were primary, with no cases of secondary microcephaly reported"</div>
-
-
-                <div class="evidence-explanation">Establishes the microcephaly as primary, which is what ties it to the prenatal neurogenesis defect rather than to postnatal degeneration.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"seizures (21/24), microcephaly (16/24), ventriculomegaly (15/24), hypertonia (14/24), cerebral hypoplasia (13/24), and hyperreflexia (13/24)"</div>
-
-
-                <div class="evidence-explanation">16/24 is 67 percent, in the FREQUENT band (30-79 percent).</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-hypoplasia" data-dismech-node="Cerebral Hypoplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cerebral Hypoplasia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006872" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0006872</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cerebral hypoplasia (HP:0006872). HP:0006872 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"hypertonia (14/24), cerebral hypoplasia (13/24), and hyperreflexia (13/24)"</div>
-
-
-                <div class="evidence-explanation">13/24 is 54 percent, in the FREQUENT band (30-79 percent).</div>
 
 
 
@@ -8227,6 +8487,9 @@ This clinical feature is Reduced eye contact (HP:0000817). HP:0000817 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8241,6 +8504,8 @@ This clinical feature is Reduced eye contact (HP:0000817). HP:0000817 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8266,9 +8531,9 @@ This clinical feature is Reduced eye contact (HP:0000817). HP:0000817 is a pheno
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-calcification" data-dismech-node="Cerebral Calcification" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-corpus-callosum-hypoplasia-or-agenesis" data-dismech-node="Corpus Callosum Hypoplasia or Agenesis" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Cerebral Calcification
+                        Corpus Callosum Hypoplasia or Agenesis
 
 
 
@@ -8277,18 +8542,23 @@ This clinical feature is Reduced eye contact (HP:0000817). HP:0000817 is a pheno
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Hypoplasia of the corpus callosum</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002514" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002514</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002079</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cerebral calcification (HP:0002514). HP:0002514 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002079 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8300,24 +8570,26 @@ This clinical feature is Cerebral calcification (HP:0002514). HP:0002514 is a ph
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:27866705" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27866705" target="_blank">PMID:27866705</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
                     </span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"we have identified an epileptic encephalopathy additionally featuring cerebral calcifications and coarse facial features"</div>
+                <div class="evidence-snippet">"In contrast, corpus callosum volumes were either normal, thin, or absent with no cases of increased volume in our cohort"</div>
 
 
-                <div class="evidence-explanation">Names calcifications as part of the founding clinical description. No cohort-wide frequency is reported for calcifications, so no frequency band is asserted.</div>
+                <div class="evidence-explanation">Records the callosal finding and its direction, which is what distinguishes it from the LIS1 pattern.</div>
 
 
 
@@ -8361,6 +8633,9 @@ This clinical feature is Pachygyria (HP:0001302). HP:0001302 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8375,6 +8650,8 @@ This clinical feature is Pachygyria (HP:0001302). HP:0001302 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8474,6 +8751,9 @@ This disease-associated gene is DENND5A (hgnc:19344). hgnc:19344 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8488,6 +8768,8 @@ This disease-associated gene is DENND5A (hgnc:19344). hgnc:19344 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8513,6 +8795,8 @@ This disease-associated gene is DENND5A (hgnc:19344). hgnc:19344 is a gene from 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8534,6 +8818,8 @@ This disease-associated gene is DENND5A (hgnc:19344). hgnc:19344 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8654,6 +8940,31 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management is symptomatic. No agent has disease-specific efficacy evidence, seizures are generally drug-resistant, and the cohort record includes agents that worsened seizures as well as agents that helped - phenytoin and lamotrigine each worsened seizures in one individual. Levetiracetam and sodium valproate were the most commonly reported agents achieving control.</div>
 
 
@@ -8667,14 +8978,16 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8737,6 +9050,31 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Autosomal recessive with a 25 percent recurrence risk per pregnancy for carrier couples. Consanguinity was a feature of the founding families, which is the standard context for identifying biallelic rare-variant disease.</div>
 
 
@@ -8760,6 +9098,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8773,14 +9113,16 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8810,6 +9152,283 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-brain-magnetic-resonance-imaging">
+                <div class="item-name">
+                    Brain Magnetic Resonance Imaging
+
+                </div>
+
+                <div class="item-desc">Neuroimaging is how these patients reach genetic testing rather than how the diagnosis is made. The imaging phenotype is distinctive enough to prompt a specific search - occipital-predominant pachygyria with striatal and periventricular calcifications, ventriculomegaly, corpus callosum agenesis or hypoplasia, basal ganglia and diencephalic-mesencephalic junction dysplasia - but not specific enough to settle it, since the same constellation raises OCLN-related disease, the tubulinopathies, LIS1-related lissencephaly and congenital infection.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Magnetic Resonance Imaging
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-48">NCIT:C16809</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-notes">CT is an acceptable substitute where MRI is unavailable and was the modality in at least one cohort member, but it is not separately curated: NCIT&#39;s CT terms describe the procedure without the neuro qualifier that would make the entry more informative than this one.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These imaging studies highlight the heterogenous neuroanatomical manifestations of biallelic DENND5A variants, but certain features including volume loss, ventriculomegaly, and hypoplasia of the corpus callosum appear more frequently"</div>
+
+
+                <div class="evidence-explanation">States both what imaging reliably shows and that it is heterogeneous - the reason it narrows the differential without closing it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-exome-or-genome-sequencing">
+                <div class="item-name">
+                    Exome or Genome Sequencing
+
+                </div>
+
+                <div class="item-desc">The diagnosis is molecular. There is no biochemical marker and the neuroimaging phenotype, while characteristic, overlaps enough with OCLN-related disease, the tubulinopathies, LIS1-related lissencephaly and congenital infection that imaging alone does not settle it.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Whole Exome Sequencing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C101295" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C101295</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"there is a selective involvement of the cortex added to the presence of periventricular calcifications, a common association that brings cytomegalovirus- induced brain malformations into the differential but aligns with pseudo-TORCH syndrome diagnostic criteria in the absence of congenital infection"</div>
+
+
+                <div class="evidence-explanation">Documents the imaging differential that makes molecular confirmation necessary rather than confirmatory.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">24 individuals from 22 families in the definitive 2024 cohort, which incorporated the families reported earlier. No population prevalence estimate exists.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we identified a cohort of 24 people (11F, 13M, mean age = 9.0 years, SD = 6.0) from 22 families with biallelic DENND5A variants"</div>
+
+
+                <div class="evidence-explanation">The total reported case count as of the 2024 study.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8876,6 +9495,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8950,6 +9571,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9017,6 +9640,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9038,6 +9663,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9105,6 +9732,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9241,6 +9870,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9299,6 +9930,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9338,6 +9971,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9468,6 +10103,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9507,6 +10144,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9584,6 +10223,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9623,6 +10264,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9774,6 +10417,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9813,6 +10458,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9890,6 +10537,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9938,14 +10587,16 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9987,6 +10638,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10064,6 +10717,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10112,14 +10767,16 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10153,14 +10810,16 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39174524" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39174524" target="_blank">PMID:39174524</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10238,6 +10897,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10277,6 +10938,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10412,6 +11075,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10451,6 +11116,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10752,7 +11419,7 @@ pathophysiology:
       Establishes the DENN domain&#39;s expected enzymatic role in membrane trafficking.
   - reference: PMID:39174524
     reference_title: &#34;Loss of symmetric cell division of apical neural progenitors drives DENND5A-related developmental and epileptic encephalopathy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;we aligned the co-crystal structure of DENND1B and Rab35 with the predicted
       DENND5A structure and found that the predicted Rab enzymatic site in DENND5A may be
@@ -11129,7 +11796,7 @@ pathophysiology:
   evidence:
   - reference: PMID:39174524
     reference_title: &#34;Loss of symmetric cell division of apical neural progenitors drives DENND5A-related developmental and epileptic encephalopathy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;improperly positioned prematurely-born neurons that do not undergo apoptosis
       and form aberrant synaptic contacts results in seizures that can further adversely
@@ -11914,7 +12581,7 @@ treatments:
   evidence:
   - reference: PMID:39174524
     reference_title: &#34;Loss of symmetric cell division of apical neural progenitors drives DENND5A-related developmental and epileptic encephalopathy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Seizures were generally drug-resistant, but control was achieved in 6 cases
       with variable antiepileptic treatment. Anti-seizure medications variably helped, did
@@ -11957,7 +12624,7 @@ treatments:
       about being clinically informative, which did not state any of it.
   - reference: PMID:39174524
     reference_title: &#34;Loss of symmetric cell division of apical neural progenitors drives DENND5A-related developmental and epileptic encephalopathy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the presence of DENND5A VUSs does not necessarily equate to a devastating
       prognosis; 13% (3 cases) of our small cohort did not meet criteria for DEE or
@@ -12048,7 +12715,7 @@ animal_models:
       evidence:
       - reference: PMID:39174524
         reference_title: &#34;Loss of symmetric cell division of apical neural progenitors drives DENND5A-related developmental and epileptic encephalopathy.&#34;
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: MODEL_ORGANISM
         snippet: &#34;While there is also a reduction in the mean proportion of GFAP-positive
           cells in the SVZ of the KI mice, it did not reach significance&#34;
@@ -12099,7 +12766,7 @@ animal_models:
       evidence:
       - reference: PMID:39174524
         reference_title: &#34;Loss of symmetric cell division of apical neural progenitors drives DENND5A-related developmental and epileptic encephalopathy.&#34;
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: MODEL_ORGANISM
         snippet: &#34;while spontaneous seizures were not observed in the KI mice, they show
           increased seizure susceptibility compared to WT&#34;
@@ -12108,7 +12775,7 @@ animal_models:
     evidence:
     - reference: PMID:39174524
       reference_title: &#34;Loss of symmetric cell division of apical neural progenitors drives DENND5A-related developmental and epileptic encephalopathy.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;Finally, while spontaneous seizures were not observed in the KI mice, they
         show increased seizure susceptibility compared to WT&#34;
@@ -12557,6 +13224,36 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope: this entry curates DEE49, the autosomal recessive disorder caused by biallelic DENND5A variants. Heterozygous DENND5A loss-of-function variants are separately reported to predispose to familial cutaneous melanoma through an SNX1-related trafficking deficit; that is a different disorder with a different mode of inheritance and is not modeled here. Evidence base. Two primary sources: the 2016 founding report (PMID:27866705, abstract only in the reference cache) and the 2024 Nature Communications cohort and mechanism study (PMID:39174524, full text). All snippets are quoted from those cached records. The quantitative figures in the pathophysiology descriptions - spindle angles, cell counts, differentiation percentages - come from the 2024 full text; where a figure appears in a description rather than in a snippet it is because the source sentence carrying it also carries statistical notation that does not quote cleanly. A third reference proposed by the deep-research report, PMID:27431290 (Anazi et al. 2017), was fetched and then not used: it is a broad intellectual-disability genomics paper whose retrievable abstract does not mention DENND5A, so it cannot support any DENND5A-specific claim quoted from it. The report also cites PMID:38352438, the medRxiv preprint of the same 2024 study; the published version is cited instead. Hypotonia is deliberately not curated. It appears in the research report from the OMIM clinical synopsis rather than from either primary source, and neither cached paper states it in a form that could be quoted. The cohort&#39;s own motor findings - 8 of 24 walking independently, 11 of 24 able to grasp - are curated instead, since those are counted in the source. If a future curator adds hypotonia it should come with a primary citation, not from the synopsis. Ontology terms proposed by the deep-research report and rejected after checking against OAK: GO:0051654 was proposed for spindle localization but is &#34;establishment of mitochondrion localization&#34;; CL:0002608 was proposed for radial glial cell but is &#34;hippocampal neuron&#34;; CL:0000060 was proposed for neural progenitor cell but is &#34;odontoblast&#34;. The correct terms used here are GO:0000132, CL:0000681 and CL:0011020. The Crumbs complex is left unbound: GO:0035003 subapical complex is defined for invertebrate epithelia and there is no vertebrate Crumbs complex term, so the protein complex carries a free-text preferred_term only.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: DENND5A-Related Developmental and Epileptic Encephalopathy (DEE49)</strong> · 2026-08-20T12:58:30Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/DENND5A-Related_Developmental_and_Epileptic_Encephalopathy/2026-08-20T125830Z-claude-code-eb63f4.yaml">View source</a></p>
+                        <p class="research-review-text">New Disease entry for DENND5A-related developmental and epileptic encephalopathy (DEE49, MONDO:0015002, OMIM 617281), autosomal recessive, caused by biallelic loss-of-function variants in DENND5A (hgnc:19344).
+
+Mechanism curated as 13 atomic pathophysiology nodes tracing the developmental chain: biallelic variants -&gt; reduced DENND5A protein -&gt; loss of the conformation-gated DENND5A-MUPP1/PALS1 apical polarity interaction -&gt; mitotic spindle misorientation in apical neural progenitors (WT 57.1 deg vs KO 26.0 deg) -&gt; loss of symmetric proliferative division -&gt; premature neuronal differentiation and progenitor pool depletion -&gt; shortened neurogenesis -&gt; microcephaly, cortical malformation and compensatory ventriculomegaly -&gt; aberrant connectivity of prematurely born neurons -&gt; seizures. A parallel Rab-GEF/neurotrophin-receptor arm from the 2016 founding study is retained as an ALTERNATIVE mechanistic hypothesis rather than merged into the spindle chain.
+
+Module conformance attaches at epilepsy_excitation_inhibition_imbalance#Recurrent Unprovoked Seizures (the clinical endpoint) and deliberately NOT at the excitation-inhibition or hyperexcitability nodes, because no source measures excitation-inhibition balance, network synchrony or intrinsic excitability in DENND5A-deficient neurons. That absence is recorded as an open KNOWLEDGE_GAP.
+
+Five discussions: a CONTROVERSY on the R710H gain-of-interaction finding versus the loss-of-function model; KNOWLEDGE_GAPs on the unexplained route from the polarity complex to spindle angle (the obvious trafficking explanation is excluded by the PALS1 localization negative result), on the evidence for the seizure step, and on which progenitor stage is affected; and a HUMAN_MODEL_MISMATCH on the adult mouse subventricular zone standing in for embryonic cortical neurogenesis.
+
+Negative results preserved rather than dropped: PALS1 still localizes apically in knockout rosettes (UNCHANGED); GFAP-positive SVZ stem-like cells do not fall significantly (UNCHANGED); no spontaneous seizures in the knock-in mouse (UNCHANGED, driving PARTIALLY_RECAPITULATES); and relative brain size is not significantly reduced in the mouse, curated as FAILS_TO_RECAPITULATE with REFUTE evidence.
+
+Validation: just validate passed; 73/73 snippets verified against cached references; just validate-terms passed; check-duplicate-keys, check-title-snippets, check-snippet-length, check-folded-hyphens and check-environmental-evidence all clean.
+
+Evidence base is two cached primary sources: PMID:27866705 (founding report, abstract only) and PMID:39174524 (2024 Nature Communications cohort and mechanism study, full text). PMID:27431290 was fetched and deliberately not used because its retrievable abstract does not mention DENND5A. Three ontology terms proposed by the deep-research report were rejected after OAK checking (GO:0051654, CL:0002608, CL:0000060 are mitochondrion localization, hippocampal neuron and odontoblast respectively) and replaced with GO:0000132, CL:0000681 and CL:0011020.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -13154,7 +13851,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "DENND5A-Related Developmental and Epileptic Encephalopathy", "mondoId": "MONDO:0015002", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "DENND5A-Related_Developmental_and_Epileptic_Encephalopathy", "yamlRevision": "d276784ffc39"};
+        const OS_CONFIG = {"diseaseName": "DENND5A-Related Developmental and Epileptic Encephalopathy", "mondoId": "MONDO:0015002", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "DENND5A-Related_Developmental_and_Epileptic_Encephalopathy", "yamlRevision": "473ddecb08f2"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

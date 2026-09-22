@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3726,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4032,7 +4139,7 @@
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-PARTIAL">2 partial</span>
+                    <span class="evidence-support support-SUPPORT">2 support</span>
 
                 </div>
 
@@ -4074,14 +4181,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:7872395" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:7872395" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7872395" target="_blank">PMID:7872395</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4097,14 +4206,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:18195232" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:18195232" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18195232" target="_blank">PMID:18195232</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4143,7 +4254,7 @@
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-PARTIAL">2 partial</span>
+                    <span class="evidence-support support-SUPPORT">2 support</span>
 
                 </div>
 
@@ -4185,14 +4296,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30455116" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30455116" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30455116" target="_blank">PMID:30455116</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4208,14 +4321,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30455116" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30455116" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30455116" target="_blank">PMID:30455116</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4303,6 +4418,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4324,6 +4441,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4406,6 +4525,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4427,6 +4548,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4484,7 +4607,7 @@
 
 
 
-    <a class="entity-ref-chip" href="#treatment-serial-multimodal-retinal-monitoring">treatment#Serial multimodal retinal monitoring</a>
+    <a class="entity-ref-chip" href="#treatment-serial-multimodal-retinal-monitoring">treatments#Serial multimodal retinal monitoring</a>
 
 
 
@@ -4514,6 +4637,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4550,6 +4675,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-putative-immune-boundary-injury" data-dismech-node="Putative Immune Boundary Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Putative Immune Boundary Injury</div>
+
 
                 <div class="item-desc">A hypothesized immune process at the advancing gray-white border could initiate regional outer retinal injury. The initiating antigen, immune effector, and direction of causality remain unknown.</div>
 
@@ -4635,14 +4761,16 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:7872395" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:7872395" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7872395" target="_blank">PMID:7872395</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4667,6 +4795,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-putative-viral-infection-initiation" data-dismech-node="Putative Viral-Infection Initiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Putative Viral-Infection Initiation</div>
+
 
                 <div class="item-desc">Viral infection has been suggested as a possible initiator, but the available HIV-associated case report establishes neither that association nor a mechanism.</div>
 
@@ -4752,14 +4881,16 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30455116" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30455116" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30455116" target="_blank">PMID:30455116</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4784,6 +4915,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-photoreceptor-and-henle-layer-injury" data-dismech-node="Acute Photoreceptor and Henle-Layer Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute Photoreceptor and Henle-Layer Injury</div>
+
 
                 <div class="item-desc">Acute yellow-gray outer retinal lesions correspond on OCT to early photoreceptor disruption and angular hyperreflectivity involving the Henle fiber layer. This structural injury is the best-supported early disease event.</div>
 
@@ -4937,6 +5069,8 @@ This pathophysiological event occurs in photoreceptor layer of retina (UBERON:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4959,6 +5093,7 @@ This pathophysiological event occurs in photoreceptor layer of retina (UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ellipsoid-zone-and-outer-nuclear-layer-disruption" data-dismech-node="Ellipsoid Zone and Outer Nuclear Layer Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Ellipsoid Zone and Outer Nuclear Layer Disruption</div>
+
 
                 <div class="item-desc">Within the annular lesion, the ellipsoid zone and external limiting membrane become indistinct or absent, and the outer nuclear layer becomes hyperreflective acutely and thinned during progression.</div>
 
@@ -5128,6 +5263,8 @@ This pathophysiological event occurs in photoreceptor layer of retina (UBERON:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5149,6 +5286,8 @@ This pathophysiological event occurs in photoreceptor layer of retina (UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5174,6 +5313,8 @@ This pathophysiological event occurs in photoreceptor layer of retina (UBERON:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5196,6 +5337,7 @@ This pathophysiological event occurs in photoreceptor layer of retina (UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-outer-retinal-atrophy" data-dismech-node="Outer Retinal Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Outer Retinal Atrophy</div>
+
 
                 <div class="item-desc">Damaged photoreceptor and outer nuclear layers undergo rapid regional atrophy. Foveal sparing or focal photoreceptor restoration can preserve acuity, but atrophy usually persists elsewhere within the involved zone.</div>
 
@@ -5311,6 +5453,8 @@ This pathophysiological event occurs in photoreceptor layer of retina (UBERON:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5333,6 +5477,7 @@ This pathophysiological event occurs in photoreceptor layer of retina (UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-retinal-pigment-epithelium-degeneration" data-dismech-node="Secondary Retinal Pigment Epithelium Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary Retinal Pigment Epithelium Degeneration</div>
+
 
                 <div class="item-desc">The damaged region later develops RPE atrophy, depigmentation, pigment migration, and mixed hyperautofluorescent and hypoautofluorescent changes.</div>
 
@@ -5425,6 +5570,8 @@ This pathophysiological event occurs in pigmented layer of retina (UBERON:000178
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5448,6 +5595,8 @@ This pathophysiological event occurs in pigmented layer of retina (UBERON:000178
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5469,6 +5618,8 @@ This pathophysiological event occurs in pigmented layer of retina (UBERON:000178
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5533,34 +5684,18 @@ This pathophysiological event occurs in pigmented layer of retina (UBERON:000178
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(4)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(2)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-photopsia" data-dismech-node="Photopsia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Photopsia
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Eye
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-photopsia" data-dismech-node="Photopsia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Photopsia
-
-
+                    <span class="phenotype-category">Ophthalmologic</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -5572,7 +5707,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Photopsia (HP:0030786). HP:0030786 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5592,6 +5730,8 @@ This clinical feature is Photopsia (HP:0030786). HP:0030786 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5642,6 +5782,7 @@ This clinical feature is Photopsia (HP:0030786). HP:0030786 is a phenotype from 
             </div>
 
 
+
             <div class="context-notes">Photopsia was reported by 87% of patients. This estimate comes from the broader AOR spectrum and is not asserted as an exact frequency for classic annular-only AAOR.</div>
 
 
@@ -5660,6 +5801,8 @@ This clinical feature is Photopsia (HP:0030786). HP:0030786 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5685,13 +5828,14 @@ This clinical feature is Photopsia (HP:0030786). HP:0030786 is a phenotype from 
     </details>
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-blurred-vision" data-dismech-node="Blurred Vision" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Blurred Vision
+            <div class="item-box phenotype-box anchor-target" id="phenotype-scotoma" data-dismech-node="Scotoma" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Scotoma
 
 
+                    <span class="phenotype-category">Ophthalmologic</span>
 
 
 
@@ -5700,296 +5844,18 @@ This clinical feature is Photopsia (HP:0030786). HP:0030786 is a phenotype from 
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000622</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000575" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000575</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Blurred vision (HP:0000622). HP:0000622 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40436146" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40436146" target="_blank">PMID:40436146</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Presenting symptoms included photopsia (87%), blurred vision (57%), and scotoma (57%)."</div>
-
-
-                <div class="evidence-explanation">This directly supports blurred vision as a presenting symptom.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-    <details class="phenotype-contexts">
-        <summary class="phenotype-contexts-toggle">
-            Context-specific annotations (1)
-        </summary>
-
-        <div class="context-card">
-            <div class="context-header">
-
-
-
-
-
-
-                <span class="context-label context-label-population">23-patient expanded AOR-spectrum cohort</span>
-
-
-
-
-
-
-
-                <span class="context-freq">FREQUENT</span>
-
-
-
-            </div>
-
-
-            <div class="context-notes">Blurred vision was reported by 57% of patients in the broader AOR-spectrum cohort.</div>
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40436146" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40436146" target="_blank">PMID:40436146</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Presenting symptoms included photopsia (87%), blurred vision (57%), and scotoma (57%)."</div>
-
-
-                <div class="evidence-explanation">The cohort directly quantifies blurred vision in the expanded spectrum.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-        </div>
-
-    </details>
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-visual-field-defect" data-dismech-node="Visual Field Defect" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Visual Field Defect
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001123" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001123</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Visual field defect (HP:0001123). HP:0001123 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:11078842" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11078842" target="_blank">PMID:11078842</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Four healthy patients developed the acute onset of visual field loss associated with a localized, white annular outer retinopathy."</div>
-
-
-                <div class="evidence-explanation">The four-case series directly links acute visual-field loss to the annular retinal lesion.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-electroretinogram" data-dismech-node="Abnormal Electroretinogram" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal Electroretinogram
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000512</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:19847620" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19847620" target="_blank">PMID:19847620</a>
-                    </span>
-
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Predominant loss of rod-mediated electroretinogram response in a case of acute annular outer retinopathy."</div>
-
-
-                <div class="evidence-explanation">This is limited to a publication-title assertion from a single case.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-scotoma" data-dismech-node="Scotoma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Scotoma
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000575" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000575</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
 This clinical feature is Scotoma (HP:0000575). HP:0000575 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6009,6 +5875,8 @@ This clinical feature is Scotoma (HP:0000575). HP:0000575 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6059,6 +5927,7 @@ This clinical feature is Scotoma (HP:0000575). HP:0000575 is a phenotype from th
             </div>
 
 
+
             <div class="context-notes">Scotoma was reported by 57% of patients in the broader AOR-spectrum cohort.</div>
 
 
@@ -6077,6 +5946,8 @@ This clinical feature is Scotoma (HP:0000575). HP:0000575 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6102,13 +5973,14 @@ This clinical feature is Scotoma (HP:0000575). HP:0000575 is a phenotype from th
     </details>
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-retinal-atrophy" data-dismech-node="Retinal Atrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Retinal Atrophy
+            <div class="item-box phenotype-box anchor-target" id="phenotype-blurred-vision" data-dismech-node="Blurred Vision" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Blurred Vision
 
 
+                    <span class="phenotype-category">Ophthalmologic</span>
 
 
 
@@ -6117,16 +5989,18 @@ This clinical feature is Scotoma (HP:0000575). HP:0000575 is a phenotype from th
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0000622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000622</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001105" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001105</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Retinal atrophy (HP:0001105). HP:0001105 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Blurred vision (HP:0000622). HP:0000622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6146,6 +6020,225 @@ This clinical feature is Retinal atrophy (HP:0001105). HP:0001105 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Presenting symptoms included photopsia (87%), blurred vision (57%), and scotoma (57%)."</div>
+
+
+                <div class="evidence-explanation">This directly supports blurred vision as a presenting symptom.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+    <details class="phenotype-contexts">
+        <summary class="phenotype-contexts-toggle">
+            Context-specific annotations (1)
+        </summary>
+
+        <div class="context-card">
+            <div class="context-header">
+
+
+
+
+
+
+                <span class="context-label context-label-population">23-patient expanded AOR-spectrum cohort</span>
+
+
+
+
+
+
+
+                <span class="context-freq">FREQUENT</span>
+
+
+
+            </div>
+
+
+
+            <div class="context-notes">Blurred vision was reported by 57% of patients in the broader AOR-spectrum cohort.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40436146" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40436146" target="_blank">PMID:40436146</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Presenting symptoms included photopsia (87%), blurred vision (57%), and scotoma (57%)."</div>
+
+
+                <div class="evidence-explanation">The cohort directly quantifies blurred vision in the expanded spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+        </div>
+
+    </details>
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-visual-field-defect" data-dismech-node="Visual Field Defect" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Visual Field Defect
+
+
+                    <span class="phenotype-category">Ophthalmologic</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001123" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001123</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Visual field defect (HP:0001123). HP:0001123 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11078842" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11078842" target="_blank">PMID:11078842</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Four healthy patients developed the acute onset of visual field loss associated with a localized, white annular outer retinopathy."</div>
+
+
+                <div class="evidence-explanation">The four-case series directly links acute visual-field loss to the annular retinal lesion.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-retinal-atrophy" data-dismech-node="Retinal Atrophy" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Retinal Atrophy
+
+
+                    <span class="phenotype-category">Ophthalmologic</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001105" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001105</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retinal atrophy (HP:0001105). HP:0001105 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40436146" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40436146" target="_blank">PMID:40436146</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6169,34 +6262,80 @@ This clinical feature is Retinal atrophy (HP:0001105). HP:0001105 is a phenotype
 
 
 
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-electroretinogram" data-dismech-node="Abnormal Electroretinogram" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Abnormal Electroretinogram
+
+
+                    <span class="phenotype-category">Ophthalmologic</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000512</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
                 </div>
 
-            </details>
 
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19847620" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19847620" target="_blank">PMID:19847620</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Predominant loss of rod-mediated electroretinogram response in a case of acute annular outer retinopathy."</div>
+
+
+                <div class="evidence-explanation">This is limited to a publication-title assertion from a single case.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
 
         </div>
 
@@ -6262,6 +6401,20 @@ This treatment is ophthalmologist evaluation, annotated with Eye Examination (NC
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">In an expanded AOR cohort, the interventions used did not appear to prevent lesion enlargement or complete outer-retinal atrophy. Serial ophthalmologic examination and imaging can document the evolving retinal changes.</div>
 
 
@@ -6275,14 +6428,16 @@ This treatment is ophthalmologist evaluation, annotated with Eye Examination (NC
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40436146" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40436146" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40436146" target="_blank">PMID:40436146</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6306,6 +6461,8 @@ This treatment is ophthalmologist evaluation, annotated with Eye Examination (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6335,6 +6492,1544 @@ This treatment is ophthalmologist evaluation, annotated with Eye Examination (NC
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">6</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-multimodal-retinal-evaluation">
+                <div class="item-name">
+                    Multimodal retinal evaluation
+
+                </div>
+
+                <div class="item-desc">Diagnosis is clinical and imaging-based. Ophthalmoscopy, OCT, FAF, visual field testing, and selected electrophysiology can be interpreted together with assessment for relevant mimics.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        ophthalmologist evaluation
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38060" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-20">NCIT:C38060</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Concordance among an acute outer retinal lesion, field defect, OCT layer disruption, and FAF abnormality supports AAOR.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40436146" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40436146" target="_blank">PMID:40436146</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Specific multimodal imaging signatures of AOR were identified, including findings from ophthalmoscopy, fundus autofluorescence (FAF), fluorescein angiography, indocyanine green angiography (ICGA), and OCT."</div>
+
+
+                <div class="evidence-explanation">The largest longitudinal series supports a multimodal diagnostic approach.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-optical-coherence-tomography">
+                <div class="item-name">
+                    Optical coherence tomography
+
+                </div>
+
+                <div class="item-desc">OCT localizes reported AAOR abnormalities, including acute Henle-layer and outer-nuclear-layer hyperreflectivity, ellipsoid-zone or external-limiting-membrane disruption in affected lesions, and outer-retinal atrophy on follow-up. These observations do not establish one invariant structural sequence.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        optical coherence tomography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C20828" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-21">NCIT:C20828</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> ASHH, ellipsoid-zone loss, external limiting membrane disruption, outer nuclear layer change, and later outer retinal atrophy support AAOR and map its extent.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25383859" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25383859" target="_blank">PMID:25383859</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We found hyperreflectivity in the outer nuclear layer and the Henle fiber layer along with marked atrophy of the outer retina within the white ring."</div>
+
+
+                <div class="evidence-explanation">The first acute-phase spectral-domain OCT report provides direct layer-level diagnostic evidence.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30079710" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30079710" target="_blank">PMID:30079710</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"OCT demonstrated an indistinct ellipsoid zone, disruption of external limiting membrane, and bulging of the retinal pigment epithelium in the annular lesions."</div>
+
+
+                <div class="evidence-explanation">This case supports the ellipsoid-zone and external-limiting-membrane findings without establishing their temporal order.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-fundus-autofluorescence-imaging">
+                <div class="item-name">
+                    Fundus autofluorescence imaging
+
+                </div>
+
+                <div class="item-desc">FAF delineates active hyperautofluorescent borders and later atrophic hypoautofluorescent zones in classic annular AAOR.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        fundus autofluorescence imaging
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C162465" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-22">NCIT:C162465</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> A hyperautofluorescent active margin with internal patchy atrophy is compatible with AAOR.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36434575" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36434575" target="_blank">PMID:36434575</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Fundus autofluorescence correlated with structural alterations seen on SD-OCT and showed both presumed active hyperautofluorescent zones with patchy hypoautofluorescent zones of atrophy and a classic annular hyperautofluorescent border."</div>
+
+
+                <div class="evidence-explanation">The case directly supports FAF for mapping the active border and atrophic interior.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-visual-field-testing-perimetry">
+                <div class="item-name">
+                    Visual field testing (perimetry)
+
+                </div>
+
+                <div class="item-desc">Formal perimetry maps the symptomatic scotoma against the annular retinal lesion.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        visual field testing (perimetry)
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C156778" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-23">NCIT:C156778</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> A localized field defect aligned with the visible and imaged lesion supports AAOR.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11078842" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11078842" target="_blank">PMID:11078842</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Four healthy patients developed the acute onset of visual field loss associated with a localized, white annular outer retinopathy."</div>
+
+
+                <div class="evidence-explanation">The case series establishes lesion-field concordance as a central feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-electroretinography">
+                <div class="item-name">
+                    Electroretinography
+
+                </div>
+
+                <div class="item-desc">A predominant reduction in rod-mediated response has been described in one AAOR case. The title-only cached evidence does not establish a disease-specific ERG signature or diagnostic performance.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        electroretinogram procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C101217" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-24">NCIT:C101217</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> An abnormal ERG supports outer retinal dysfunction but is not independently diagnostic of AAOR.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19847620" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19847620" target="_blank">PMID:19847620</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Predominant loss of rod-mediated electroretinogram response in a case of acute annular outer retinopathy."</div>
+
+
+                <div class="evidence-explanation">Only the title-level single-case assertion is available in the cached source, so the diagnostic claim is deliberately narrow.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-fluorescein-and-indocyanine-green-angiography">
+                <div class="item-name">
+                    Fluorescein and indocyanine green angiography
+
+                </div>
+
+                <div class="item-desc">Fluorescein angiography and ICGA were mostly unremarkable in the expanded AOR cohort and can be interpreted as contextual multimodal findings.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        fluorescein angiography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C190541" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-25">NCIT:C190541</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Mostly unremarkable angiography despite a visible outer retinal lesion is compatible with the reported AOR imaging pattern.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40436146" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40436146" target="_blank">PMID:40436146</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Fluorescein angiography and ICGA findings were mostly unremarkable."</div>
+
+
+                <div class="evidence-explanation">The multicenter cohort directly describes the typical angiographic result.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+        <div class="card" id="imaging-findings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">🩻</div>
+                <h2 class="card-title">Imaging Findings</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-angular-henle-layer-hyperreflectivity-and-early-photoreceptor-disruption">
+                <div class="item-name">
+                    Angular Henle-layer hyperreflectivity and early photoreceptor disruption
+
+                </div>
+
+                <div class="item-desc">Acute yellow-gray lesions correspond to the angular sign of Henle fiber layer hyperreflectivity on OCT, marking early photoreceptor injury at the advancing lesion.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Oct</span>
+
+
+
+
+                    <span class="tag">Segmental</span>
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Angular Henle-layer hyperreflectivity with photoreceptor disruption
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-anatomy">
+
+        photoreceptor layer of retina
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001787" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-27">UBERON:0001787</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">Uberon multi-species anatomy ontology (UBERON)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40436146" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40436146" target="_blank">PMID:40436146</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"On ophthalmoscopy, AOR was acutely characterized by yellow-grayish outer retinal lesions corresponding to hyperautofluorescent changes on FAF and the angular sign of Henle fiber layer hyperreflectivity (ASHH) on OCT."</div>
+
+
+                <div class="evidence-explanation">The multicenter series directly maps the acute fundus lesion to FAF and OCT signatures.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-ellipsoid-zone-loss-and-outer-nuclear-layer-thinning">
+                <div class="item-name">
+                    Ellipsoid-zone loss and outer nuclear layer thinning
+
+                </div>
+
+                <div class="item-desc">Within advancing AAOR, OCT shows an absent ellipsoid zone and a thinned outer nuclear layer. External limiting membrane disruption and RPE bulging have also been documented within annular lesions.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Oct</span>
+
+
+
+
+                    <span class="tag">Segmental</span>
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Ellipsoid-zone loss and outer nuclear layer thinning
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-anatomy">
+
+        photoreceptor layer of retina
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001787" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-29">UBERON:0001787</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">Uberon multi-species anatomy ontology (UBERON)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40446848" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40446848" target="_blank">PMID:40446848</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"During APS, advancement of peripapillary annular band was noted in all eyes, accompanied by absent ellipsoid zone, increased choroidal thickness (ChT) and thinned outer nuclear layer (ONL) within the affected area."</div>
+
+
+                <div class="evidence-explanation">This directly describes OCT abnormalities during the progressive stage.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30079710" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30079710" target="_blank">PMID:30079710</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"OCT demonstrated an indistinct ellipsoid zone, disruption of external limiting membrane, and bulging of the retinal pigment epithelium in the annular lesions."</div>
+
+
+                <div class="evidence-explanation">A multimodal AAOR case independently documents the layer-specific OCT abnormalities.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-outer-retinal-atrophy-within-the-former-annular-lesion">
+                <div class="item-name">
+                    Outer retinal atrophy within the former annular lesion
+
+                </div>
+
+                <div class="item-desc">Follow-up OCT demonstrates marked and progressive outer retinal atrophy in areas occupied by the acute white ring, while foveal photoreceptors can recover in selected eyes.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Oct</span>
+
+
+
+
+                    <span class="tag">Segmental</span>
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Outer retinal atrophy within the former annular lesion
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-anatomy">
+
+        retina
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-31">UBERON:0000966</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-31">Uberon multi-species anatomy ontology (UBERON)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-phenotype">
+
+        Retinal atrophy
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001105" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001105</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25383859" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25383859" target="_blank">PMID:25383859</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We documented restoration of foveal photoreceptors, which corresponded with visual recovery. We also noted progressive atrophy in areas where the white ring was previously visible."</div>
+
+
+                <div class="evidence-explanation">Serial OCT directly documents both region-specific atrophy and possible focal foveal recovery.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-annular-peripapillary-autofluorescence-abnormality">
+                <div class="item-name">
+                    Annular peripapillary autofluorescence abnormality
+
+                </div>
+
+                <div class="item-desc">Classic AAOR can show a peripapillary annular hyperautofluorescent border around active outer retinal injury, with patchy hypoautofluorescence or mixed autofluorescence developing in atrophic areas inside the border.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Other</span>
+
+
+
+
+                    <span class="tag">Segmental</span>
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Annular peripapillary fundus autofluorescence abnormality
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-anatomy">
+
+        retina
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-34">UBERON:0000966</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-34">Uberon multi-species anatomy ontology (UBERON)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-notes">Fundus autofluorescence is represented with modality OTHER because the current imaging-modality enum has no dedicated FAF value.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40436146" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40436146" target="_blank">PMID:40436146</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Fundus autofluorescence imaging revealed ring-like hyperautofluorescent lesions surrounding the optic disc in 18% of eyes."</div>
+
+
+                <div class="evidence-explanation">This documents the annular pattern within the broader AOR cohort without assigning its cohort frequency to classic AAOR.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36434575" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36434575" target="_blank">PMID:36434575</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Fundus autofluorescence correlated with structural alterations seen on SD-OCT and showed both presumed active hyperautofluorescent zones with patchy hypoautofluorescent zones of atrophy and a classic annular hyperautofluorescent border."</div>
+
+
+                <div class="evidence-explanation">A classic AAOR case directly documents the active annular border and internal atrophic FAF changes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-acutely-progressive-stage">
+                <div class="item-name">Acutely progressive stage</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">Duration: 1 to 3 weeks</span>
+
+
+                </div>
+
+                <div class="item-notes">The peripapillary annular band advances during the early stage, with loss of the ellipsoid zone, thinning of the outer nuclear layer, and increased choroidal thickness within the affected region.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40446848" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40446848" target="_blank">PMID:40446848</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The clinical course was subdivided acutely progressive stage (APS), stationary stage (SS) and atrophic stage (AS) (1-3 weeks, 3 weeks to 3 months and &gt;3 months, respectively)."</div>
+
+
+                <div class="evidence-explanation">The AAOR case series defines the early progressive interval and the two later stages.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40446848" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40446848" target="_blank">PMID:40446848</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"During APS, advancement of peripapillary annular band was noted in all eyes, accompanied by absent ellipsoid zone, increased choroidal thickness (ChT) and thinned outer nuclear layer (ONL) within the affected area."</div>
+
+
+                <div class="evidence-explanation">This directly describes structural change while the annular lesion is advancing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-stationary-stage">
+                <div class="item-name">Stationary stage</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">Duration: Approximately 3 weeks to 3 months</span>
+
+
+                </div>
+
+                <div class="item-notes">Lesion size usually stabilizes after the initial weeks. The visible annular band can fade even though damaged retina remains abnormal and proceeds toward atrophy.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40436146" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40436146" target="_blank">PMID:40436146</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Lesion progression primarily occurred within the initial weeks after presentation and stabilized in size beyond this period in the majority of eyes."</div>
+
+
+                <div class="evidence-explanation">The multicenter AOR-spectrum cohort supports early enlargement followed by size stabilization in most eyes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40446848" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40446848" target="_blank">PMID:40446848</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"During SS, annular band disappeared on fundus photograph with improved ONL with improved ONL."</div>
+
+
+                <div class="evidence-explanation">The AAOR stage series directly supports fading of the visible annular band during the stationary interval.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-atrophic-stage">
+                <div class="item-name">Atrophic stage</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">Duration: More than 3 months after onset</span>
+
+
+                </div>
+
+                <div class="item-notes">Previously involved retina develops outer retinal atrophy, depigmentation, and scattered pigmentary change. Structural recovery can occur at the fovea in some eyes, but atrophy progresses in areas formerly occupied by the white ring.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40436146" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40436146" target="_blank">PMID:40436146</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Over time, affected areas progressed to outer retinal atrophy with pigmentary changes."</div>
+
+
+                <div class="evidence-explanation">This directly establishes the chronic structural outcome in the larger AOR-spectrum cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40446848" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40446848" target="_blank">PMID:40446848</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"During AS, affected area became depigmented with scattered pigmentation, exhibiting hyper-AF or mixed AF."</div>
+
+
+                <div class="evidence-explanation">The AAOR stage series directly describes pigmentary and autofluorescence changes after three months.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25383859" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25383859" target="_blank">PMID:25383859</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We documented restoration of foveal photoreceptors, which corresponded with visual recovery. We also noted progressive atrophy in areas where the white ring was previously visible."</div>
+
+
+                <div class="evidence-explanation">Longitudinal OCT in a classic AAOR case shows that focal foveal recovery and persistent regional atrophy can coexist.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-long-term-visual-outcome">
+                <div class="item-name">Long-term visual outcome</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Central acuity is strongly influenced by whether the macula is involved. Eyes with macular sparing can retain normal acuity, whereas macular involvement can leave severe persistent impairment.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40446848" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40446848" target="_blank">PMID:40446848</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Seven eyes of 5 patients showed no macular involvement with best corrected visual acuity (BCVA) of 20/20, while 5 eyes of 5 patients showed macular involvement with poorer BCVA of HM-20/400 at the last visit."</div>
+
+
+                <div class="evidence-explanation">This case series directly links macular involvement to worse final visual acuity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6403,6 +8098,8 @@ This treatment is ophthalmologist evaluation, annotated with Eye Examination (NC
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6466,14 +8163,16 @@ This treatment is ophthalmologist evaluation, annotated with Eye Examination (NC
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24428923" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:24428923" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24428923" target="_blank">PMID:24428923</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6489,14 +8188,16 @@ This treatment is ophthalmologist evaluation, annotated with Eye Examination (NC
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:18195232" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:18195232" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18195232" target="_blank">PMID:18195232</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6566,6 +8267,8 @@ This treatment is ophthalmologist evaluation, annotated with Eye Examination (NC
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6587,6 +8290,8 @@ This treatment is ophthalmologist evaluation, annotated with Eye Examination (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6662,6 +8367,8 @@ This treatment is ophthalmologist evaluation, annotated with Eye Examination (NC
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6725,14 +8432,16 @@ This treatment is ophthalmologist evaluation, annotated with Eye Examination (NC
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38454854" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38454854" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38454854" target="_blank">PMID:38454854</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6931,7 +8640,7 @@ mechanistic_hypotheses:
   evidence:
   - reference: PMID:7872395
     reference_title: Acute annular outer retinopathy as a variant of acute zonal occult outer retinopathy.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       We speculate that this disorder is part of the spectrum of acute zonal
@@ -6943,7 +8652,7 @@ mechanistic_hypotheses:
       mechanism.
   - reference: PMID:18195232
     reference_title: Association of antiretinal antibodies in acute annular outer retinopathy.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Association of antiretinal antibodies in acute annular outer retinopathy.
     explanation: &gt;-
@@ -6959,7 +8668,7 @@ mechanistic_hypotheses:
   evidence:
   - reference: PMID:30455116
     reference_title: Acute annular outer retinopathy associated with human immunodeficiency virus.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The aetiology of AAOR remains unknown, although a viral infection or an
@@ -6969,7 +8678,7 @@ mechanistic_hypotheses:
       etiologic uncertainty.
   - reference: PMID:30455116
     reference_title: Acute annular outer retinopathy associated with human immunodeficiency virus.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Even so, the precise role played by HIV infection or secondary
@@ -6991,7 +8700,7 @@ pathophysiology:
   evidence:
   - reference: PMID:7872395
     reference_title: Acute annular outer retinopathy as a variant of acute zonal occult outer retinopathy.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       the gray border, which separates the normal from the abnormal retina,
@@ -7009,7 +8718,7 @@ pathophysiology:
     evidence:
     - reference: PMID:7872395
       reference_title: Acute annular outer retinopathy as a variant of acute zonal occult outer retinopathy.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         We speculate that this disorder is part of the spectrum of acute zonal
@@ -7031,7 +8740,7 @@ pathophysiology:
   evidence:
   - reference: PMID:30455116
     reference_title: Acute annular outer retinopathy associated with human immunodeficiency virus.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The aetiology of AAOR remains unknown, although a viral infection or an
@@ -7049,7 +8758,7 @@ pathophysiology:
     evidence:
     - reference: PMID:30455116
       reference_title: Acute annular outer retinopathy associated with human immunodeficiency virus.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Even so, the precise role played by HIV infection or secondary
@@ -7102,7 +8811,7 @@ pathophysiology:
     evidence:
     - reference: PMID:30079710
       reference_title: &#34;[Multimodal Imaging of a Case of Acute Annular Outer Retinopathy].&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         OCT demonstrated an indistinct ellipsoid zone, disruption of external
@@ -7119,7 +8828,7 @@ pathophysiology:
     evidence:
     - reference: PMID:40436146
       reference_title: &#34;Clinical and Multimodal Imaging of Acute Outer Retinopathy: Expanding the Spectrum of Acute Annular Outer Retinopathy.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Presenting symptoms included photopsia (87%), blurred vision (57%), and
@@ -7188,7 +8897,7 @@ pathophysiology:
     evidence:
     - reference: PMID:25383859
       reference_title: New insights into acute annular outer retinopathy.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         We also noted progressive atrophy in areas where the white ring was
@@ -7205,7 +8914,7 @@ pathophysiology:
     evidence:
     - reference: PMID:7872395
       reference_title: Acute annular outer retinopathy as a variant of acute zonal occult outer retinopathy.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         A 23-year-old man developed a rapid-onset, large, dense scotoma that was
@@ -7223,7 +8932,7 @@ pathophysiology:
     evidence:
     - reference: PMID:36434575
       reference_title: &#34;Acute annular outer retinopathy preceded by invasive ductal breast carcinoma: a case report.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         We identified RPE atrophy with nodular hyperreflectivity and loss of
@@ -7241,7 +8950,7 @@ pathophysiology:
     evidence:
     - reference: PMID:40446848
       reference_title: &#34;Acute annular outer retinopathy: initial insights into clinical course variations with multimodal imaging.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Seven eyes of 5 patients showed no macular involvement with best
@@ -7253,7 +8962,7 @@ pathophysiology:
         central acuity, not a direct mechanism for blurred vision.
     - reference: PMID:40436146
       reference_title: &#34;Clinical and Multimodal Imaging of Acute Outer Retinopathy: Expanding the Spectrum of Acute Annular Outer Retinopathy.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Presenting symptoms included photopsia (87%), blurred vision (57%), and
@@ -7296,7 +9005,7 @@ pathophysiology:
     evidence:
     - reference: PMID:40436146
       reference_title: &#34;Clinical and Multimodal Imaging of Acute Outer Retinopathy: Expanding the Spectrum of Acute Annular Outer Retinopathy.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Acute outer retinopathy is characterized by early photoreceptor
@@ -7547,7 +9256,7 @@ phenotypes:
     evidence:
     - reference: PMID:19847620
       reference_title: Predominant loss of rod-mediated electroretinogram response in a case of acute annular outer retinopathy.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Predominant loss of rod-mediated electroretinogram response in a case of acute annular outer retinopathy.
       explanation: &gt;-
@@ -7556,7 +9265,7 @@ phenotypes:
   evidence:
   - reference: PMID:19847620
     reference_title: Predominant loss of rod-mediated electroretinogram response in a case of acute annular outer retinopathy.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Predominant loss of rod-mediated electroretinogram response in a case of acute annular outer retinopathy.
     explanation: &gt;-
@@ -7819,7 +9528,7 @@ diagnosis:
   evidence:
   - reference: PMID:19847620
     reference_title: Predominant loss of rod-mediated electroretinogram response in a case of acute annular outer retinopathy.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Predominant loss of rod-mediated electroretinogram response in a case of acute annular outer retinopathy.
     explanation: &gt;-
@@ -7886,7 +9595,7 @@ differential_diagnoses:
   evidence:
   - reference: PMID:24428923
     reference_title: &#34;A case of paraneoplastic optic neuropathy and outer retinitis positive for autoantibodies against collapsin response mediator protein-5, recoverin, and α-enolase.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Specific cross-reacting autoimmunity against recoverin or collapsin
@@ -7897,7 +9606,7 @@ differential_diagnoses:
       retinal alternative, but it is not a direct AAOR comparison study.
   - reference: PMID:18195232
     reference_title: Association of antiretinal antibodies in acute annular outer retinopathy.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Association of antiretinal antibodies in acute annular outer retinopathy.
     explanation: &gt;-
@@ -7972,7 +9681,7 @@ differential_diagnoses:
   evidence:
   - reference: PMID:38454854
     reference_title: Current understanding of acute zonal occult outer retinopathy (AZOOR).
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       This condition, distinct from genetic disorders like retinitis pigmentosa,
@@ -7996,7 +9705,7 @@ treatments:
   evidence:
   - reference: PMID:40436146
     reference_title: &#34;Clinical and Multimodal Imaging of Acute Outer Retinopathy: Expanding the Spectrum of Acute Annular Outer Retinopathy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       None of the therapeutic interventions appeared effective in halting the
@@ -8091,7 +9800,7 @@ discussions:
   attaches_to:
   - pathophysiology#Acute Photoreceptor and Henle-Layer Injury
   - pathophysiology#Outer Retinal Atrophy
-  - treatment#Serial multimodal retinal monitoring
+  - treatments#Serial multimodal retinal monitoring
   rationale: &gt;-
     Treatment reports are uncontrolled, phenotypes and diagnostic labels vary,
     and the largest observational series found no intervention that appeared to
@@ -8125,6 +9834,18 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Cross-provider assessment</strong> · <a href="../research/Acute_Annular_Outer_Retinopathy-synthesis.html">Read assessment</a></p>
+
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9540,7 +11261,7 @@ ATROPHIC STAGE (&gt;3 months)
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Acute Annular Outer Retinopathy", "mondoId": "MONDO:0017299", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Annular_Outer_Retinopathy", "yamlRevision": "cb21322881f8"};
+        const OS_CONFIG = {"diseaseName": "Acute Annular Outer Retinopathy", "mondoId": "MONDO:0017299", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Annular_Outer_Retinopathy", "yamlRevision": "d8462bac9acf"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

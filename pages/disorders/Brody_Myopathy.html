@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4137,6 +4244,8 @@ Two features make the entry mechanistically interesting beyond the core chain. F
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4205,6 +4314,8 @@ Two features make the entry mechanistically interesting beyond the core chain. F
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4228,6 +4339,8 @@ Two features make the entry mechanistically interesting beyond the core chain. F
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4249,6 +4362,8 @@ Two features make the entry mechanistically interesting beyond the core chain. F
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4519,6 +4634,7 @@ Two features make the entry mechanistically interesting beyond the core chain. F
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-atp2a1-loss-of-function" data-dismech-node="Biallelic ATP2A1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic ATP2A1 Loss of Function</div>
 
+
                 <div class="item-desc">Recessive loss-of-function variants on both ATP2A1 alleles. Two mechanistic routes converge on the same deficit: truncating, splice, and deletion alleles yield little or no SERCA1 protein, while a subset of missense alleles yield a protein that folds badly but retains catalytic activity. The distinction is not academic, because only the second group is addressable by strategies that stabilise the protein through quality control.</div>
 
 
@@ -4616,6 +4732,8 @@ This pathophysiological event involves SERCA1 P-type calcium transporter activit
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4638,6 +4756,7 @@ This pathophysiological event involves SERCA1 P-type calcium transporter activit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-proteasomal-degradation-of-misfolded-serca1" data-dismech-node="Proteasomal Degradation of Misfolded SERCA1" data-dismech-type="pathophysiology">
                 <div class="item-name">Proteasomal Degradation of Misfolded SERCA1</div>
+
 
                 <div class="item-desc">For missense alleles, the mutant pump is corrupted in folding but not in catalysis. The ubiquitin-proteasome system recognises the misfolded protein and strips it out before it reaches the sarcoplasmic reticulum membrane, so the fibre loses a pump that would have worked had it arrived. Proteasome inhibition restores both the expression level and the membrane localisation of the mutant, and the rescued protein handles calcium like wild type. This node is the therapeutic vulnerability behind the corrector strategy.</div>
 
@@ -4748,6 +4867,8 @@ This pathophysiological event involves increased proteasome-mediated degradation
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4769,6 +4890,8 @@ This pathophysiological event involves increased proteasome-mediated degradation
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4793,6 +4916,7 @@ This pathophysiological event involves increased proteasome-mediated degradation
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-serca1-density-at-the-sarcoplasmic-reticulum-membrane" data-dismech-node="Reduced SERCA1 Density at the Sarcoplasmic Reticulum Membrane" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced SERCA1 Density at the Sarcoplasmic Reticulum Membrane</div>
+
 
                 <div class="item-desc">The convergence point of both allelic routes. Fewer functional calcium pumps sit in the sarcoplasmic reticulum membrane of fast-twitch fibres, so the tissue&#39;s total calcium-ATPase activity falls. The reduction is selective for SERCA1 rather than a general loss of sarcoplasmic reticulum protein.</div>
 
@@ -4904,6 +5028,8 @@ This pathophysiological event involves sarcoplasmic reticulum membrane (GO:00330
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4925,6 +5051,8 @@ This pathophysiological event involves sarcoplasmic reticulum membrane (GO:00330
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4949,6 +5077,7 @@ This pathophysiological event involves sarcoplasmic reticulum membrane (GO:00330
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-calcium-reuptake-into-the-sarcoplasmic-reticulum" data-dismech-node="Impaired Calcium Reuptake into the Sarcoplasmic Reticulum" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Calcium Reuptake into the Sarcoplasmic Reticulum</div>
+
 
                 <div class="item-desc">The functional consequence of pump loss. Calcium released to trigger contraction is cleared from the cytosol too slowly, because in fast-twitch fibres SERCA1 is the dominant route by which that clearance happens. Calcium release itself is intact; it is only the return leg of the cycle that fails.</div>
 
@@ -5067,6 +5196,8 @@ This pathophysiological event involves decreased calcium ion import into sarcopl
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5089,6 +5220,7 @@ This pathophysiological event involves decreased calcium ion import into sarcopl
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prolonged-cytosolic-calcium-elevation" data-dismech-node="Prolonged Cytosolic Calcium Elevation" data-dismech-type="pathophysiology">
                 <div class="item-name">Prolonged Cytosolic Calcium Elevation</div>
+
 
                 <div class="item-desc">Cytosolic free calcium stays elevated after each contraction instead of falling promptly. This is the proximate cause of every downstream feature, and it is also the point of contact with malignant hyperthermia, which arrives at the same elevated myoplasmic calcium by a different route.</div>
 
@@ -5187,6 +5319,8 @@ This pathophysiological event involves decreased intracellular calcium ion homeo
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5209,6 +5343,7 @@ This pathophysiological event involves decreased intracellular calcium ion homeo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-electrically-silent-muscle-contracture" data-dismech-node="Electrically Silent Muscle Contracture" data-dismech-type="pathophysiology">
                 <div class="item-name">Electrically Silent Muscle Contracture</div>
+
 
                 <div class="item-desc">Involuntary sustained contraction following voluntary contraction, occurring without any electrical activity on needle EMG. The silence is the mechanistically important part: the fault lies downstream of the sarcolemma, in the calcium-handling machinery, so the membrane is not misbehaving and there is nothing for the electrode to record. Every myotonic disorder on the differential generates electrical discharges; this one does not.</div>
 
@@ -5307,6 +5442,8 @@ This pathophysiological event involves decreased relaxation of muscle (GO:009007
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5328,6 +5465,8 @@ This pathophysiological event involves decreased relaxation of muscle (GO:009007
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5352,6 +5491,7 @@ This pathophysiological event involves decreased relaxation of muscle (GO:009007
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-selective-type-ii-fibre-involvement" data-dismech-node="Selective Type II Fibre Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Selective Type II Fibre Involvement</div>
+
 
                 <div class="item-desc">SERCA1 is the fast-twitch isoform; slow fibres run SERCA2a from a different gene and are therefore spared. This single fact explains the distribution of the disease: the muscles that stiffen are fast-twitch-rich, which is why eyelid closure through orbicularis oculi is affected in roughly two thirds of patients while cardiac muscle, running SERCA2a, is entirely uninvolved. The biopsy correlate is selective type II fibre atrophy without myonecrosis.</div>
 
@@ -5438,6 +5578,8 @@ This pathophysiological event involves type II skeletal muscle fibre, annotated 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5460,6 +5602,7 @@ This pathophysiological event involves type II skeletal muscle fibre, annotated 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-compensatory-calcium-extrusion-and-handling" data-dismech-node="Compensatory Calcium Extrusion and Handling" data-dismech-type="pathophysiology">
                 <div class="item-name">Compensatory Calcium Extrusion and Handling</div>
+
 
                 <div class="item-desc">Alternative calcium-removal mechanisms recruited in the face of SERCA1 deficiency, which appear to be why the human disease is mild rather than lethal. Candidate contributors include the sarcolemmal calcium extrusion pump (PMCA), the sodium-calcium exchanger, mitochondrial uptake, and upregulation of the SERCA2 isoform. Which of these actually carries the load in human muscle is unresolved, and the two leading candidates are recorded as competing hypotheses rather than as a settled chain. The branch is included in the pathograph because it is load-bearing for prognosis: without it, the expectation from the mouse null would be neonatal death.</div>
 
@@ -5555,6 +5698,8 @@ This pathophysiological event involves increased calcium ion transmembrane trans
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5613,6 +5758,8 @@ This pathophysiological event involves increased calcium ion transmembrane trans
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5657,6 +5804,8 @@ This pathophysiological event involves increased calcium ion transmembrane trans
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5722,11 +5871,11 @@ This pathophysiological event involves increased calcium ion transmembrane trans
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Metabolism<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Constitutional<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5769,6 +5918,9 @@ This clinical feature is Malignant hyperthermia (HP:0002047). HP:0002047 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5783,6 +5935,8 @@ This clinical feature is Malignant hyperthermia (HP:0002047). HP:0002047 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5819,6 +5973,8 @@ This clinical feature is Malignant hyperthermia (HP:0002047). HP:0002047 is a ph
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
+
 
 
 
@@ -5827,10 +5983,13 @@ This clinical feature is Malignant hyperthermia (HP:0002047). HP:0002047 is a ph
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5850,6 +6009,8 @@ This clinical feature is Elevated circulating creatine kinase concentration (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5881,7 +6042,7 @@ This clinical feature is Elevated circulating creatine kinase concentration (HP:
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-exercise-induced-muscle-stiffness" data-dismech-node="Exercise-induced muscle stiffness" data-dismech-type="phenotype">
@@ -5943,6 +6104,9 @@ This clinical feature is Exercise-induced muscle stiffness (HP:0008967), qualifi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5957,6 +6121,8 @@ This clinical feature is Exercise-induced muscle stiffness (HP:0008967), qualifi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5982,6 +6148,8 @@ This clinical feature is Exercise-induced muscle stiffness (HP:0008967), qualifi
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5990,6 +6158,80 @@ This clinical feature is Exercise-induced muscle stiffness (HP:0008967), qualifi
 
 
                 <div class="evidence-explanation">Supports the childhood onset recorded on this descriptor, and the absence of meaningful progression thereafter, which together are the prognostic core of the disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-exercise-induced-muscle-cramps" data-dismech-node="Exercise-induced muscle cramps" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Exercise-induced muscle cramps
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003710" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003710</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Exercise-induced muscle cramps (HP:0003710). HP:0003710 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32040565" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32040565" target="_blank">PMID:32040565</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients variably reported muscle cramps (defined as involuntary and painful sustained muscle contractures) at rest or during exercise (18/34)."</div>
+
+
+                <div class="evidence-explanation">Gives the cohort proportion, 18 of 34, which falls in the FREQUENT band, and the authors&#39; definition of cramps as sustained contracture.</div>
 
 
 
@@ -6030,15 +6272,18 @@ This clinical feature is Exercise-induced muscle stiffness (HP:0008967), qualifi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003326</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0003326</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6058,6 +6303,8 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6089,7 +6336,7 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-muscle-relaxation" data-dismech-node="Delayed muscle relaxation" data-dismech-type="phenotype">
@@ -6098,6 +6345,9 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
                     </div>
+
+
+
 
 
 
@@ -6117,6 +6367,8 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6153,6 +6405,9 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6167,6 +6422,8 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6203,6 +6460,9 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6217,6 +6477,8 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6227,75 +6489,6 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
                 <div class="evidence-explanation">Turns the absence of myotonic discharges into an actionable diagnostic step, which is the reason the exclusion is curated rather than omitted.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-exercise-induced-muscle-cramps" data-dismech-node="Exercise-induced muscle cramps" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Exercise-induced muscle cramps
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003710" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0003710</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Exercise-induced muscle cramps (HP:0003710). HP:0003710 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32040565" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32040565" target="_blank">PMID:32040565</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Patients variably reported muscle cramps (defined as involuntary and painful sustained muscle contractures) at rest or during exercise (18/34)."</div>
-
-
-                <div class="evidence-explanation">Gives the cohort proportion, 18 of 34, which falls in the FREQUENT band, and the authors&#39; definition of cramps as sustained contracture.</div>
 
 
 
@@ -6381,6 +6574,9 @@ This disease-associated gene is ATP2A1 (hgnc:811). hgnc:811 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -6403,6 +6599,8 @@ This disease-associated gene is ATP2A1 (hgnc:811). hgnc:811 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6484,6 +6682,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The highest-value intervention in the disease, and the one that changes outcomes rather than symptoms. Patients are managed as malignant-hyperthermia-susceptible: volatile anaesthetics and succinylcholine are avoided in favour of a total intravenous technique, with core temperature monitoring. This follows from the shared myoplasmic calcium overload rather than from a ryanodine receptor defect.</div>
 
 
@@ -6514,6 +6737,8 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6556,6 +6781,8 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6618,6 +6845,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Calcium channel blockers, dantrolene, mexiletine, carbamazepine, and others have been tried. The honest summary from the largest cohort is that symptomatic treatment was mostly ineffective or produced unacceptable side effects, with only a small minority achieving durable control. Verapamil was the best performer in that cohort but still helped a minority.</div>
 
 
@@ -6639,6 +6891,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6723,6 +6977,31 @@ This treatment uses dantrolene (CHEBI:4317). CHEBI:4317 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A ryanodine receptor inhibitor, mechanistically coherent here because it reduces calcium release into the cytosol, attacking the same overload from the opposite direction when reuptake cannot be restored. The evidence points both ways and is curated that way: dantrolene was ineffective or poorly tolerated in the cohort, while a single later case report describes clear benefit.</div>
 
 
@@ -6745,14 +7024,16 @@ This treatment uses dantrolene (CHEBI:4317). CHEBI:4317 is a therapeutic agent f
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41926432" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41926432" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41926432" target="_blank">PMID:41926432</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6787,14 +7068,16 @@ This treatment uses dantrolene (CHEBI:4317). CHEBI:4317 is a therapeutic agent f
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41926432" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41926432" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41926432" target="_blank">PMID:41926432</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6857,6 +7140,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A repurposing strategy aimed at the folding defect rather than the symptoms. Small molecules developed to chaperone misfolded CFTR through quality control also rescue misfolded SERCA1, restoring pump abundance at the sarcoplasmic reticulum membrane. The corrector C17 was effective in vitro and in cattle, whereas the licensed cystic fibrosis correctors lumacaftor and tezacaftor were not efficient. This has not been tested in humans.</div>
 
 
@@ -6887,6 +7195,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6921,14 +7231,16 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41206505" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41206505" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41206505" target="_blank">PMID:41206505</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6991,6 +7303,31 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Warm-up strategies, activity pacing, and avoidance of cold during exertion. Used pragmatically. No trial evidence exists, and none is claimed here.</div>
 
 
@@ -7036,6 +7373,31 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7094,6 +7456,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7117,6 +7481,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7138,6 +7504,270 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-electromyography-showing-silent-contractures-without-myotonic-discharges">
+                <div class="item-name">
+                    Electromyography showing silent contractures without myotonic discharges
+
+                </div>
+
+                <div class="item-desc">The pivotal diagnostic observation, and the reason the disease is so often misdiagnosed. Needle EMG during the stiffness records nothing, because the fault lies downstream of the sarcolemma. The cohort turns this into an active manoeuvre rather than a passive finding: when a patient looks myotonic but shows no myotonic discharges, provoke contractures with rapid repeated contraction during the study instead of stopping at the negative result.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32040565" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32040565" target="_blank">PMID:32040565</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Therefore, when EMG shows no myotonic discharges in patients clinically suspected of having a myotonic disorder, provocation of possible silent contractures is recommended by performing rapid contractions during EMG."</div>
+
+
+                <div class="evidence-explanation">Converts the absence of myotonic discharges into a positive diagnostic step, which is what makes this a diagnostic recommendation rather than a description.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-atp2a1-sequencing-or-myopathy-gene-panel">
+                <div class="item-name">
+                    ATP2A1 sequencing or myopathy gene panel
+
+                </div>
+
+                <div class="item-desc">Molecular confirmation, recommended once delayed relaxation is present on examination and myotonic discharges have been excluded electrophysiologically. The order matters: the clinical and electrophysiological findings select who should be sequenced.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32040565" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32040565" target="_blank">PMID:32040565</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we recommend direct sequencing of the ATP2A1 gene or next generation sequencing with a myopathy panel"</div>
+
+
+                <div class="evidence-explanation">The testing recommendation, quoted with the clinical preconditions that precede it in the same sentence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-serca1-immunohistochemistry-inadequate-in-isolation">
+                <div class="item-name">
+                    SERCA1 immunohistochemistry (inadequate in isolation)
+
+                </div>
+
+                <div class="item-desc">Recorded specifically as a false-negative trap rather than as a recommended test. Immunostaining for loss of SERCA1a protein is not adequate for diagnosis on its own, so a normal-appearing stain does not exclude the disease and should not stop the diagnostic sequence. This is curated because a negative immunostain is exactly the point at which a workup tends to be abandoned.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10914677" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10914677" target="_blank">PMID:10914677</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"immunostaining of skeletal muscle to detect the loss of SERCA1a protein is not adequate for the diagnosis"</div>
+
+
+                <div class="evidence-explanation">States plainly that immunostaining alone is inadequate, which is the caution this record exists to carry.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">No population-based prevalence estimate exists. The largest series assembled 40 patients internationally, and a separate cross-sectional study covered 17 patients with the gene-negative syndrome. Recorded as CASES_IN_LITERATURE rather than converted to a rate, because dividing a convenience series by a world population would manufacture a precision the data do not have.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32040565" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32040565" target="_blank">PMID:32040565</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This observational study shows that the main feature of Brody disease is an exercise-induced muscle stiffness of the limbs, and often of the eyelids."</div>
+
+
+                <div class="evidence-explanation">The international series of 40 patients, cited here for the scale of the assembled literature rather than for a rate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7184,6 +7814,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7280,6 +7912,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7405,6 +8039,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7446,6 +8082,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7571,6 +8209,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7610,6 +8250,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7653,6 +8295,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7756,6 +8400,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7799,6 +8445,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8378,10 +9026,10 @@ phenotypes:
     of myonecrosis in this disease and argues against the necrotising myopathies
     on the differential.
   phenotype_term:
-    preferred_term: Elevated circulating creatine kinase concentration
+    preferred_term: Elevated circulating creatine kinase activity
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   evidence:
   - reference: PMID:32040565
     reference_title: &#34;Clinical, morphological and genetic characterization of Brody disease: an international study of 40 patients.&#34;
@@ -8675,7 +9323,7 @@ treatments:
     evidence:
     - reference: PMID:41926432
       reference_title: &#34;Rare Brody myopathy: A case report.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Treatment with dantrolene sodium resulted in marked clinical improvement.&#34;
       explanation: &gt;-
@@ -8684,7 +9332,7 @@ treatments:
   evidence:
   - reference: PMID:41926432
     reference_title: &#34;Rare Brody myopathy: A case report.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Treatment with dantrolene sodium resulted in marked clinical improvement.&#34;
     explanation: &gt;-
@@ -8727,7 +9375,7 @@ treatments:
   evidence:
   - reference: PMID:41206505
     reference_title: &#34;CFTR corrector C17 rescues defective SERCA1 in bovine pseudomyotonia: a potential therapy for Brody myopathy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;may be a potential innovative pharmacological approach addressing Brody patients in which mutated SERCA1 retains its activity&#34;
     explanation: &gt;-
@@ -9066,6 +9714,26 @@ prevalence:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope. This entry curates Brody DISEASE, meaning reduced SERCA activity together with identified biallelic ATP2A1 variants. The literature separates this from Brody SYNDROME, a clinically and biochemically similar picture in patients without ATP2A1 variants, which remains genetically unsolved and in which myalgia and daily-life impact are reported more often. MONDO folds &#34;Brody disease&#34; into MONDO:0010977 as a synonym and provides no separate term for the gene-negative group, so the distinction is recorded here and in differential_diagnoses rather than as a second disease term or a subtype.
+Frequencies quoted in this entry come from a single international cohort of 40 patients and one cross-sectional study of 17, not from a population. There is no registry, no natural-history study with structured longitudinal data, and no EHR-derived cohort. Percentages should be read as cohort proportions.
+Not curated here: a quantitative SERCA-activity reference interval that the source deep-research report attributed to PMID:41938373, and a Chianina founder-variant citation attributed to PMID:18786632. Neither identifier resolves to a record, and both were flagged as probable confabulations by the report&#39;s own reference validation. The underlying claims may well be true, but they are not curated on citations that do not exist.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Brody Myopathy (MONDO:0010977)</strong> · 2026-08-16T14:50:15Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Brody_Myopathy/2026-08-16T145015Z-claude-code-c49112.yaml">View source</a></p>
+                        <p class="research-review-text">New entry curated from a claude_code deep-research report. Eight pathophysiology nodes running biallelic ATP2A1 loss of function through two allelic routes (truncating/splice, and missense degraded by the ubiquitin-proteasome system before reaching the SR membrane) to reduced SERCA1 density, impaired calcium reuptake, prolonged cytosolic calcium, and the electrically silent contracture that is the diagnostic discriminator. Type II fibre selectivity modelled as its own node because it explains the distribution (SERCA1 is the fast-twitch isoform; heart runs SERCA2a and is uninvolved). The compensation branch is modelled rather than left as prose because it is load-bearing for prognosis, and carries two competing mechanistic_hypotheses: pmca_extrusion_compensation (EMERGING, bovine evidence) and serca2_isoform_compensation (ALTERNATIVE, one supporting human family, refuted by both the 40-patient cohort and the bovine model). A HUMAN_MODEL_MISMATCH discussion records that the Atp2a1-null mouse dies at birth of diaphragm failure while humans have no respiratory involvement, with a hypomorphic allele series proposed to separate species biology from allele severity. Three animal models including the Atp2a1-null mouse as FAILS_TO_RECAPITULATE with required limitations and evidence. Scope: Brody DISEASE (ATP2A1-confirmed); Brody SYNDROME (gene-negative) recorded as the primary differential with its own citation. Two PMIDs cited by the DR report (PMID:41938373, PMID:18786632) were flagged unresolved by the report&#39;s own reference validation and are NOT curated; the omission and reason are recorded in entry notes. HP:0100301 was initially used for delayed muscle relaxation and is wrong (it is Muscle fiber tubular inclusions); no HPO term fits that sign, and binding it to Myotonia would encode the exact misdiagnosis the entry exists to prevent, so it is carried as free text. Validated: just validate passed (schema + terms + references); count-verified-snippets 39/39; check_folded_hyphens OK; check-title-snippets OK.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10841,7 +11509,7 @@ prevalence:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Brody Myopathy", "mondoId": "MONDO:0010977", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Brody_Myopathy", "yamlRevision": "0959da03b05d"};
+        const OS_CONFIG = {"diseaseName": "Brody Myopathy", "mondoId": "MONDO:0010977", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Brody_Myopathy", "yamlRevision": "4ee95bfd4307"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

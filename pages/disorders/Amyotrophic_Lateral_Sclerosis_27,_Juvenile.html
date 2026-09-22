@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4171,6 +4278,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4192,6 +4301,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4295,6 +4406,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4316,6 +4429,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4438,6 +4553,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4459,6 +4576,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4534,6 +4653,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4557,6 +4678,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4578,6 +4701,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4614,6 +4739,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sptlc1-transmembrane-domain-gain-of-function-variant" data-dismech-node="SPTLC1 Transmembrane-Domain Gain-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">SPTLC1 Transmembrane-Domain Gain-of-Function Variant</div>
+
 
                 <div class="item-desc">Heterozygous missense or small in-frame deletion variants in SPTLC1 (p.Ala20Ser, p.Ala20Thr, p.Tyr23Phe, p.Leu38Arg, p.Leu39del, p.Phe40_Ser41del) cluster within the single membrane-spanning domain encoded by exon 2 — the surface through which SPTLC1 contacts the ORMDL regulatory subunits. The variants are dominantly acting and, in the originally described cohort, arose de novo. p.Ser331Tyr is deliberately NOT listed here: S331 sits near the active site rather than in the transmembrane domain, and although it interacts with ORMDLs it produces a mixed sensorimotor (&#34;ALS-Plus&#34;) phenotype with concurrent 1-deoxysphingolipid excess. It is treated as a hybrid allele throughout this entry, not as a member of the exon-2 cluster.</div>
 
@@ -4710,6 +4836,8 @@ This genetic context concerns SPTLC1 (hgnc:11277). hgnc:11277 is a gene from the
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: DE_NOVO</span>
 
 
@@ -4722,6 +4850,9 @@ This genetic context concerns SPTLC1 (hgnc:11277). hgnc:11277 is a gene from the
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Monoallelic, dominantly acting exon 2 variants that increase serine palmitoyltransferase activity rather than abolishing it.</div>
 
@@ -4770,6 +4901,8 @@ This genetic context concerns SPTLC1 (hgnc:11277). hgnc:11277 is a gene from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4793,6 +4926,8 @@ This genetic context concerns SPTLC1 (hgnc:11277). hgnc:11277 is a gene from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4814,6 +4949,8 @@ This genetic context concerns SPTLC1 (hgnc:11277). hgnc:11277 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4840,6 +4977,7 @@ This genetic context concerns SPTLC1 (hgnc:11277). hgnc:11277 is a gene from the
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-ormdl-mediated-feedback-inhibition-of-serine-palmitoyltransferase" data-dismech-node="Impaired ORMDL-Mediated Feedback Inhibition of Serine Palmitoyltransferase" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired ORMDL-Mediated Feedback Inhibition of Serine Palmitoyltransferase</div>
+
 
                 <div class="item-desc">Serine palmitoyltransferase is an endoplasmic-reticulum heterocomplex whose activity is held in check by the ORMDL1-3 regulatory subunits, which inhibit the enzyme when they sense rising ceramide. ALS27 variants sit on the SPTLC1 face that contacts ORMDL, so ORMDL binding and ceramide sensing are impaired and the negative feedback arm of sphingolipid homeostasis fails. The catalytic function itself is intact — it is the restraint that is lost, which is why this is a gain-of-function rather than a deficiency state.</div>
 
@@ -5010,6 +5148,8 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5031,6 +5171,8 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5056,6 +5198,8 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5078,6 +5222,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unrestrained-de-novo-sphingolipid-synthesis" data-dismech-node="Unrestrained De Novo Sphingolipid Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Unrestrained De Novo Sphingolipid Synthesis</div>
+
 
                 <div class="item-desc">Loss of feedback restraint drives excess condensation of L-serine with palmitoyl-CoA, elevating canonical sphingoid bases and their downstream products. Patient plasma and variant-expressing cells show globally increased sphingolipids, with a particularly marked rise in dihydrosphingolipids (sphinganine and dihydroceramides), which have been linked to neurotoxicity. In the exon-2 / transmembrane-domain alleles, 1-deoxysphingolipid levels are NOT elevated — that is the HSAN1 signature — so the two SPTLC1 diseases are separated by which lipid species accumulates, not merely by how much SPT activity there is. This dichotomy is real but not absolute: patients with p.Ser331 substitutions show a CONCURRENT rise in 1-deoxysphingolipids and canonical sphingolipids, and one p.Leu39del carrier with a raised alanine/serine ratio showed both. The clean separation therefore holds for the exon-2 cluster, not for every SPTLC1-ALS allele.</div>
 
@@ -5205,6 +5350,8 @@ This pathophysiological event involves increased sphingolipid biosynthetic proce
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5228,6 +5375,8 @@ This pathophysiological event involves increased sphingolipid biosynthetic proce
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5249,6 +5398,8 @@ This pathophysiological event involves increased sphingolipid biosynthetic proce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5275,6 +5426,7 @@ This pathophysiological event involves increased sphingolipid biosynthetic proce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-upper-and-lower-motor-neuron-degeneration" data-dismech-node="Upper and Lower Motor Neuron Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Upper and Lower Motor Neuron Degeneration</div>
+
 
                 <div class="item-desc">Degeneration involves both motor neuron compartments. Upper motor neuron involvement presents first in most patients as early-childhood lower-limb spasticity and toe walking, and is followed by diffuse lower motor neuron degeneration in cranial, cervical and lumbar myotomes, so that patients meet revised El Escorial criteria for ALS. Sensory neurons are characteristically spared, distinguishing ALS27 from HSAN1.</div>
 
@@ -5506,6 +5658,8 @@ This pathophysiological event occurs in primary motor cortex (UBERON:0001384). U
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5528,6 +5682,7 @@ This pathophysiological event occurs in primary motor cortex (UBERON:0001384). U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-denervation-and-neurogenic-muscle-atrophy" data-dismech-node="Progressive Denervation and Neurogenic Muscle Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Denervation and Neurogenic Muscle Atrophy</div>
+
 
                 <div class="item-desc">Chronic denervation produces generalized muscle wasting and weakness, most visibly in the tongue (wasting with fasciculations) and in the limbs, with a positive Gower sign and exaggerated lumbar lordosis reflecting proximal weakness. Muscle biopsy in ALS27 has also shown mild inflammatory change on proteomic and transcript profiling.</div>
 
@@ -5620,6 +5775,8 @@ This pathophysiological event occurs in primary motor cortex (UBERON:0001384). U
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5642,6 +5799,7 @@ This pathophysiological event occurs in primary motor cortex (UBERON:0001384). U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-ambulation-and-respiratory-insufficiency" data-dismech-node="Loss of Ambulation and Respiratory Insufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Ambulation and Respiratory Insufficiency</div>
+
 
                 <div class="item-desc">The organism-level endpoint of ALS27. Progression is slower than in sporadic adult ALS: in the longest-followed case, independent ambulation was lost at age 45 after onset at 22, with forced vital capacity falling from 94% to 49% of predicted over 20 years and two admissions for respiratory failure. Some patients require tracheostomy and ventilation.</div>
 
@@ -5702,6 +5860,8 @@ This pathophysiological event occurs in primary motor cortex (UBERON:0001384). U
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5723,6 +5883,8 @@ This pathophysiological event occurs in primary motor cortex (UBERON:0001384). U
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5791,15 +5953,17 @@ This pathophysiological event occurs in primary motor cortex (UBERON:0001384). U
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5842,6 +6006,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5856,6 +6023,8 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5886,9 +6055,166 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">2</span>
+                    Head and Neck
+                    <span class="cat-count">1</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tongue-fasciculations" data-dismech-node="Tongue Fasciculations" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Tongue Fasciculations
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001308" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001308</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tongue fasciculations (HP:0001308). HP:0001308 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34059824" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34059824" target="_blank">PMID:34059824</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"this initial manifestation was almost universally followed by diffuse and progressive lower motor neuron degeneration, including tongue fasciculations, which is highly unusual for classic forms of HSP but consistent with ALS"</div>
+
+
+                <div class="evidence-explanation">The quoted sentence says tongue fasciculations followed &#34;almost universally&#34;, which maps to the VERY_FREQUENT band (80-100%); the same sentence is the discriminator from hereditary spastic paraplegia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">4</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lower-limb-spasticity" data-dismech-node="Lower Limb Spasticity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Lower Limb Spasticity
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002061" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002061</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lower limb spasticity (HP:0002061). HP:0002061 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34059824" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34059824" target="_blank">PMID:34059824</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified six individuals from six unrelated families who developed early-childhood-onset lower extremity spasticity manifesting as toe walking and gait abnormalities followed by progressive lower motor neuron-mediated weakness without sensory symptoms or signs"</div>
+
+
+                <div class="evidence-explanation">Six of six probands in the index cohort presented with early-childhood lower extremity spasticity, supporting a VERY_FREQUENT band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-muscle-weakness" data-dismech-node="Progressive Muscle Weakness" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5906,15 +6232,18 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003323" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003323</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003323" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0003323</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Progressive muscle weakness (HP:0003323). HP:0003323 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5934,6 +6263,8 @@ This clinical feature is Progressive muscle weakness (HP:0003323). HP:0003323 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5957,6 +6288,8 @@ This clinical feature is Progressive muscle weakness (HP:0003323). HP:0003323 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5998,10 +6331,10 @@ This clinical feature is Progressive muscle weakness (HP:0003323). HP:0003323 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0003202</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0003202</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Skeletal muscle atrophy (HP:0003202), qualified as course progressive. HP:0003202 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6030,6 +6363,9 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202), qualified as cour
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6044,6 +6380,8 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202), qualified as cour
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6069,13 +6407,89 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202), qualified as cour
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-diffuse-denervation-on-electromyography" data-dismech-node="Diffuse Denervation on Electromyography" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Diffuse Denervation on Electromyography
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">EMG: chronic denervation signs</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003444" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0003444</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diffuse acute and chronic denervation on EMG, annotated with EMG: chronic denervation signs (HP:0003444). HP:0003444 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38788085" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38788085" target="_blank">PMID:38788085</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Electrodiagnostic studies show normal sensory studies and diffuse acute and chronic denervation in multiple myotomes without demyelinating features"</div>
+
+
+                <div class="evidence-explanation">Defines the characteristic electrodiagnostic signature of SPTLC1-related juvenile ALS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hyperreflexia" data-dismech-node="Hyperreflexia" data-dismech-type="phenotype">
@@ -6092,15 +6506,18 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202), qualified as cour
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001347</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001347</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6120,6 +6537,8 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6159,15 +6578,18 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002380" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002380</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002380" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002380</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fasciculations (HP:0002380). HP:0002380 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6187,6 +6609,8 @@ This clinical feature is Fasciculations (HP:0002380). HP:0002380 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6228,15 +6652,18 @@ This clinical feature is Fasciculations (HP:0002380). HP:0002380 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001260</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001260</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6256,6 +6683,8 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6297,10 +6726,10 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0100543</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0100543</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cognitive impairment (HP:0100543), qualified as severity mild. HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6329,6 +6758,9 @@ This clinical feature is Cognitive impairment (HP:0100543), qualified as severit
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6343,6 +6775,8 @@ This clinical feature is Cognitive impairment (HP:0100543), qualified as severit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6353,469 +6787,6 @@ This clinical feature is Cognitive impairment (HP:0100543), qualified as severit
 
 
                 <div class="evidence-explanation">Formal neuropsychological documentation of executive/attentional impairment in an ALS27 patient. OCCASIONAL is a derived count: 2 of the 4 probands in this cohort had some cognitive finding, but see the description - a 2024 review reports none, so the band is provisional.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-insufficiency" data-dismech-node="Respiratory Insufficiency" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Respiratory Insufficiency
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002093</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Respiratory insufficiency (HP:0002093), qualified as course progressive. HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34059824" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34059824" target="_blank">PMID:34059824</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The disease was universally progressive and led to loss of independent ambulation and respiratory insufficiency of variable degrees."</div>
-
-
-                <div class="evidence-explanation">Respiratory insufficiency of variable degree in all index-cohort patients.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34459874" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34459874" target="_blank">PMID:34459874</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"By age 20 years, she had quadriplegia with marked muscle atrophy and diminished weight, brisk lower limb reflexes, tongue fasciculations and weakness, dysarthria, mild cognitive dysfunction, and respiratory failure requiring tracheostomy and ventilation."</div>
-
-
-                <div class="evidence-explanation">Documents respiratory failure requiring tracheostomy and ventilation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive-and-growth-failure" data-dismech-node="Failure to Thrive and Growth Failure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Failure to Thrive and Growth Failure
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001508</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34459874" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34459874" target="_blank">PMID:34459874</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"De novo variants in SPTLC1 (p.Ala20Ser in 2 patients and p.Ser331Tyr in 1 patient) were identified in 3 unrelated patients diagnosed with juvenile ALS and failure to thrive."</div>
-
-
-                <div class="evidence-explanation">Three of the four probands in this study carried a juvenile ALS diagnosis together with failure to thrive.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34459874" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34459874" target="_blank">PMID:34459874</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Patient 1 presented with gradually progressive spastic diplegia and growth retardation beginning at age 5 years."</div>
-
-
-                <div class="evidence-explanation">Growth retardation from early childhood in an ALS27 patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">6</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-lower-limb-spasticity" data-dismech-node="Lower Limb Spasticity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Lower Limb Spasticity
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002061" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002061</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Lower limb spasticity (HP:0002061). HP:0002061 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34059824" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34059824" target="_blank">PMID:34059824</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We identified six individuals from six unrelated families who developed early-childhood-onset lower extremity spasticity manifesting as toe walking and gait abnormalities followed by progressive lower motor neuron-mediated weakness without sensory symptoms or signs"</div>
-
-
-                <div class="evidence-explanation">Six of six probands in the index cohort presented with early-childhood lower extremity spasticity, supporting a VERY_FREQUENT band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-tongue-fasciculations" data-dismech-node="Tongue Fasciculations" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Tongue Fasciculations
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001308" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001308</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Tongue fasciculations (HP:0001308). HP:0001308 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34059824" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34059824" target="_blank">PMID:34059824</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"this initial manifestation was almost universally followed by diffuse and progressive lower motor neuron degeneration, including tongue fasciculations, which is highly unusual for classic forms of HSP but consistent with ALS"</div>
-
-
-                <div class="evidence-explanation">The quoted sentence says tongue fasciculations followed &#34;almost universally&#34;, which maps to the VERY_FREQUENT band (80-100%); the same sentence is the discriminator from hereditary spastic paraplegia.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-absence-of-sensory-neuropathy" data-dismech-node="Absence of Sensory Neuropathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Absence of Sensory Neuropathy
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (3 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34059824" data-dismech-supports="REFUTE">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34059824" target="_blank">PMID:34059824</a>
-                    </span>
-
-
-                    <span class="evidence-support support-REFUTE">REFUTE</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"the patients with ALS reported here presented with childhood-onset motor neuron disease, normal sensory findings (by clinical examination, electrophysiologic studies and nerve biopsy when available) and normal deoxysphingolipid levels."</div>
-
-
-                <div class="evidence-explanation">Refutes sensory impairment as a feature of typical ALS27; sensory findings were normal across the index cohort.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34059824" data-dismech-supports="REFUTE">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34059824" target="_blank">PMID:34059824</a>
-                    </span>
-
-
-                    <span class="evidence-support support-REFUTE">REFUTE</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Patient 3 also had a sural nerve biopsy that failed to reveal any abnormalities in myelinated or unmyelinated sensory nerve fibers"</div>
-
-
-                <div class="evidence-explanation">Histological confirmation of sensory sparing; moved here from the motor-neuron-degeneration node, which it does not evidence.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34459874" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34459874" target="_blank">PMID:34459874</a>
-                    </span>
-
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"She was diagnosed with juvenile ALS-Plus syndrome owing to her prominent motor symptoms and modest sensory-autonomic involvement."</div>
-
-
-                <div class="evidence-explanation">A minority of SPTLC1-ALS patients do have modest sensory-autonomic involvement, so sensory sparing is typical rather than absolute.</div>
 
 
 
@@ -6847,15 +6818,18 @@ This clinical feature is Tongue fasciculations (HP:0001308). HP:0001308 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030051" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0030051</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030051" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0030051</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Toe walking (tip-toe gait), annotated with Tip-toe gait (HP:0030051). HP:0030051 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6877,6 +6851,8 @@ This clinical feature is Toe walking (tip-toe gait), annotated with Tip-toe gait
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6885,77 +6861,6 @@ This clinical feature is Toe walking (tip-toe gait), annotated with Tip-toe gait
 
 
                 <div class="evidence-explanation">Toe walking and gait abnormality as the presenting manifestation in all six index-cohort probands.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-diffuse-denervation-on-electromyography" data-dismech-node="Diffuse Denervation on Electromyography" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Diffuse Denervation on Electromyography
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">EMG: chronic denervation signs</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003444" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0003444</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Diffuse acute and chronic denervation on EMG, annotated with EMG: chronic denervation signs (HP:0003444). HP:0003444 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38788085" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38788085" target="_blank">PMID:38788085</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Electrodiagnostic studies show normal sensory studies and diffuse acute and chronic denervation in multiple myotomes without demyelinating features"</div>
-
-
-                <div class="evidence-explanation">Defines the characteristic electrodiagnostic signature of SPTLC1-related juvenile ALS.</div>
 
 
 
@@ -6987,15 +6892,18 @@ This clinical feature is Diffuse acute and chronic denervation on EMG, annotated
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002505</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Loss of ambulation (HP:0002505). HP:0002505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7017,6 +6925,8 @@ This clinical feature is Loss of ambulation (HP:0002505). HP:0002505 is a phenot
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7025,6 +6935,354 @@ This clinical feature is Loss of ambulation (HP:0002505). HP:0002505 is a phenot
 
 
                 <div class="evidence-explanation">Loss of independent ambulation was universal in the index cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-insufficiency" data-dismech-node="Respiratory Insufficiency" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Respiratory Insufficiency
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002093</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory insufficiency (HP:0002093), qualified as course progressive. HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34059824" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34059824" target="_blank">PMID:34059824</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The disease was universally progressive and led to loss of independent ambulation and respiratory insufficiency of variable degrees."</div>
+
+
+                <div class="evidence-explanation">Respiratory insufficiency of variable degree in all index-cohort patients.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34459874" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34459874" target="_blank">PMID:34459874</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"By age 20 years, she had quadriplegia with marked muscle atrophy and diminished weight, brisk lower limb reflexes, tongue fasciculations and weakness, dysarthria, mild cognitive dysfunction, and respiratory failure requiring tracheostomy and ventilation."</div>
+
+
+                <div class="evidence-explanation">Documents respiratory failure requiring tracheostomy and ventilation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive-and-growth-failure" data-dismech-node="Failure to Thrive and Growth Failure" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Failure to Thrive and Growth Failure
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34459874" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34459874" target="_blank">PMID:34459874</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"De novo variants in SPTLC1 (p.Ala20Ser in 2 patients and p.Ser331Tyr in 1 patient) were identified in 3 unrelated patients diagnosed with juvenile ALS and failure to thrive."</div>
+
+
+                <div class="evidence-explanation">Three of the four probands in this study carried a juvenile ALS diagnosis together with failure to thrive.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34459874" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34459874" target="_blank">PMID:34459874</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patient 1 presented with gradually progressive spastic diplegia and growth retardation beginning at age 5 years."</div>
+
+
+                <div class="evidence-explanation">Growth retardation from early childhood in an ALS27 patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-absence-of-sensory-neuropathy" data-dismech-node="Absence of Sensory Neuropathy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Absence of Sensory Neuropathy
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34059824" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34059824" target="_blank">PMID:34059824</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the patients with ALS reported here presented with childhood-onset motor neuron disease, normal sensory findings (by clinical examination, electrophysiologic studies and nerve biopsy when available) and normal deoxysphingolipid levels."</div>
+
+
+                <div class="evidence-explanation">Refutes sensory impairment as a feature of typical ALS27; sensory findings were normal across the index cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34059824" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34059824" target="_blank">PMID:34059824</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patient 3 also had a sural nerve biopsy that failed to reveal any abnormalities in myelinated or unmyelinated sensory nerve fibers"</div>
+
+
+                <div class="evidence-explanation">Histological confirmation of sensory sparing; moved here from the motor-neuron-degeneration node, which it does not evidence.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34459874" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34459874" target="_blank">PMID:34459874</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"She was diagnosed with juvenile ALS-Plus syndrome owing to her prominent motor symptoms and modest sensory-autonomic involvement."</div>
+
+
+                <div class="evidence-explanation">A minority of SPTLC1-ALS patients do have modest sensory-autonomic involvement, so sensory sparing is typical rather than absolute.</div>
 
 
 
@@ -7114,6 +7372,9 @@ This disease-associated gene is SPTLC1 (hgnc:11277). hgnc:11277 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7128,6 +7389,8 @@ This disease-associated gene is SPTLC1 (hgnc:11277). hgnc:11277 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7153,6 +7416,8 @@ This disease-associated gene is SPTLC1 (hgnc:11277). hgnc:11277 is a gene from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7174,6 +7439,8 @@ This disease-associated gene is SPTLC1 (hgnc:11277). hgnc:11277 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7256,6 +7523,81 @@ This treatment is Gene Silencing Therapy, annotated with Pharmacotherapy (NCIT:C
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">siRNA</span>
+
+
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">RNAi knockdown</span>
+
+
+
+
+    </div>
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">RNA target:</strong>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SPTLC1
+
+
+    <a href="https://bioregistry.io/hgnc:11277" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:11277</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this treatment base-pairs with the transcript of this gene
+This treatment base-pairs with the transcript of SPTLC1 (hgnc:11277). hgnc:11277 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">SPTLC1 mRNA from the mutant ALS allele</span>
+
+
+    </div>
+
+
+
+
+
                 <div class="item-desc">Custom small interfering RNAs designed to degrade the mutant SPTLC1 allele while sparing the wild-type allele normalized sphingolipid levels in patient-derived cells. This is a proof-of-concept in vitro result only — no in vivo or clinical data exist, and the negative heterozygous mouse model means there is currently no animal system in which to test efficacy.</div>
 
 
@@ -7286,6 +7628,8 @@ This treatment is Gene Silencing Therapy, annotated with Pharmacotherapy (NCIT:C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7330,6 +7674,8 @@ This treatment is Gene Silencing Therapy, annotated with Pharmacotherapy (NCIT:C
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7343,14 +7689,16 @@ This treatment is Gene Silencing Therapy, annotated with Pharmacotherapy (NCIT:C
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38788085" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38788085" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38788085" target="_blank">PMID:38788085</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7374,6 +7722,8 @@ This treatment is Gene Silencing Therapy, annotated with Pharmacotherapy (NCIT:C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7404,7 +7754,7 @@ This treatment is Gene Silencing Therapy, annotated with Pharmacotherapy (NCIT:C
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">Nutritional Support<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Nutritional Support<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7436,6 +7786,31 @@ This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">NOT a recommended ALS27 therapy, and recorded here as a safety caution. High-dose (10 g/day) oral L-serine was given on a compassionate basis to one ALS27 patient; body weight increased for the first time in years, ceramide levels stayed within the normal range, and no neurological improvement was observed.
 The rationale was not simply borrowed from HSAN1. The JAMA Neurology authors ran their own assay and found the p.Ala20Ser complex had an altered L-alanine and glycine preference over L-serine, and that serine supplementation reversed those defects toward wild-type in culture — an HSAN1-like biochemistry in an exon-2 allele, pointing opposite to the harm prediction.
 The prevailing view is nevertheless that supplementation is harmful here: in SPT-related motor neuron disease the enzyme is unrestrained rather than substrate-promiscuous, L-serine is the substrate it is consuming, and serine supplementation of iPSC-derived motor neurons carrying SPTLC1 p.Phe40_Ser41del accentuated the consequences of SPT overactivity. Both sides are curated below rather than only the one that supports the caution; the unresolved direction of effect is tracked in the open_als27_serine_direction_of_effect discussion.</div>
@@ -7461,6 +7836,8 @@ The prevailing view is nevertheless that supplementation is harmful here: in SPT
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7484,6 +7861,8 @@ The prevailing view is nevertheless that supplementation is harmful here: in SPT
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7497,14 +7876,16 @@ The prevailing view is nevertheless that supplementation is harmful here: in SPT
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34459874" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:34459874" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34459874" target="_blank">PMID:34459874</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7537,7 +7918,7 @@ The prevailing view is nevertheless that supplementation is harmful here: in SPT
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7564,6 +7945,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7601,6 +8007,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7633,14 +8041,16 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38788085" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38788085" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38788085" target="_blank">PMID:38788085</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7671,7 +8081,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Dietary Intervention<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">Dietary Intervention<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7703,6 +8113,31 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Because SPT overproduction depends on L-serine availability, restricting dietary serine and glycine (glycine is readily converted to serine) is a theoretically feasible way to reduce substrate supply. It is the exact inverse of HSAN1 management and has not been tested clinically in ALS27. Note the countervailing risk documented in the mechanistic literature: severe serine limitation shifts SPTLC1-ALS cells toward the neurotoxic 1-deoxysphingolipid (HSAN1-like) signature, so this is a two-sided intervention rather than a simple substrate-reduction strategy.</div>
 
 
@@ -7726,6 +8161,8 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7747,6 +8184,8 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7777,7 +8216,7 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7809,6 +8248,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Non-invasive ventilation progressing to tracheostomy and long-term ventilation as forced vital capacity declines. Supportive rather than disease-modifying.</div>
 
 
@@ -7824,11 +8288,11 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002093</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7852,6 +8316,8 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7915,6 +8381,8 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7938,6 +8406,8 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7959,6 +8429,8 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8007,6 +8479,8 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8030,6 +8504,8 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8051,6 +8527,275 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-onset">
+                <div class="item-name">Onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: mean 7.9 years (SD 4.6) in the SPTLC1-mutated juvenile ALS cohort</span>
+
+
+
+                </div>
+
+                <div class="item-notes">In the largest genotyped juvenile ALS cohort to date (17 SPTLC1 patients), mean age at onset was 7.9 +/- 4.6 years, significantly earlier than in FUS-mutated juvenile ALS (18.1 +/- 3.9 years). Onset was exclusively spinal in the SPTLC1 group, with no bulbar-onset cases, in contrast to the 37.2% bulbar onset seen with FUS.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36801857" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36801857" target="_blank">PMID:36801857</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"mutations also had a large proportion of bulbar onset (37.2%, 16/43), while those with SPTLC1 mutations only presented spinal onset"</div>
+
+
+                <div class="evidence-explanation">Establishes that onset is exclusively spinal in the SPTLC1 group, which is what distinguishes its onset pattern from FUS-mutated juvenile ALS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-disease-duration">
+                <div class="item-name">Disease duration</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Disease duration is an order of magnitude longer than in FUS-mutated juvenile ALS: a median 512.0 months (roughly 43 years, IQR 416.7-607.3) against 33.4 months for FUS. This is the quantitative basis for describing the SPTLC1 course as slowly progressive rather than merely &#34;slower than adult sporadic ALS&#34;.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36801857" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36801857" target="_blank">PMID:36801857</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"tended to have an earlier AAO and the initial symptoms of lower limb spasticity and toe walking with longer disease duration"</div>
+
+
+                <div class="evidence-explanation">Gives the median disease duration for the SPTLC1 group together with its characteristic presenting symptoms.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-onset-2">
+                <div class="item-name">Onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: 3-25 years (most commonly early childhood)</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Initial symptoms are usually upper motor neuron (lower-limb spasticity, toe walking) or lower motor neuron (weakness, atrophy), without sensory symptoms. Onset as early as 3-4 years is documented, but a minority present in the second or third decade.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38788085" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38788085" target="_blank">PMID:38788085</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Initial symptoms were reported as early as 3-4 years of age but in some individuals the disease onset was in the second or third decade of life"</div>
+
+
+                <div class="evidence-explanation">Defines the age-at-onset range for SPTLC1-related juvenile ALS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-progressive">
+                <div class="item-name">Progressive</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">The course is relentlessly progressive but markedly slower than adult sporadic ALS, with bulbar and respiratory involvement emerging late. Rate varies between individuals and families.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38788085" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38788085" target="_blank">PMID:38788085</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The disease course has been universally and relentlessly progressive, albeit with variability in its rate, and includes involvement of the bulbar and respiratory function"</div>
+
+
+                <div class="evidence-explanation">Characterizes the progressive course including late bulbar and respiratory involvement.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34059824" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34059824" target="_blank">PMID:34059824</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Despite its childhood onset and resulting severe disability, the rate of progression of SPTLC1-associated ALS is still slower than sporadic ALS and thus mirrors other juvenile-onset hereditary ALS cases"</div>
+
+
+                <div class="evidence-explanation">Establishes the slower tempo relative to sporadic ALS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8108,6 +8853,8 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8182,6 +8929,8 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8245,6 +8994,8 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8312,6 +9063,8 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8375,6 +9128,8 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8469,6 +9224,8 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8513,6 +9270,8 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8601,6 +9360,8 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8647,6 +9408,8 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8689,11 +9452,11 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
                         spinal cord motor neuron
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011001" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-33">CL:0011001</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011001" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-34">CL:0011001</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Cell Ontology (CL)
 Relation: this experimental model uses this cell type
 This experimental model uses spinal cord motor neuron (CL:0011001). CL:0011001 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -8743,14 +9506,16 @@ This experimental model uses spinal cord motor neuron (CL:0011001). CL:0011001 i
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38788085" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38788085" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38788085" target="_blank">PMID:38788085</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8808,6 +9573,8 @@ This experimental model uses spinal cord motor neuron (CL:0011001). CL:0011001 i
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8844,14 +9611,16 @@ This experimental model uses spinal cord motor neuron (CL:0011001). CL:0011001 i
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38788085" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38788085" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38788085" target="_blank">PMID:38788085</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8936,11 +9705,11 @@ This experimental model uses spinal cord motor neuron (CL:0011001). CL:0011001 i
         SPTLC1
 
 
-    <a href="https://bioregistry.io/hgnc:11277" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:11277</a>
+    <a href="https://bioregistry.io/hgnc:11277" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:11277</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this experimental model concerns this gene
 This experimental model concerns SPTLC1 (hgnc:11277). hgnc:11277 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -9020,6 +9789,8 @@ This experimental model concerns SPTLC1 (hgnc:11277). hgnc:11277 is a gene from 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9061,6 +9832,8 @@ This experimental model concerns SPTLC1 (hgnc:11277). hgnc:11277 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9345,7 +10118,7 @@ pathophysiology:
     evidence:
     - reference: PMID:34059824
       reference_title: &#34;Childhood amyotrophic lateral sclerosis caused by excess sphingolipid synthesis.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;The role of primary metabolic disturbances in ALS has been elusive; this study defines excess sphingolipid biosynthesis as a fundamental metabolic mechanism for motor neuron disease.&#34;
       explanation: Supports excess sphingolipid biosynthesis as the disease mechanism for this motor neuron disease; marked PARTIAL because the intervening steps to motor-neuron death are not directly demonstrated.
@@ -9433,7 +10206,7 @@ pathophysiology:
     evidence:
     - reference: PMID:34059824
       reference_title: &#34;Childhood amyotrophic lateral sclerosis caused by excess sphingolipid synthesis.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;All six individuals had upper and lower motor neuron signs and symptoms in the cranial, cervical and lumbar myotomes&#34;
       explanation: Establishes upper motor neuron signs across myotomes; hyperreflexia is the specific sign documented in the JAMA cohort.
@@ -9444,7 +10217,7 @@ pathophysiology:
     evidence:
     - reference: PMID:38788085
       reference_title: &#34;Serine Palmitoyltransferase (SPT)-related Neurodegenerative and Neurodevelopmental Disorders.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;includes involvement of the bulbar and respiratory function&#34;
       explanation: Bulbar involvement is part of the motor neuron degeneration course; dysarthria is its articulatory expression.
@@ -9455,7 +10228,7 @@ pathophysiology:
     evidence:
     - reference: PMID:38788085
       reference_title: &#34;Serine Palmitoyltransferase (SPT)-related Neurodegenerative and Neurodevelopmental Disorders.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;includes involvement of the bulbar and respiratory function&#34;
       explanation: Bulbar involvement is part of the disease course; dysphagia is its swallowing expression.
@@ -9862,7 +10635,7 @@ phenotypes:
     explanation: Histological confirmation of sensory sparing; moved here from the motor-neuron-degeneration node, which it does not evidence.
   - reference: PMID:34459874
     reference_title: &#34;Association of Variants in the SPTLC1 Gene With Juvenile Amyotrophic Lateral Sclerosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;She was diagnosed with juvenile ALS-Plus syndrome owing to her prominent motor symptoms and modest sensory-autonomic involvement.&#34;
     explanation: A minority of SPTLC1-ALS patients do have modest sensory-autonomic involvement, so sensory sparing is typical rather than absolute.
@@ -9985,7 +10758,7 @@ progression:
     with FUS.
   evidence:
   - reference: PMID:36801857
-    reference_title: &#34;Genetic spectrum and clinical profiles in a southeast Chinese cohort of juvenile amyotrophic lateral sclerosis.&#34;
+    reference_title: &#34;Clinical feature difference between juvenile amyotrophic lateral sclerosis with SPTLC1 and FUS mutations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -10002,7 +10775,7 @@ progression:
     as slowly progressive rather than merely &#34;slower than adult sporadic ALS&#34;.
   evidence:
   - reference: PMID:36801857
-    reference_title: &#34;Genetic spectrum and clinical profiles in a southeast Chinese cohort of juvenile amyotrophic lateral sclerosis.&#34;
+    reference_title: &#34;Clinical feature difference between juvenile amyotrophic lateral sclerosis with SPTLC1 and FUS mutations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -10163,6 +10936,14 @@ treatments:
     and the negative heterozygous mouse model means there is currently no animal system
     in which to test efficacy.
   therapeutic_modality: SIRNA
+  oligonucleotide_details:
+    oligonucleotide_mechanism: RNAI_KNOCKDOWN
+    target_gene:
+      preferred_term: SPTLC1
+      term:
+        id: hgnc:11277
+        label: SPTLC1
+    target_transcript: SPTLC1 mRNA from the mutant ALS allele
   treatment_term:
     preferred_term: Gene Silencing Therapy
     term:
@@ -10190,7 +10971,7 @@ treatments:
     explanation: The only reported disease-modifying strategy for ALS27, at in vitro proof-of-concept stage.
   - reference: PMID:38788085
     reference_title: &#34;Serine Palmitoyltransferase (SPT)-related Neurodegenerative and Neurodevelopmental Disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;While effective, and imposing little chance for over-inhibition of SPT, this approach has limited generalizability and needs to be custom-designed and validated for each disease-causing SPT variant.&#34;
     explanation: Records the translational limitation - each ALS27 allele needs its own bespoke siRNA - which is why this has not scaled beyond proof of concept.
@@ -10241,13 +11022,13 @@ treatments:
     explanation: Experimental corroboration in an ALS27-genotype iPSC motor neuron model that serine makes the biochemical defect worse.
   - reference: PMID:34459874
     reference_title: &#34;Association of Variants in the SPTLC1 Gene With Juvenile Amyotrophic Lateral Sclerosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We did not observe evidence of neurological improvement, although prolonged therapy would be required to detect such an effect.&#34;
     explanation: The only clinical exposure of an ALS27 patient to L-serine produced no demonstrated neurological benefit.
   - reference: PMID:34459874
     reference_title: &#34;Association of Variants in the SPTLC1 Gene With Juvenile Amyotrophic Lateral Sclerosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Her body weight increased during this off-label treatment, which was the first time she had gained weight in several years.&#34;
     explanation: Records the one positive observation (weight gain) from that compassionate-use exposure, so the entry neither hides nor overstates it.
@@ -10295,7 +11076,7 @@ treatments:
   evidence:
   - reference: PMID:38788085
     reference_title: &#34;Serine Palmitoyltransferase (SPT)-related Neurodegenerative and Neurodevelopmental Disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;All of these inhibitors show dose-related toxicity or off-target activity that have hampered their clinical development&#34;
     explanation: Explains why no SPT inhibitor is clinically available for ALS27 despite a clear target.
@@ -10496,7 +11277,7 @@ experimental_models:
     evidence:
     - reference: PMID:38788085
       reference_title: &#34;Serine Palmitoyltransferase (SPT)-related Neurodegenerative and Neurodevelopmental Disorders.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;Studies of iPSC-derived lower motor neuron-like cells harboring the SPTLC1-related ALS variant (p.F40_S41del) have shown elevated canonical sphingolipids without an effect on differentiation, morphology, and survival in these cells&#34;
       explanation: Reports the lipid phenotype together with the explicit absence of a cellular degeneration phenotype.
@@ -10528,7 +11309,7 @@ experimental_models:
   evidence:
   - reference: PMID:38788085
     reference_title: &#34;Serine Palmitoyltransferase (SPT)-related Neurodegenerative and Neurodevelopmental Disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;however, more detailed characterization of these cells has not been reported yet.&#34;
     explanation: Marks the iPSC motor neuron model as informative but only shallowly characterized, so conclusions drawn from it should stay provisional.
@@ -10654,6 +11435,39 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Amyotrophic Lateral Sclerosis 27, Juvenile (SPTLC1/ALS27)</strong> · 2026-08-20T04:33:33Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Amyotrophic_Lateral_Sclerosis_27_Juvenile/2026-08-20T043333Z-claude-code-38be6c.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of ALS27 (MONDO:0859529, OMIM 620285, causal gene SPTLC1/hgnc:11277) from primary literature plus one falcon deep-research report.
+
+Identity anchoring (NEC risk is high for the numbered ALS1..ALS27 series): MONDO looked up with OAK, confirming RO:0004003 SPTLC1 and OMIM:620285. `just preflight-dr research/Amyotrophic_Lateral_Sclerosis_27_Juvenile-deep-research-falcon.md MONDO:0859529` returned PASS (SPTLC1 mentioned 41 times; nearest rival SPTLC2 at 5).
+
+Deep research: falcon (Edison), 712 s, 11 citations. Its own reference-validation block reported needs_review: true with one unresolved identifier, &#34;DOI:10.3233/JND-240014-current&#34;. I re-checked that identifier: the failure was a formatting artifact (an em-dash and the word &#34;current&#34; concatenated onto the DOI in the report text). The clean DOI 10.3233/JND-240014 resolves via the PMC ID converter to PMID:38788085 (Mohassel, Abdullah, Eichler, J Neuromuscul Dis 2024), which was fetched with `just fetch-reference` and cited. No other report identifier was unresolved. The report was used as leads only; every cited PMID was fetched independently and every snippet checked against its own cache file.
+
+Key correction the deep research surfaced, and the most safety-relevant content in the entry: the JAMA Neurology index paper (PMID:34459874) describes an ALS27 patient given high-dose oral L-serine on a compassionate basis. Read alone that looks like a candidate therapy. The 2024 authoritative review (PMID:38788085) states that in SPT-related motor neuron disease, which is caused by unrestrained SPT activity, serine supplementation is predicted to EXACERBATE sphingolipid overproduction, and that serine supplementation of iPSC-derived motor neurons carrying SPTLC1 p.Phe40_Ser41del accentuated the consequences of SPT overactivity. The treatment entry is therefore titled &#34;predicted harmful&#34;, carries REFUTE evidence, and records both the observed weight gain and the absence of neurological improvement so the n-of-1 exposure is neither hidden nor overstated. The HSAN1 rationale (where L-serine IS therapeutic) is explicitly marked as not transferable.
+
+Mechanistic model curated as a chained pathograph: SPTLC1 transmembrane-domain gain-of-function variant -&gt; impaired ORMDL-mediated feedback inhibition of serine palmitoyltransferase (GO:0004758 GAIN_OF_FUNCTION and GO:0090155 LOSS_OF_FUNCTION on the same node, plus GO:0017059 SPT complex and GO:0005783 ER) -&gt; unrestrained de novo sphingolipid synthesis (GO:0030148 INCREASED; CHEBI sphingolipid/sphinganine/ceramide INCREASED) -&gt; upper and lower motor neuron degeneration -&gt; progressive denervation and neurogenic muscle atrophy -&gt; loss of ambulation and respiratory insufficiency. The step from lipid excess to motor neuron death is marked INDIRECT_UNKNOWN_INTERMEDIATES with PARTIAL evidence, because it is genuinely not established.
+
+Three discussions recorded rather than papered over: a KNOWLEDGE_GAP on why motor and sensory neurons are selectively vulnerable to different sphingolipid abnormalities (stated as unresolved by both the 2021 Nature Medicine paper and the 2024 review); a HUMAN_MODEL_MISMATCH noting that no faithful in vivo ALS27 model exists (the 2026 Sptlc1 exon-2-deletion knock-in is curated as FAILS_TO_RECAPITULATE, since heterozygotes show neither motor deficits nor ALS-like neuropathology while homozygotes die, i.e. the allele behaves as loss-of-function in mouse rather than the human gain-of-function); and an OPEN_QUESTION on whether SPTLC1-related ALS and HSAN1 are discrete entities or a continuum, given the p.Ser331 hybrid cases and the serine-limitation experiment that shifted an ALS lipid signature toward an HSAN1-like one within one pedigree.
+
+Cognitive impairment is curated with the disagreement visible: the 2024 review says cognitive dysfunction has not been reported in SPTLC1-ALS, while the JAMA Neurology cohort documented mild cognitive dysfunction in one patient and measured attentional/executive impairment in another. Neither side was suppressed.
+
+Scope: SPTLC2-related juvenile ALS (ALS28) and SPTSSA-related complicated HSP are recorded as differential diagnoses only, not curated here. Deliberately NOT curated: datasets (no relevant repository accession identified; dataset search keyed on a causal gene is a known Named Entity Confusion route for an ultra-rare disease and was not worth the risk), prevalence (no reliable population estimate exists in the literature), and clinical_trials (no ALS27-specific registered trial found).
+
+GeneReviews baseline: PubMed searched for a GeneReviews chapter on ALS27 / SPTLC1-related ALS on 2026-08-19; none exists, so that step does not apply. Recorded in the entry notes.
+
+Relationship to the existing broad kb/disorders/Amyotrophic_Lateral_Sclerosis.yaml entry: that entry is a Complex-category entity whose curated mechanism is TDP-43 proteinopathy and convergent proteostatic failure, and it contains no SPTLC1 content at all. ALS27 is a Mendelian primary metabolic disease with a disjoint mechanism, its own MONDO term, and distinct treatment logic, so it is curated as a standalone entry with parents: Amyotrophic Lateral Sclerosis rather than as a has_subtypes entry on the broad file.
+
+Validation actually run and read: `just validate` (schema + terms + references) passed; `just count-verified-snippets` reported 83/83 verified against cached references; `just validate-disorders` (the batched --no-full-text sweep CI runs) passed; `just check-duplicate-keys` OK; `just check-title-snippets` reported no new title-quoting snippets; `just compliance` 96.7% global / 97.2% weighted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11626,7 +12440,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Amyotrophic Lateral Sclerosis 27, Juvenile", "mondoId": "MONDO:0859529", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Amyotrophic_Lateral_Sclerosis_27,_Juvenile", "yamlRevision": "ec52f21ad6e5"};
+        const OS_CONFIG = {"diseaseName": "Amyotrophic Lateral Sclerosis 27, Juvenile", "mondoId": "MONDO:0859529", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Amyotrophic_Lateral_Sclerosis_27,_Juvenile", "yamlRevision": "ab54928e9cea"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

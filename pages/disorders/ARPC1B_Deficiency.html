@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4163,6 +4270,8 @@ Clinically it is a Wiskott-Aldrich-like syndrome reached through a different nod
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4315,6 +4424,8 @@ One later report widens the question from size to presence. Three siblings homoz
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4338,6 +4449,8 @@ One later report widens the question from size to presence. Three siblings homoz
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4359,6 +4472,8 @@ One later report widens the question from size to presence. Three siblings homoz
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4436,6 +4551,8 @@ The partial growth hormone deficiency is the concrete lead. It was found in two 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4549,14 +4666,16 @@ The gap is that nobody has looked at outcomes. The transplanted patients reporte
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35967303" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:35967303" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35967303" target="_blank">PMID:35967303</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4593,6 +4712,7 @@ The gap is that nobody has looked at outcomes. The transplanted patients reporte
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-arpc1b-loss-of-function-variant" data-dismech-node="Biallelic ARPC1B Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic ARPC1B Loss-of-Function Variant</div>
+
 
                 <div class="item-desc">Variants are diverse and scattered across the gene - frameshift, missense affecting the WD40 repeats, and splice-site - and in every patient tested the ARPC1B protein is undetectable on immunoblot. A splice-site founder variant, c.64+2T&gt;A, accounts for a Nepalese cluster and is associated with a more severe course than other alleles.
 The WD40 repeats matter structurally: six of them form the beta-propeller through which ARPC1B contacts the mother actin filament, so a truncation removing five of the six removes the interaction surface rather than merely shortening the protein.</div>
@@ -4684,6 +4804,8 @@ This pathophysiological event involves ARPC1B within the Arp2/3 complex, annotat
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4707,6 +4829,8 @@ This pathophysiological event involves ARPC1B within the Arp2/3 complex, annotat
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4728,6 +4852,8 @@ This pathophysiological event involves ARPC1B within the Arp2/3 complex, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4754,6 +4880,7 @@ This pathophysiological event involves ARPC1B within the Arp2/3 complex, annotat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arp2-3-complex-destabilisation-not-rescued-by-arpc1a" data-dismech-node="Arp2/3 Complex Destabilisation Not Rescued by ARPC1A" data-dismech-type="pathophysiology">
                 <div class="item-name">Arp2/3 Complex Destabilisation Not Rescued by ARPC1A</div>
+
 
                 <div class="item-desc">The rate-limiting node, and the one that makes this disease mechanistically interesting. ARPC1B-null platelets contain no ARPC1B and greatly reduced Arp2/3 complex, while the other five components are present at normal levels. So the complex is not merely missing a part; without this particular subunit it does not assemble.
 ARPC1A is the obvious candidate substitute - same slot, 68% identity - and it is actively upregulated in ARPC1B-deficient cells. It does not rescue. Some ARPC1A does appear in the residual Arp2/3 of null platelets, where none is detectable in normal platelets, so the substitution physically happens and is simply not sufficient. The authors&#39; conclusion, that the ARPC1 isoforms are not functionally interchangeable, is the human genetic evidence for a proposition that had only been argued experimentally.</div>
@@ -4862,6 +4989,8 @@ This pathophysiological event involves decreased Arp2/3 protein complex (GO:0005
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4885,6 +5014,8 @@ This pathophysiological event involves decreased Arp2/3 protein complex (GO:0005
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4906,6 +5037,8 @@ This pathophysiological event involves decreased Arp2/3 protein complex (GO:0005
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4932,6 +5065,7 @@ This pathophysiological event involves decreased Arp2/3 protein complex (GO:0005
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-branched-actin-nucleation" data-dismech-node="Defective Branched Actin Nucleation" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Branched Actin Nucleation</div>
+
 
                 <div class="item-desc">Arp2/3 nucleates a daughter filament off the side of an existing one, which is how cells build the branched networks that drive lamellipodia, phagocytosis, endocytosis, vesicular trafficking and immune-synapse formation. Losing it does not abolish actin polymerisation - patient platelets still spread, and still make prominent filopodia, which are unbranched bundles - it removes the branched arm specifically, leaving lamellipodia limited.
 That morphological signature, filopodia preserved and lamellipodia lost, is the cellular fingerprint of the defect and is what connects the platelet, immune and DNA-repair arms below to one molecular lesion.</div>
@@ -5039,6 +5173,8 @@ This pathophysiological event involves decreased Arp2/3 complex-mediated actin n
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5060,6 +5196,8 @@ This pathophysiological event involves decreased Arp2/3 complex-mediated actin n
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5084,6 +5222,7 @@ This pathophysiological event involves decreased Arp2/3 complex-mediated actin n
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-megakaryocyte-and-platelet-cytoskeletal-failure" data-dismech-node="Megakaryocyte and Platelet Cytoskeletal Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Megakaryocyte and Platelet Cytoskeletal Failure</div>
+
 
                 <div class="item-desc">Knocking out ARPC1B in megakaryocytic cells decreases proplatelet formation, which puts the platelet defect upstream of the platelet: it is a production problem in the megakaryocyte, not only a functional problem in the circulating cell. Patient platelets additionally have dense granule deficiencies and the spreading abnormality above.</div>
 
@@ -5170,6 +5309,8 @@ This pathophysiological event involves megakaryocyte (CL:0000556). CL:0000556 is
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5192,6 +5333,7 @@ This pathophysiological event involves megakaryocyte (CL:0000556). CL:0000556 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-thrombocytopenia-and-bleeding" data-dismech-node="Thrombocytopenia and Bleeding" data-dismech-type="pathophysiology">
                 <div class="item-name">Thrombocytopenia and Bleeding</div>
+
 
                 <div class="item-desc">Bleeding is the presenting problem in most patients and is disproportionately gastrointestinal - enterorrhagia rather than the mucocutaneous bleeding a platelet count alone would predict. Nearly four in five patients in the largest cohort had recurrent or severe bleeding.
 Whether these platelets are small is disputed, and the dispute is not cosmetic: platelet size is the classical bedside discriminator against Wiskott-Aldrich syndrome. See the controversy discussion below.</div>
@@ -5230,6 +5372,8 @@ Whether these platelets are small is disputed, and the dispute is not cosmetic: 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5252,6 +5396,7 @@ Whether these platelets are small is disputed, and the dispute is not cosmetic: 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lymphocyte-cytoskeletal-dysfunction" data-dismech-node="Lymphocyte Cytoskeletal Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Lymphocyte Cytoskeletal Dysfunction</div>
+
 
                 <div class="item-desc">The immune arm has been resolved to specific cell types. Regulatory T cells expanded from patients show decreased FOXP3, Helios, CD25 and CTLA-4 and defective suppressor activity against both CD4 and CD8 responders - a cell-intrinsic Treg defect, which is the most economical explanation for exaggerated Th2 responses, IgE reactivity and autoimmunity in one disease. NK cells show impaired degranulation against K562 targets, and, as in Wiskott-Aldrich syndrome, IL-2 restores it, which places the defect in signalling-dependent cytoskeletal remodelling rather than in the killing machinery.
 Conventional T cells are reduced in number with a skewed naive compartment, but their proliferative responses are largely normal - so this is not a proliferation defect.</div>
@@ -5369,6 +5514,8 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5390,6 +5537,8 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5415,6 +5564,8 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5437,6 +5588,7 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-immunodeficiency-with-allergic-and-autoinflammatory-disease" data-dismech-node="Combined Immunodeficiency with Allergic and Autoinflammatory Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined Immunodeficiency with Allergic and Autoinflammatory Disease</div>
+
 
                 <div class="item-desc">Very early onset - a mean of two months, with a range of one to six - and a triad that would ordinarily suggest three diagnoses: susceptibility to infection, allergy, and autoimmune inflammation. Recurrent or severe respiratory infection in 71% and skin infection in 50%; eczema in 57% with food allergy and asthma; cutaneous vasculitis in 69%, leukocytoclastic on every biopsy performed; arthritis in 23%. IgA and IgE are markedly raised in almost all cases, while the antibody response to polysaccharide vaccine is normal - unlike Wiskott-Aldrich syndrome or DOCK8 deficiency.</div>
 
@@ -5474,6 +5626,8 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5495,6 +5649,8 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5520,6 +5676,8 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5542,6 +5700,7 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-arp2-3-dependent-double-strand-break-clustering" data-dismech-node="Impaired Arp2/3-Dependent Double-Strand Break Clustering" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Arp2/3-Dependent Double-Strand Break Clustering</div>
+
 
                 <div class="item-desc">The newest and least-explored arm. Arp2/3 has a nuclear role: it promotes chromatin dynamics and drives clustering of DNA double-strand breaks for homology-directed repair. ARPC1B-deficient patient cells are radiosensitive by three independent methods, with more chromatid-type aberrations, more gamma-H2AX foci and more cells arrested in G2/M after ionising radiation or bleomycin.
 This arm is curated separately rather than folded into the immune one because it is mechanistically distinct - it is nuclear, not cytoskeletal-motility - and because its clinical consequences are unknown. It was proposed as a disease trait in 2022 and has not been shown to cause any of the disease&#39;s manifestations.</div>
@@ -5618,6 +5777,8 @@ This pathophysiological event involves decreased double-strand break repair via 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5639,6 +5800,8 @@ This pathophysiological event involves decreased double-strand break repair via 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5705,17 +5868,17 @@ This pathophysiological event involves decreased double-strand break repair via 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5725,7 +5888,7 @@ This pathophysiological event involves decreased double-strand break repair via 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-thrombocytopenia" data-dismech-node="Thrombocytopenia" data-dismech-type="phenotype">
@@ -5756,6 +5919,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5770,6 +5936,8 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5793,6 +5961,8 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5850,6 +6020,9 @@ This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5864,6 +6037,8 @@ This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5919,6 +6094,9 @@ This clinical feature is Increased total eosinophil count (HP:0001880). HP:00018
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5933,6 +6111,8 @@ This clinical feature is Increased total eosinophil count (HP:0001880). HP:00018
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5988,6 +6168,9 @@ This clinical feature is Increased circulating IgE concentration (HP:0003212). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6002,6 +6185,8 @@ This clinical feature is Increased circulating IgE concentration (HP:0003212). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6027,14 +6212,162 @@ This clinical feature is Increased circulating IgE concentration (HP:0003212). H
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-circulating-iga" data-dismech-node="Elevated Circulating IgA" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Elevated Circulating IgA
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased circulating IgA concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003261" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003261</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased circulating IgA concentration (HP:0003261). HP:0003261 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30771411" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30771411" target="_blank">PMID:30771411</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In vivo immunoglobulin levels were abnormal, with markedly increased IgA and IgE in almost all cases"</div>
+
+
+                <div class="evidence-explanation">IgA elevation, previously carried only inside the IgE entry&#39;s snippet and now bound in its own right.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cutaneous-leukocytoclastic-vasculitis" data-dismech-node="Cutaneous Leukocytoclastic Vasculitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cutaneous Leukocytoclastic Vasculitis
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034786" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0034786</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Leukocytoclastic vasculitis (HP:0034786). HP:0034786 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30771411" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30771411" target="_blank">PMID:30771411</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In all cases investigated with a skin biopsy, leukocytoclastic vasculitis was diagnosed."</div>
+
+
+                <div class="evidence-explanation">The histological diagnosis was uniform where biopsy was done; the 69% figure in the same report is for cutaneous vasculitis clinically, which is the band used here.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-lymphadenopathy" data-dismech-node="Lymphadenopathy" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6050,15 +6383,18 @@ This clinical feature is Increased circulating IgE concentration (HP:0003212). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6078,6 +6414,8 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6108,8 +6446,91 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Digestive
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-inflammatory-bowel-disease-like-colitis" data-dismech-node="Inflammatory Bowel Disease-Like Colitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Inflammatory Bowel Disease-Like Colitis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Inflammation of the large intestine</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002037" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002037</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Inflammation of the large intestine (HP:0002037). HP:0002037 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40668456" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40668456" target="_blank">PMID:40668456</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Comparative phenotypic analysis showed significantly greater proportions of otitis, gastroenteritis, inflammatory bowel disease-like manifestations, and elevated IgA in patients with c.64+2T&gt;A variant as compared to other variants."</div>
+
+
+                <div class="evidence-explanation">IBD-like manifestations, and their allele-dependence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-eczema" data-dismech-node="Eczema" data-dismech-type="phenotype">
@@ -6130,10 +6551,10 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000964</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Eczematoid dermatitis (HP:0000964), qualified as severity severe. HP:0000964 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6162,6 +6583,9 @@ This clinical feature is Eczematoid dermatitis (HP:0000964), qualified as severi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6176,6 +6600,8 @@ This clinical feature is Eczematoid dermatitis (HP:0000964), qualified as severi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6219,15 +6645,18 @@ This clinical feature is Eczematoid dermatitis (HP:0000964), qualified as severi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002205</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002205</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent respiratory infections (HP:0002205). HP:0002205 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6247,6 +6676,8 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6272,6 +6703,8 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6280,378 +6713,6 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
 
 
                 <div class="evidence-explanation">The two frequencies from the same sentence: 71% respiratory, 50% skin. 71% places this phenotype in the FREQUENT band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-food-allergy" data-dismech-node="Food Allergy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Food Allergy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0500093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0500093</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Food allergy (HP:0500093). HP:0500093 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30771411" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30771411" target="_blank">PMID:30771411</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"common manifestations of immune dysregulation included moderate-to-severe eczema, which was observed in 57% of cases (Fig 1, C), associated with food allergy (anaphylactic reactions) and asthma."</div>
-
-
-                <div class="evidence-explanation">Food allergy with anaphylaxis, alongside the eczema already curated.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-arthritis" data-dismech-node="Arthritis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Arthritis
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001369</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30771411" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30771411" target="_blank">PMID:30771411</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Arthritis was present in 23% of patients."</div>
-
-
-                <div class="evidence-explanation">23%, within the OCCASIONAL band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-growth-failure" data-dismech-node="Growth Failure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Growth Failure
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Failure to thrive</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001508</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30771411" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30771411" target="_blank">PMID:30771411</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Growth failure was noted in all patients (Table E2), with growth hormone tests found to be impaired when performed (P2 and P3), compatible with a partial growth hormone deficiency, and no catch-up growth after hematopoietic stem cell transplantation (HSCT) (P2, P3, and P6)."</div>
-
-
-                <div class="evidence-explanation">Universal in this 14-patient cohort, which is the observation the VERY_FREQUENT band rests on - not OBLIGATE, since one series&#39; &#34;all patients&#34; does not establish complete penetrance across the roughly forty published patients. The post-transplant observation is the basis of the interpretation discussion below.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cutaneous-leukocytoclastic-vasculitis" data-dismech-node="Cutaneous Leukocytoclastic Vasculitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cutaneous Leukocytoclastic Vasculitis
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034786" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0034786</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Leukocytoclastic vasculitis (HP:0034786). HP:0034786 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30771411" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30771411" target="_blank">PMID:30771411</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In all cases investigated with a skin biopsy, leukocytoclastic vasculitis was diagnosed."</div>
-
-
-                <div class="evidence-explanation">The histological diagnosis was uniform where biopsy was done; the 69% figure in the same report is for cutaneous vasculitis clinically, which is the band used here.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-inflammatory-bowel-disease-like-colitis" data-dismech-node="Inflammatory Bowel Disease-Like Colitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Inflammatory Bowel Disease-Like Colitis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Inflammation of the large intestine</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002037" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002037</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Inflammation of the large intestine (HP:0002037). HP:0002037 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40668456" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40668456" target="_blank">PMID:40668456</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Comparative phenotypic analysis showed significantly greater proportions of otitis, gastroenteritis, inflammatory bowel disease-like manifestations, and elevated IgA in patients with c.64+2T&gt;A variant as compared to other variants."</div>
-
-
-                <div class="evidence-explanation">IBD-like manifestations, and their allele-dependence.</div>
 
 
 
@@ -6681,15 +6742,18 @@ This clinical feature is Inflammation of the large intestine (HP:0002037). HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002099</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002099</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6711,6 +6775,8 @@ This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6719,6 +6785,78 @@ This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the
 
 
                 <div class="evidence-explanation">Asthma among the allergic features of the disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-food-allergy" data-dismech-node="Food Allergy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Food Allergy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0500093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0500093</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Food allergy (HP:0500093). HP:0500093 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30771411" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30771411" target="_blank">PMID:30771411</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"common manifestations of immune dysregulation included moderate-to-severe eczema, which was observed in 57% of cases (Fig 1, C), associated with food allergy (anaphylactic reactions) and asthma."</div>
+
+
+                <div class="evidence-explanation">Food allergy with anaphylaxis, alongside the eczema already curated.</div>
 
 
 
@@ -6750,15 +6888,18 @@ This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030057" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0030057</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030057" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0030057</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autoimmune antibody positivity (HP:0030057). HP:0030057 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6780,6 +6921,8 @@ This clinical feature is Autoimmune antibody positivity (HP:0030057). HP:0030057
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6793,14 +6936,16 @@ This clinical feature is Autoimmune antibody positivity (HP:0030057). HP:0030057
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30771411" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30771411" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30771411" target="_blank">PMID:30771411</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6826,9 +6971,20 @@ This clinical feature is Autoimmune antibody positivity (HP:0030057). HP:0030057
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-circulating-iga" data-dismech-node="Elevated Circulating IgA" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arthritis" data-dismech-node="Arthritis" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Elevated Circulating IgA
+                        Arthritis
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
 
@@ -6837,20 +6993,21 @@ This clinical feature is Autoimmune antibody positivity (HP:0030057). HP:0030057
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Increased circulating IgA concentration</span>
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001369</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003261" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0003261</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Increased circulating IgA concentration (HP:0003261). HP:0003261 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6872,14 +7029,101 @@ This clinical feature is Increased circulating IgA concentration (HP:0003261). H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"In vivo immunoglobulin levels were abnormal, with markedly increased IgA and IgE in almost all cases"</div>
+                <div class="evidence-snippet">"Arthritis was present in 23% of patients."</div>
 
 
-                <div class="evidence-explanation">IgA elevation, previously carried only inside the IgE entry&#39;s snippet and now bound in its own right.</div>
+                <div class="evidence-explanation">23%, within the OCCASIONAL band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-growth-failure" data-dismech-node="Growth Failure" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Growth Failure
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Failure to thrive</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30771411" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30771411" target="_blank">PMID:30771411</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Growth failure was noted in all patients (Table E2), with growth hormone tests found to be impaired when performed (P2 and P3), compatible with a partial growth hormone deficiency, and no catch-up growth after hematopoietic stem cell transplantation (HSCT) (P2, P3, and P6)."</div>
+
+
+                <div class="evidence-explanation">Universal in this 14-patient cohort, which is the observation the VERY_FREQUENT band rests on - not OBLIGATE, since one series&#39; &#34;all patients&#34; does not establish complete penetrance across the roughly forty published patients. The post-transplant observation is the basis of the interpretation discussion below.</div>
 
 
 
@@ -6965,6 +7209,9 @@ This disease-associated gene is ARPC1B (hgnc:704). hgnc:704 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -6987,6 +7234,8 @@ This disease-associated gene is ARPC1B (hgnc:704). hgnc:704 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7012,6 +7261,8 @@ This disease-associated gene is ARPC1B (hgnc:704). hgnc:704 is a gene from the H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7033,6 +7284,8 @@ This disease-associated gene is ARPC1B (hgnc:704). hgnc:704 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7115,6 +7368,31 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Cell therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The only reported curative option. Of the five transplanted patients in the largest cohort, two with one and six years of follow-up were in good health and off all medication, and three recently transplanted were alive and well with resolution of all autoinflammatory features. It does not correct the growth failure.</div>
 
 
@@ -7145,6 +7423,8 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7189,6 +7469,8 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7210,6 +7492,8 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7272,6 +7556,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Steroids, mycophenolate mofetil and sirolimus are reported to control the autoinflammatory features. This is a report of clinical response in a case series, not a trial, and no dosing or comparative data are cited.</div>
 
 
@@ -7294,14 +7603,16 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30771411" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30771411" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30771411" target="_blank">PMID:30771411</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7344,6 +7655,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7406,6 +7719,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Reported as unsatisfactory. Curated because a negative therapeutic result in an autoinflammatory disease is informative: TNF is the obvious target for vasculitis and colitis, and it does not work here, which argues the inflammation is not TNF-driven.</div>
 
 
@@ -7436,6 +7774,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7478,6 +7818,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7545,6 +7887,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7559,6 +7926,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7643,6 +8012,31 @@ This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">An mTOR inhibitor, reported to control refractory relapsing thrombocytopenia in a patient with an isolated-cytopenia phenotype, along with the lymphoproliferation and autoantibodies.
 The mechanistic finding is the interesting part and it constrains the indication. Actin polymerisation assays before and after treatment showed no significant difference, so sirolimus is not correcting the Arp2/3 defect - the authors read the benefit as immunomodulatory, reducing autoimmunity. That is also offered as the explanation for why sirolimus failed in previously reported patients with broader immune dysregulation. So this is a treatment for the autoimmune component in a mild phenotype, not a treatment for ARPC1B deficiency, and an entry that recorded it without the assay result would imply the latter.</div>
 
@@ -7667,6 +8061,8 @@ The mechanistic finding is the interesting part and it constrains the indication
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7680,14 +8076,16 @@ The mechanistic finding is the interesting part and it constrains the indication
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42614194" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42614194" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42614194" target="_blank">PMID:42614194</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7703,14 +8101,16 @@ The mechanistic finding is the interesting part and it constrains the indication
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42614194" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42614194" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42614194" target="_blank">PMID:42614194</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7773,6 +8173,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Intravenous immunoglobulin was used in the reported sirolimus case, initially for immune thrombocytopenia at 2 g/kg and subsequently as maintenance. Curated at that strength: a single documented case course, not a cohort practice.</div>
 
 
@@ -7794,6 +8219,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7856,6 +8283,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A precaution rather than a therapy, and the actionable half of the radiosensitivity finding. Patient cells show increased chromatid aberrations, gamma-H2AX foci and G2/M arrest after ionising radiation *and* after bleomycin, so the exposure to avoid is not only radiotherapy.
 Two contexts make this concrete: transplantation is the only curative option and conditioning intensity is chosen partly on DNA-repair status, and bleomycin is a conventional chemotherapy agent. The clinical consequences are unestablished - that remains an open knowledge gap - but the authors themselves call for the trait to be investigated in order to optimise therapeutic interventions, and a precaution costs nothing while the question is open.</div>
 
@@ -7878,6 +8330,8 @@ Two contexts make this concrete: transplantation is the only curative option and
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7907,6 +8361,345 @@ Two contexts make this concrete: transplantation is the only curative option and
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-differentiation-from-wiskott-aldrich-syndrome">
+                <div class="item-name">
+                    Differentiation from Wiskott-Aldrich Syndrome
+
+                </div>
+
+                <div class="item-desc">The two diseases sit in the same IUIS sub-table and look alike: thrombocytopenia, eczema, recurrent infection, bloody diarrhoea, vasculitis. Three findings separate them. WASP is present at normal levels in ARPC1B-deficient platelets, so a normal WASP does not exclude the phenotype. The humoral response to polysaccharide vaccine is normal in ARPC1B deficiency and impaired in Wiskott-Aldrich. And IUIS records ARPC1B deficiency as mild thrombocytopenia with normal-sized platelets against Wiskott-Aldrich&#39;s small ones - though see the controversy below, because the founding ARPC1B report says the opposite.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28368018" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28368018" target="_blank">PMID:28368018</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Platelet levels of other Arp2/3 components (ARP2, ARP3, ARPC2, ARPC3 and ARPC5; Fig. 2b) and WASP (Fig. 2c) were normal in all patients"</div>
+
+
+                <div class="evidence-explanation">Normal WASP, so WASP testing does not exclude this diagnosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30771411" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30771411" target="_blank">PMID:30771411</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In contrast to Wiskott-Aldrich Syndrome or DOCK8 deficiency,5 the humoral response to polysaccharide vaccine was normal in most cases"</div>
+
+
+                <div class="evidence-explanation">The functional antibody discriminator.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-arpc1b-protein-quantification">
+                <div class="item-name">
+                    ARPC1B Protein Quantification
+
+                </div>
+
+                <div class="item-desc">The confirmatory functional test, and the one that makes a variant of uncertain significance actionable: ARPC1B protein is undetectable or markedly reduced in patient cells by immunoblot, and reduced expression is demonstrable by flow cytometry in T, B and NK lymphocytes. It works on accessible cells, and it is what converts an intronic or synonymous variant no algorithm would call pathogenic into a diagnosis.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30771411" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30771411" target="_blank">PMID:30771411</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In all patient samples tested, ARPC1B protein was undetectable by Western blotting and we identified an increased—although variable—expression of the ARPC1A isoform"</div>
+
+
+                <div class="evidence-explanation">Undetectable protein across a 14-patient cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42614194" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42614194" target="_blank">PMID:42614194</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A cytofluorimetric analysis of ARPC1B protein showed a reduced expression in T, B, and NK lymphocytes compared to a healthy control"</div>
+
+
+                <div class="evidence-explanation">The flow-cytometry route, used here to establish pathogenicity of an intronic variant classified as of uncertain significance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-sequencing-strategy-and-rna-confirmation-for-non-coding-variants">
+                <div class="item-name">
+                    Sequencing Strategy and RNA Confirmation for Non-Coding Variants
+
+                </div>
+
+                <div class="item-desc">Next-generation sequencing - exome, or a targeted inborn-errors-of-immunity panel - is the entry point. The important qualifier is that two of the disease&#39;s reported alleles are a synonymous change and an intronic deletion, neither of which a coding-consequence filter would flag. Targeted RNA studies are what establish that such a variant disrupts splicing, and without that step the diagnosis is missed rather than excluded.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33679784" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33679784" target="_blank">PMID:33679784</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Targeted RNA studies demonstrated that the variant affects the splicing process of mRNA, resulting in a marked reduction of the levels of primary (normal) RNA transcript of the ARPC1B gene in the affected patients"</div>
+
+
+                <div class="evidence-explanation">The RNA step that made a synonymous variant interpretable.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33679784" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33679784" target="_blank">PMID:33679784</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The next generation sequencing (NGS) studies facilitated the diagnosis of this rare combined immunodeficiency and led to the decision to treat the affected patients with hematopoietic cell transplant (HCT) from an human leukocyte antigen (HLA)-matched healthy sibling."</div>
+
+
+                <div class="evidence-explanation">Sequencing as the diagnostic entry point, and the therapeutic decision that followed from it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide-published-cases">
+                <div class="item-name">Worldwide, published cases</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">About three dozen patients reported as of 2025, before the 14-patient Nepalese founder cohort described in the same paper. This is a case count, not a rate.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40668456" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40668456" target="_blank">PMID:40668456</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Only about three dozen patients with ARPC1BD have been reported in the literature thus far."</div>
+
+
+                <div class="evidence-explanation">The published case count.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8675,7 +9468,7 @@ phenotypes:
       The IUIS description lists ANA and ANCA among the disease&#39;s features.
   - reference: PMID:30771411
     reference_title: &#34;A combined immunodeficiency with severe infections, inflammation, and allergy caused by ARPC1B deficiency.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Autoantibodies were absent in most patients.
@@ -8979,7 +9772,7 @@ treatments:
     evidence:
     - reference: PMID:30771411
       reference_title: &#34;A combined immunodeficiency with severe infections, inflammation, and allergy caused by ARPC1B deficiency.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         &#34;Auto&#34;inflammatory manifestations appear to respond to steroids, mofetil mycophenolate,
@@ -9075,7 +9868,7 @@ treatments:
     explanation: The reported response, in one patient.
   - reference: PMID:42614194
     reference_title: &#34;Case Report: Sirolimus as management strategy for thrombocytopenia related to ARPC1B deficiency.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       However, the actin polymerization assay evaluation on samples collected before and after
@@ -9084,7 +9877,7 @@ treatments:
       The negative assay that keeps this from being read as correction of the underlying defect.
   - reference: PMID:42614194
     reference_title: &#34;Case Report: Sirolimus as management strategy for thrombocytopenia related to ARPC1B deficiency.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The absence of a direct effect on actin cytoskeleton may also explain the lack of efficacy
@@ -9320,7 +10113,7 @@ discussions:
   evidence:
   - reference: PMID:35967303
     reference_title: &#34;Radiosensitivity in patients affected by ARPC1B deficiency: a new disease trait?&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Overall, our data suggest increased radiosensitivity as an additional trait in ARPC1B
@@ -9566,6 +10359,34 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curated from a Perplexity sonar-deep-research report (research/ARPC1B_Deficiency-deep-research-perplexity.md), which passed `just preflight-dr` against MONDO:0060583 with the canonical gene ARPC1B mentioned 232 times and the report&#39;s single OMIM identifier, 617718, matching the MONDO xref exactly. The `ARPC1A` mentions in the gene table are the paralogue this disease is about, not a rival entity.
+Three of the report&#39;s PubMed links were usable; the founding paper, the Nepalese founder cohort and the IUIS classification were located separately, and every abstract or full text was read before use.
+One reference was fetched and deliberately not cited. PMID:27965109, the 2017 Kuijpers report, caches with a repository landing page instead of the article, so its body carries no quotable text - citing it would produce a reference whose snippet could not be verified against anything meaningful. The 2019 follow-up from the same group (PMID:30771411) is cited in its place and carries the cohort data.
+The IUIS row and the platelet-size quotation come from the cached full text of PMID:35748970 rather than its abstract, as does most of the 14-patient cohort detail from PMID:30771411, which is a letter whose entire content is body text.
+Three items the deep-research report describes are deliberately not curated as phenotypes or variants, and the reason differs for each - in two of the three cases the fact is present in a cited cache, so &#34;no source&#34; would be the wrong reason to record.
+Leukocytosis is quotable but not attributable to the disease. The only ARPC1B-specific mention across the seven cited caches is in PMID:33679784, where a single index patient had &#34;significant leukocytosis (WBC20.000-48.000)&#34; during recurrent lower respiratory tract infections - an n-of-1 observation made during acute infection, which is where anyone&#39;s white count rises. The other cached hits are in PMID:35748970, a review table spanning many inborn errors of immunity, where the leukocytosis rows belong to leukocyte adhesion deficiency and the hyper-IgD periodic fever syndromes, not to ARPC1B. Citing those rows would attach another disease&#39;s finding to this entry.
+Abnormal platelet morphology is in the entry, but as a contested claim rather than a phenotype. PMID:28368018 does report microthrombocytes and small platelets, and that material is curated in the platelet-size CONTROVERSY discussion, where it is set against the series reporting normal platelet volume and against the c.783G&gt;A patients who have the syndrome with no thrombocytopenia at all. Adding HP:0001907 as a phenotype entry would assert as settled the very thing the discussion exists to record as unsettled.
+The c.899_944del (p.E300Gfs*7) allele is the one item genuinely absent: grepping all seven cited caches for the coding change, the protein change, and the ancestry descriptors returns nothing. The only founder allele any cited source describes is the Nepalese c.64+2T&gt;A, which is curated - PMID:30771411 separately notes a founder mutation shared by three patients of Nepalese ancestry. A second, independent founder allele is a substantive claim and is left out rather than sourced to the research report alone.
+Review round 1 changed six things. The thrombocytopenia frequency band was VERY_FREQUENT, justified by a bleeding statistic (79% with recurrent or severe bleeding) rather than by a platelet-count one - and 79% sits inside FREQUENT, not at the bottom of VERY_FREQUENT, so the explanation misstated the band as well as using the wrong phenotype. The band is now removed entirely, because the only on-point statement reports reduced counts without a percentage; the bleeding figure is curated as its own phenotype at FREQUENT. Growth failure was OBLIGATE on a single 14-patient cohort&#39;s &#34;all patients&#34; and is now VERY_FREQUENT, since the disease spans roughly forty published patients with documented intrafamilial heterogeneity. Six phenotypes were added, a diagnosis section replaced a lone differential, three treatments were added, and the genetic section now names all six reported allele classes.
+Two new references drive most of that. PMID:33679784 reports three siblings homozygous for a synonymous c.783G&gt;A allele who have the syndrome with **no thrombocytopenia**, which widens the platelet controversy from size to presence and is a further reason not to use platelet findings to include or exclude the diagnosis. PMID:42614194 reports sirolimus controlling refractory thrombocytopenia - with an actin-polymerisation assay showing no change before and after, so the benefit is immunomodulatory rather than a correction of the Arp2/3 defect, which is also offered as the explanation for sirolimus failing in patients with broader dysregulation. That distinction is curated explicitly, because recording the response without the assay would imply the drug treats ARPC1B deficiency rather than its autoimmune component.
+Two things this entry deliberately does not do. It does not claim that ARPC1A upregulation is compensatory - the evidence is that it happens and does not rescue, which is the opposite point. And it does not fold the radiosensitivity arm into the immune arm: the mechanism is nuclear rather than cytoskeletal-motility, and no cited source connects it to any clinical manifestation.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: ARPC1B Deficiency MONDO:0060583</strong> · 2026-08-23T22:42:04Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/ARPC1B_Deficiency/2026-08-23T224204Z-claude-code-0ffd9f.yaml">View source</a></p>
+                        <p class="research-review-text">Curated de novo from a Perplexity sonar-deep-research report that passed &#39;just preflight-dr&#39; against MONDO:0060583 with a PASS verdict: canonical gene ARPC1B mentioned 232 times and the report&#39;s single OMIM identifier 617718 matching the MONDO xref exactly. The ARPC1A mentions in the gene table are the paralogue this disease is about, not a rival entity. Three of the report&#39;s PubMed links were usable; the founding Nature Communications paper, the Nepalese founder cohort and the IUIS classification were located by PubMed query, and every abstract or full text was read before use. The entry is organised around isoform non-redundancy: ARPC1A and ARPC1B are 68 percent identical and occupy the same slot in the same complex, ARPC1A is actively upregulated when ARPC1B is lost, and it still does not rescue - the Arp2/3 complex is barely detectable in patient platelets while every other subunit is present at normal levels. Three downstream arms hang off defective branched actin nucleation: megakaryocyte and platelet failure, lymphocyte cytoskeletal dysfunction with a cell-intrinsic Treg defect and IL-2-reversible NK degranulation failure, and a nuclear arm in which Arp2/3-dependent double-strand break clustering fails, giving cellular radiosensitivity. The radiosensitivity arm is deliberately kept separate from the immune arm because the mechanism is nuclear rather than cytoskeletal-motility and no source connects it to any clinical manifestation. A CONTROVERSY discussion carries the platelet-size disagreement, which matters because platelet size is the classical bedside discriminator against Wiskott-Aldrich syndrome: the founding report describes microthrombocytes, the 14-patient cohort reports normal volume in most cases, and the IUIS 2022 table sides with the cohort. An allelic reconciliation was drafted and then withdrawn after reading the founding paper&#39;s discussion, which reports microthrombocytes across both of its allele classes while platelet counts varied by genotype - the opposite of what an allelic explanation needs - so the discussion now points at measurement method instead and the proposed experiment was rewritten accordingly. One reference, PMID:27965109, was fetched and deliberately not cited: it caches as an Edinburgh Research Explorer repository landing page carrying only bibliographic boilerplate, with no article body to quote; the 2019 follow-up from the same group is cited in its place. Three snippets initially failed verification and were fixed rather than paraphrased: two omitted an HSCT parenthesis present in the cached text, and one spanned a square-bracketed figure callout that the reference validator strips before matching, which was resolved by splitting the quote into two evidence items. Validation: &#39;just validate&#39; passed with 47 of 47 snippets verified against cached references; &#39;just validate-terms&#39; passed; treatment-mechanism and conforms_to foreign-key tests passed; the ungated CI gates are clean.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10046,7 +10867,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "ARPC1B Deficiency", "mondoId": "MONDO:0060583", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ARPC1B_Deficiency", "yamlRevision": "433635daf4a9"};
+        const OS_CONFIG = {"diseaseName": "ARPC1B Deficiency", "mondoId": "MONDO:0060583", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ARPC1B_Deficiency", "yamlRevision": "81b0ed91dc98"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

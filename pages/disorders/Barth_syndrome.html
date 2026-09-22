@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4111,6 +4218,25 @@
 
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970), Table 5 &#34;Congenital defects of phagocyte number or function&#34;, section 1 (Congenital Neutropenias): row &#34;Barth Syndrome (3-Methylglutaconic aciduria type II) TAZ XL 300394&#34;, affected cells N+L Mel, affected function mitochondrial function, associated features cardiomyopathy, myopathy, growth retardation and neutropenia.
+The paper prints the legacy gene symbol TAZ. The current HGNC symbol is TAFAZZIN (hgnc:11577), which is what this entry binds — the same gene, not a mismatch, and the quoted snippet keeps the published symbol because it belongs to the source.
+Scope: iuis_category is single-valued, so this tag records that Barth syndrome occupies a Table 5 row, not that the disorder is primarily an inborn error of immunity. Neutropenia is one feature of a cardiolipin-remodeling mitochondrial disorder whose leading problems are cardiomyopathy and skeletal myopathy; the IUIS affected-function cell is correspondingly &#34;mitochondrial function&#34; rather than any phagocyte-specific lesion.">phagocyte defect</span>
+
+                </div>
+
+            </div>
+
         </div>
 
 
@@ -4179,6 +4305,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4225,6 +4353,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tafazzin-deficiency-impairs-cardiolipin-remodeling" data-dismech-node="Tafazzin deficiency impairs cardiolipin remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Tafazzin deficiency impairs cardiolipin remodeling</div>
+
 
                 <div class="item-desc">Loss of tafazzin activity disrupts remodeling of mitochondrial cardiolipin, producing the signature increase in monolysocardiolipin and reduction in mature cardiolipin. Because cardiolipin is essential for inner-membrane architecture and energy transduction, this lipid-remodeling defect is the initiating lesion for downstream mitochondrial dysfunction in Barth syndrome.</div>
 
@@ -4436,6 +4565,8 @@ This pathophysiological event involves dysregulated cardiolipin metabolic proces
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4458,6 +4589,7 @@ This pathophysiological event involves dysregulated cardiolipin metabolic proces
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-respiratory-chain-dysfunction" data-dismech-node="Mitochondrial respiratory chain dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial respiratory chain dysfunction</div>
+
 
                 <div class="item-desc">Cardiolipin deficiency destabilizes the mitochondrial inner membrane, lowering membrane potential and impairing respiratory chain function. In patient-derived cells and affected tissues, this is accompanied by abnormal reactive oxygen species handling and reduced ATP-generating capacity.</div>
 
@@ -4568,6 +4700,8 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4590,6 +4724,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myocardial-metabolic-substrate-shift" data-dismech-node="Myocardial metabolic substrate shift" data-dismech-type="pathophysiology">
                 <div class="item-name">Myocardial metabolic substrate shift</div>
+
 
                 <div class="item-desc">Tafazzin-deficient cardiomyocytes show reduced mitochondrial fatty-acid utilization and compensatory reliance on glucose and alternative anaplerotic fuels. This metabolic rewiring reflects impaired mitochondrial substrate handling and contributes to contractile inefficiency in the Barth heart.</div>
 
@@ -4720,6 +4855,8 @@ This pathophysiological event involves decreased fatty acid beta-oxidation (GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4743,6 +4880,8 @@ This pathophysiological event involves decreased fatty acid beta-oxidation (GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4764,6 +4903,8 @@ This pathophysiological event involves decreased fatty acid beta-oxidation (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4790,6 +4931,7 @@ This pathophysiological event involves decreased fatty acid beta-oxidation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-cardiomyocyte-calcium-handling" data-dismech-node="Abnormal cardiomyocyte calcium handling" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal cardiomyocyte calcium handling</div>
+
 
                 <div class="item-desc">In Barth syndrome cardiomyocytes, excess mitochondrial and cellular reactive oxygen species activates the CaMKII-RYR2 axis, increasing sarcoplasmic reticulum calcium leak. The result is abnormal diastolic calcium handling, reduced calcium transient amplitude, impaired contractility, and greater arrhythmia vulnerability.</div>
 
@@ -4938,6 +5080,8 @@ This pathophysiological event involves decreased cardiac muscle contraction (GO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4959,6 +5103,8 @@ This pathophysiological event involves decreased cardiac muscle contraction (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4983,6 +5129,7 @@ This pathophysiological event involves decreased cardiac muscle contraction (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-muscle-mitochondrial-myopathy" data-dismech-node="Skeletal muscle mitochondrial myopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Skeletal muscle mitochondrial myopathy</div>
+
 
                 <div class="item-desc">Tafazzin deficiency causes skeletal-muscle mitochondrial dysfunction, reducing muscle oxygen extraction and producing the proximal myopathy and severe exercise limitation typical of Barth syndrome.</div>
 
@@ -5149,6 +5296,8 @@ This pathophysiological event involves decreased muscle contraction (GO:0006936)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5170,6 +5319,8 @@ This pathophysiological event involves decreased muscle contraction (GO:0006936)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5194,6 +5345,7 @@ This pathophysiological event involves decreased muscle contraction (GO:0006936)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-myeloid-maturation" data-dismech-node="Impaired myeloid maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired myeloid maturation</div>
+
 
                 <div class="item-desc">Barth-syndrome neutropenia reflects impaired granulocytic maturation rather than a pure peripheral destruction phenotype. Bone-marrow studies show reduced maturation of the myeloid lineage, providing a mechanistic basis for intermittent or chronic neutropenia and recurrent infection risk.</div>
 
@@ -5326,6 +5478,8 @@ This pathophysiological event involves decreased myeloid cell differentiation (G
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5347,6 +5501,8 @@ This pathophysiological event involves decreased myeloid cell differentiation (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5413,17 +5569,19 @@ This pathophysiological event involves decreased myeloid cell differentiation (G
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Cellular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Constitutional<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5433,7 +5591,7 @@ This pathophysiological event involves decreased myeloid cell differentiation (G
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-neutropenia" data-dismech-node="Neutropenia" data-dismech-type="phenotype">
@@ -5464,6 +5622,9 @@ This clinical feature is Neutropenia, annotated with Decreased total neutrophil 
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -5489,6 +5650,8 @@ This clinical feature is Neutropenia, annotated with Decreased total neutrophil 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5512,13 +5675,89 @@ This clinical feature is Neutropenia, annotated with Decreased total neutrophil 
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-monocytosis" data-dismech-node="Monocytosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Monocytosis
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased total monocyte count</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012311" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0012311</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Monocytosis, annotated with Increased total monocyte count (HP:0012311). HP:0012311 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30451719" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30451719" target="_blank">PMID:30451719</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Monocytosis, that is, monocytes more than 1.0 × 10^9/L, was observed at least once in 64 of 85 (75%) patients."</div>
+
+
+                <div class="evidence-explanation">In the largest Barth syndrome neutropenia cohort, monocytosis was recorded at least once in 75% of patients, supporting monocytosis as a frequent hematologic feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cardiomyopathy" data-dismech-node="Cardiomyopathy" data-dismech-type="phenotype">
@@ -5535,15 +5774,18 @@ This clinical feature is Neutropenia, annotated with Decreased total neutrophil 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001638</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001638</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5563,6 +5805,8 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5604,15 +5848,18 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001644</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001644</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5632,6 +5879,8 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5657,6 +5906,8 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5680,310 +5931,6 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-arrhythmia" data-dismech-node="Arrhythmia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Arrhythmia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0011675</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25299040" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25299040" target="_blank">PMID:25299040</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Heart failure is a significant cause of morbidity and mortality; risk of arrhythmia and sudden death is increased."</div>
-
-
-                <div class="evidence-explanation">GeneReviews identifies increased arrhythmia and sudden-death risk in Barth syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-proximal-muscle-weakness" data-dismech-node="Proximal muscle weakness" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Proximal muscle weakness
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003701</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25299040" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25299040" target="_blank">PMID:25299040</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Skeletal myopathy predominantly affects the proximal muscles, and results in delays in development of early motor skills."</div>
-
-
-                <div class="evidence-explanation">GeneReviews directly supports proximal-predominant skeletal muscle involvement in Barth syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Constitutional
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-exercise-intolerance" data-dismech-node="Exercise intolerance" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Exercise intolerance
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0003546</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21873497" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21873497" target="_blank">PMID:21873497</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In conclusion, severe exercise intolerance in BTHS is due to both cardiac and skeletal muscle impairments that are consistent with cardiac and skeletal mitochondrial myopathy."</div>
-
-
-                <div class="evidence-explanation">This exercise-physiology study directly attributes exercise intolerance to combined cardiac and skeletal-muscle dysfunction in Barth syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-growth-delay" data-dismech-node="Growth delay" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Growth delay
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001510</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23409742" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23409742" target="_blank">PMID:23409742</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"BACKGROUND: Barth syndrome (BS) is an X-linked infantile-onset cardioskeletal disease characterized by cardiomyopathy, hypotonia, growth delay, neutropenia and 3-methylglutaconic aciduria."</div>
-
-
-                <div class="evidence-explanation">This clinical series explicitly lists growth delay among the core Barth syndrome manifestations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-endocardial-fibroelastosis" data-dismech-node="Endocardial fibroelastosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Endocardial fibroelastosis
@@ -6000,15 +5947,18 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001706" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001706</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001706" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001706</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Endocardial fibroelastosis (HP:0001706). HP:0001706 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6028,6 +5978,8 @@ This clinical feature is Endocardial fibroelastosis (HP:0001706). HP:0001706 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6051,6 +6003,8 @@ This clinical feature is Endocardial fibroelastosis (HP:0001706). HP:0001706 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6092,15 +6046,18 @@ This clinical feature is Endocardial fibroelastosis (HP:0001706). HP:0001706 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0011664</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0011664</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Left ventricular noncompaction cardiomyopathy (HP:0011664). HP:0011664 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6120,6 +6077,8 @@ This clinical feature is Left ventricular noncompaction cardiomyopathy (HP:00116
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6145,11 +6104,9 @@ This clinical feature is Left ventricular noncompaction cardiomyopathy (HP:00116
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-monocytosis" data-dismech-node="Monocytosis" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arrhythmia" data-dismech-node="Arrhythmia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Monocytosis
-
-                        <span class="phenotype-freq">FREQUENT</span>
+                        Arrhythmia
 
 
 
@@ -6158,20 +6115,21 @@ This clinical feature is Left ventricular noncompaction cardiomyopathy (HP:00116
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Increased total monocyte count</span>
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0011675</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012311" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0012311</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Monocytosis, annotated with Increased total monocyte count (HP:0012311). HP:0012311 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6183,24 +6141,26 @@ This clinical feature is Monocytosis, annotated with Increased total monocyte co
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30451719" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:25299040" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30451719" target="_blank">PMID:30451719</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25299040" target="_blank">PMID:25299040</a>
                     </span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Monocytosis, that is, monocytes more than 1.0 × 10^9/L, was observed at least once in 64 of 85 (75%) patients."</div>
+                <div class="evidence-snippet">"Heart failure is a significant cause of morbidity and mortality; risk of arrhythmia and sudden death is increased."</div>
 
 
-                <div class="evidence-explanation">In the largest Barth syndrome neutropenia cohort, monocytosis was recorded at least once in 75% of patients, supporting monocytosis as a frequent hematologic feature.</div>
+                <div class="evidence-explanation">GeneReviews identifies increased arrhythmia and sudden-death risk in Barth syndrome.</div>
 
 
 
@@ -6215,6 +6175,177 @@ This clinical feature is Monocytosis, annotated with Increased total monocyte co
 
 
                 </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-bacterial-infections" data-dismech-node="Recurrent bacterial infections" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Recurrent bacterial infections
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002718</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25299040" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25299040" target="_blank">PMID:25299040</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Neutropenia is most often associated with bacterial infections and aphthous ulcers, pneumonia, and sepsis."</div>
+
+
+                <div class="evidence-explanation">GeneReviews links Barth syndrome neutropenia to recurrent bacterial infectious complications.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-proximal-muscle-weakness" data-dismech-node="Proximal muscle weakness" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Proximal muscle weakness
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0003701</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25299040" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25299040" target="_blank">PMID:25299040</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Skeletal myopathy predominantly affects the proximal muscles, and results in delays in development of early motor skills."</div>
+
+
+                <div class="evidence-explanation">GeneReviews directly supports proximal-predominant skeletal muscle involvement in Barth syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Cellular
+                    <span class="cat-count">1</span>
+                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-mitochondrial-morphology" data-dismech-node="Abnormal mitochondrial morphology" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6232,15 +6363,18 @@ This clinical feature is Monocytosis, annotated with Increased total monocyte co
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0008322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0008322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal mitochondrial morphology (HP:0008322). HP:0008322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6260,6 +6394,8 @@ This clinical feature is Abnormal mitochondrial morphology (HP:0008322). HP:0008
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6285,9 +6421,18 @@ This clinical feature is Abnormal mitochondrial morphology (HP:0008322). HP:0008
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-bacterial-infections" data-dismech-node="Recurrent bacterial infections" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-exercise-intolerance" data-dismech-node="Exercise intolerance" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Recurrent bacterial infections
+                        Exercise intolerance
 
 
 
@@ -6299,15 +6444,18 @@ This clinical feature is Abnormal mitochondrial morphology (HP:0008322). HP:0008
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002718</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0003546</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6319,24 +6467,107 @@ This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25299040" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:21873497" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25299040" target="_blank">PMID:25299040</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21873497" target="_blank">PMID:21873497</a>
                     </span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Neutropenia is most often associated with bacterial infections and aphthous ulcers, pneumonia, and sepsis."</div>
+                <div class="evidence-snippet">"In conclusion, severe exercise intolerance in BTHS is due to both cardiac and skeletal muscle impairments that are consistent with cardiac and skeletal mitochondrial myopathy."</div>
 
 
-                <div class="evidence-explanation">GeneReviews links Barth syndrome neutropenia to recurrent bacterial infectious complications.</div>
+                <div class="evidence-explanation">This exercise-physiology study directly attributes exercise intolerance to combined cardiac and skeletal-muscle dysfunction in Barth syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-growth-delay" data-dismech-node="Growth delay" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Growth delay
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001510</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23409742" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23409742" target="_blank">PMID:23409742</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"BACKGROUND: Barth syndrome (BS) is an X-linked infantile-onset cardioskeletal disease characterized by cardiomyopathy, hypotonia, growth delay, neutropenia and 3-methylglutaconic aciduria."</div>
+
+
+                <div class="evidence-explanation">This clinical series explicitly lists growth delay among the core Barth syndrome manifestations.</div>
 
 
 
@@ -6424,6 +6655,9 @@ This disease-associated gene is TAFAZZIN (hgnc:11577). hgnc:11577 is a gene from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6438,6 +6672,8 @@ This disease-associated gene is TAFAZZIN (hgnc:11577). hgnc:11577 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6463,6 +6699,8 @@ This disease-associated gene is TAFAZZIN (hgnc:11577). hgnc:11577 is a gene from
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6484,6 +6722,8 @@ This disease-associated gene is TAFAZZIN (hgnc:11577). hgnc:11577 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6565,6 +6805,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Standard heart-failure medications are used to manage Barth cardiomyopathy, with careful attention to volume status because affected patients are vulnerable to overdiuresis and dehydration.</div>
 
 
@@ -6628,6 +6882,8 @@ This treatment targets Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6689,6 +6945,20 @@ This treatment is hematopoietic growth factor therapy, annotated with Immunother
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">G-CSF is used prophylactically in neutropenic Barth syndrome patients to reduce severe bacterial infection risk and improve marrow neutrophil maturation.</div>
 
 
@@ -6719,6 +6989,8 @@ This treatment is hematopoietic growth factor therapy, annotated with Immunother
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6800,6 +7072,8 @@ This treatment targets Recurrent bacterial infections (HP:0002718). HP:0002718 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6884,6 +7158,20 @@ This treatment uses elamipretide (CHEBI:233331). CHEBI:233331 is a therapeutic a
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Elamipretide is a cardiolipin-directed mitochondrial therapy used to improve muscle strength in Barth syndrome.</div>
 
 
@@ -6945,6 +7233,8 @@ This treatment targets Proximal muscle weakness (HP:0003701). HP:0003701 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7032,6 +7322,8 @@ This treatment targets Proximal muscle weakness (HP:0003701). HP:0003701 is a ph
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7071,6 +7363,8 @@ This treatment targets Proximal muscle weakness (HP:0003701). HP:0003701 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7143,6 +7437,8 @@ This treatment targets Proximal muscle weakness (HP:0003701). HP:0003701 is a ph
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7182,6 +7478,8 @@ This treatment targets Proximal muscle weakness (HP:0003701). HP:0003701 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7254,6 +7552,8 @@ This treatment targets Proximal muscle weakness (HP:0003701). HP:0003701 is a ph
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7275,6 +7575,8 @@ This treatment targets Proximal muscle weakness (HP:0003701). HP:0003701 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7335,6 +7637,8 @@ This treatment targets Proximal muscle weakness (HP:0003701). HP:0003701 is a ph
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7356,6 +7660,8 @@ This treatment targets Proximal muscle weakness (HP:0003701). HP:0003701 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7399,6 +7705,8 @@ This treatment targets Proximal muscle weakness (HP:0003701). HP:0003701 is a ph
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7420,6 +7728,156 @@ This treatment targets Proximal muscle weakness (HP:0003701). HP:0003701 is a ph
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">Ultra-rare. Published review literature in 2019 described fewer than 200 reported cases worldwide, while emphasizing likely underdiagnosis.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31239752" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31239752" target="_blank">PMID:31239752</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although Barth syndrome is still an orphan disease, with fewer than 200 cases described so far, there is extensive ongoing research with regard to its pathomechanism and new therapeutic approaches."</div>
+
+
+                <div class="evidence-explanation">This review directly supports that Barth syndrome is ultra-rare and had fewer than 200 described cases at the time of publication.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide-2">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        0.29 per 100,000
+                        (0.25&ndash;0.33)
+                    </span>
+
+
+                    <span class="tag">1–9 per 1,000,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Estimated birth prevalence cited as roughly 1 in 300,000 to 400,000 live births, with substantial underdiagnosis. The figure is a review-level epidemiological estimate quoted within an in vitro iPSC-cardiomyocyte study.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31861102" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31861102" target="_blank">PMID:31861102</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The approximated BTHS prevalence of 1/300,000–400,000 live births"</div>
+
+
+                <div class="evidence-explanation">An independent review estimates Barth syndrome birth prevalence at roughly 1 in 300,000-400,000 live births, while noting the disorder is substantially underdiagnosed. The prevalence figure is a review-level epidemiological estimate cited within an otherwise in vitro iPSC study.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7585,6 +8043,37 @@ classifications:
   - classification_value: CARDIOVASCULAR
   mechanistic_category:
   - classification_value: mitochondrial disease
+  iuis_category:
+    classification_value: phagocyte defect
+    notes: &gt;-
+      IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970),
+      Table 5 &#34;Congenital defects of phagocyte number or function&#34;, section 1
+      (Congenital Neutropenias): row &#34;Barth Syndrome (3-Methylglutaconic
+      aciduria type II) TAZ XL 300394&#34;, affected cells N+L Mel, affected
+      function mitochondrial function, associated features cardiomyopathy,
+      myopathy, growth retardation and neutropenia.
+
+      The paper prints the legacy gene symbol TAZ. The current HGNC symbol is
+      TAFAZZIN (hgnc:11577), which is what this entry binds — the same gene,
+      not a mismatch, and the quoted snippet keeps the published symbol
+      because it belongs to the source.
+
+      Scope: iuis_category is single-valued, so this tag records that Barth
+      syndrome occupies a Table 5 row, not that the disorder is primarily an
+      inborn error of immunity. Neutropenia is one feature of a
+      cardiolipin-remodeling mitochondrial disorder whose leading problems are
+      cardiomyopathy and skeletal myopathy; the IUIS affected-function cell is
+      correspondingly &#34;mitochondrial function&#34; rather than any
+      phagocyte-specific lesion.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Barth Syndrome (3-Methylglutaconic aciduria type II) TAZ XL 300394&#34;
+      explanation: &gt;-
+        The Barth syndrome row of IUIS Table 5, quoted verbatim with its
+        alternative name, published gene symbol, inheritance and OMIM number.
 parents: []
 prevalence:
 - measure_type: CASES_IN_LITERATURE
@@ -7755,7 +8244,7 @@ pathophysiology:
     evidence:
     - reference: PMID:23409742
       reference_title: &#34;New clinical and molecular insights on Barth syndrome.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         BACKGROUND: Barth syndrome (BS) is an X-linked infantile-onset
@@ -7777,7 +8266,7 @@ pathophysiology:
     evidence:
     - reference: PMID:23409742
       reference_title: &#34;New clinical and molecular insights on Barth syndrome.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         BACKGROUND: Barth syndrome (BS) is an X-linked infantile-onset
@@ -7799,7 +8288,7 @@ pathophysiology:
     evidence:
     - reference: PMID:23361305
       reference_title: &#34;Left ventricular noncompaction (LVNC) and low mitochondrial membrane potential are specific for Barth syndrome.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         In both brothers, 2D-echocardiography revealed some features of left
@@ -7869,7 +8358,7 @@ pathophysiology:
     - Cardiolipin remodeling failure destabilizes mitochondrial membrane structure.
     evidence:
     - reference: ORPHA:111
-      reference_title: &#34;Barth syndrome (Orphanet structured-database record)&#34;
+      reference_title: &#34;Barth syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0008322 | Abnormal mitochondrial morphology | Frequent (79-30%)&#34;
@@ -8051,7 +8540,7 @@ pathophysiology:
     - Decreased cardiomyocyte contractility
     evidence:
     - reference: ORPHA:111
-      reference_title: &#34;Barth syndrome (Orphanet structured-database record)&#34;
+      reference_title: &#34;Barth syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001644 | Dilated cardiomyopathy | Very frequent (99-80%)&#34;
@@ -8061,7 +8550,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:111
-      reference_title: &#34;Barth syndrome (Orphanet structured-database record)&#34;
+      reference_title: &#34;Barth syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001706 | Endocardial fibroelastosis | Frequent (79-30%)&#34;
@@ -8267,7 +8756,7 @@ phenotypes:
       label: Dilated cardiomyopathy
   evidence:
   - reference: ORPHA:111
-    reference_title: &#34;Barth syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Barth syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001644 | Dilated cardiomyopathy | Very frequent (99-80%)&#34;
@@ -8292,7 +8781,7 @@ phenotypes:
       label: Endocardial fibroelastosis
   evidence:
   - reference: ORPHA:111
-    reference_title: &#34;Barth syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Barth syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001706 | Endocardial fibroelastosis | Frequent (79-30%)&#34;
@@ -8478,7 +8967,7 @@ phenotypes:
       label: Abnormal mitochondrial morphology
   evidence:
   - reference: ORPHA:111
-    reference_title: &#34;Barth syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Barth syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0008322 | Abnormal mitochondrial morphology | Frequent (79-30%)&#34;
@@ -9075,6 +9564,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9109,6 +9600,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9526,7 +10019,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Barth syndrome", "mondoId": "MONDO:0010543", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Barth_syndrome", "yamlRevision": "44f1ea1a7df3"};
+        const OS_CONFIG = {"diseaseName": "Barth syndrome", "mondoId": "MONDO:0010543", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Barth_syndrome", "yamlRevision": "bde841f4f970"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

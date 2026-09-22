@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3726,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3937,7 +4044,7 @@
             <a class="stat-link" href="#discussions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💬</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Gaps</div>
             </div>
             </a>
@@ -3955,7 +4062,7 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">14</div>
+                <div class="stat-value">16</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -3965,7 +4072,7 @@
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">10</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
@@ -4198,6 +4305,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4212,14 +4321,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23065822" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:23065822" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23065822" target="_blank">PMID:23065822</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4285,6 +4396,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4307,6 +4420,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4335,6 +4450,33 @@
 
 
         <!-- Comorbidities -->
+
+        <div class="card" id="comorbidities">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">C</div>
+                <h2 class="card-title">Comorbidities</h2>
+            </div>
+            <div class="mapping-section">
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        <a href="../comorbidities/com_Obesity__Polycystic_Ovary_Syndrome.html">Obesity &lt;-&gt; Polycystic Ovary Syndrome</a>
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-parent">Disease B</span>
+
+
+                        <span class="tag tag-classification">BIDIRECTIONAL</span>
+
+
+                        <span class="tag tag-mechanistic">CANDIDATE</span>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
 
 
         <!-- Mechanistic Hypotheses -->
@@ -4366,7 +4508,7 @@
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-SUPPORT">2 support</span>
+                    <span class="evidence-support support-SUPPORT">7 support</span>
 
                 </div>
 
@@ -4374,6 +4516,9 @@
                 <div class="item-desc" style="margin-top: 8px;">Intrinsic ovarian/adrenal androgen excess, potentially reinforced by heightened LH action and theca-cell steroidogenic machinery, is the initiating lesion. Androgen excess then promotes insulin resistance and hyperinsulinemia, disrupts hypothalamic steroid feedback, and contributes to visceral adiposity, closing an androgen-insulin-adiposity feedback loop.
 </div>
 
+
+                <div class="mapping-notes">OpenScientist deep-research verdict (see kb/hypotheses/Polycystic_Ovary_Syndrome/androgen_first_feedback_model): PARTIALLY SUPPORTED. The androgen-sensitive ovarian and neuroendocrine components are supported — global and neuron-specific androgen-receptor knockout in the DHT mouse model shows that androgen-receptor signalling is required for the PCOS-like phenotype and that its critical locus is extraovarian (PMID:28320971) — but temporal primacy of androgen excess is not demonstrated in humans, so `status:` stays ALTERNATIVE rather than being promoted. Three qualifications from the assessment (assessments/openscientist-assessment-by-codex.yaml) are carried here. (1) The report&#39;s central argument that androgen reduction leaves insulin resistance unchanged was rejected on source check: it reads a 12-month placebo-controlled flutamide trial that reported *improved* insulin sensitivity as null, so no claim of a purely indirect androgen-to-insulin route is curated here; see the discussion gap_pcos_androgen_to_insulin_resistance_directness. (2) Long-term testosterone exposure in transmasculine adults is a non-PCOS setting and cannot adjudicate PCOS-specific causality. (3) The model is strongest for the &#34;reproductive&#34; cluster of PCOS (21-23% of NIH-defined European-ancestry cases, enriched for rare DENND1A variants), but that cluster is a cross-sectional phenotype grouping, not a demonstrated androgen-first subtype, and its subtype GWAS was small and unreplicated (PMID:32574161).
+</div>
 
 
                 <div class="crosslink-block">
@@ -4508,7 +4653,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (7 references)
         </summary>
         <div class="evidence-list">
 
@@ -4520,6 +4665,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4546,6 +4693,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4560,6 +4709,34 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:28320971" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28320971" target="_blank">PMID:28320971</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Global loss of the AR reveals that AR signaling is required for all DHT-induced features of PCOS."</div>
+
+
+                <div class="evidence-explanation">Global androgen-receptor knockout in the DHT-induced mouse model shows the whole PCOS-like phenotype depends on androgen-receptor signalling, the strongest available causal test of the androgen arm of this hypothesis. Graded MODEL_ORGANISM: it is a mouse result and does not by itself establish androgen primacy in human PCOS.
+</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 4 more references</div>
 
         </div>
     </details>
@@ -4587,7 +4764,7 @@
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-SUPPORT">2 support</span>
+                    <span class="evidence-support support-SUPPORT">5 support</span>
 
                 </div>
 
@@ -4595,6 +4772,9 @@
                 <div class="item-desc" style="margin-top: 8px;">Primary insulin resistance or primary hyperinsulinemia initiates the endocrine-metabolic loop. High insulin acts as a co-gonadotropin in the ovary and lowers hepatic SHBG, increasing bioactive androgen exposure; the resulting hyperandrogenism can then worsen insulin resistance and adiposity.
 </div>
 
+
+                <div class="mapping-notes">OpenScientist deep-research verdict (see kb/hypotheses/Polycystic_Ovary_Syndrome/insulin_hyperinsulinemia_first_model): PARTIALLY SUPPORTED — a co-driving parallel pathway rather than a universal primary cause, so `status:` stays ALTERNATIVE. What survives source check: suppressing insulin secretion with diazoxide lowers androgens and raises SHBG even in lean PCOS women with normal metabolic insulin sensitivity (PMID:17559844); insulin drives adipose androgen generation through AKR1C3 (PMID:26312838); and Mendelian randomization infers a causal effect of higher insulin resistance on PCOS risk (PMID:26416764). What does not: the report&#39;s claim that PCOS GWAS do not implicate insulin genes and that no insulin-specific Mendelian-randomization work exists is contradicted by that same 2015 analysis and by the INSR locus already curated in `genetic:`; its claimed insulin-independent 28-52% testosterone contrast across two NK3-antagonist trials misreports those endpoints (52% was the LH area-under-curve reduction in the AZD4901 trial); and average null gonadotropin effects in a heterogeneous metformin meta-analysis do not prove parallel causal pathways. Note also that metformin lowers LH-stimulated testosterone within days, before any insulin-sensitising effect (PMID:25304843), so therapeutic response to an insulin sensitiser is not on its own evidence for the insulin-first ordering.
+</div>
 
 
                 <div class="crosslink-block">
@@ -4709,7 +4889,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (5 references)
         </summary>
         <div class="evidence-list">
 
@@ -4721,6 +4901,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4747,6 +4929,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4761,6 +4945,34 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:17559844" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17559844" target="_blank">PMID:17559844</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In women with typical PCOS and normal insulin levels and metabolic insulin sensitivity, reducing insulin secretion significantly decreased androgen and increased SHBG levels."</div>
+
+
+                <div class="evidence-explanation">Prospective insulin-lowering intervention: eight days of diazoxide lowered androgens and raised SHBG in lean PCOS women whose metabolic insulin sensitivity was normal, so an insulin contribution to hyperandrogenemia does not require measurable insulin resistance. Nine participants and no concurrent randomized control group, so this shows a contribution, not temporal primacy.
+</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 2 more references</div>
 
         </div>
     </details>
@@ -4788,9 +5000,7 @@
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-SUPPORT">6 support</span>
-
-                    <span class="evidence-support support-PARTIAL">1 partial</span>
+                    <span class="evidence-support support-SUPPORT">8 support</span>
 
                 </div>
 
@@ -4895,7 +5105,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (7 references)
+            Show evidence (8 references)
         </summary>
         <div class="evidence-list">
 
@@ -4907,6 +5117,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4933,6 +5145,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4957,6 +5171,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4972,7 +5188,7 @@
             </div>
 
 
-            <div class="evidence-more">+ 4 more references</div>
+            <div class="evidence-more">+ 5 more references</div>
 
         </div>
     </details>
@@ -5025,6 +5241,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -5047,6 +5265,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -5079,7 +5299,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
                 <h2 class="card-title">Discussions and Knowledge Gaps</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">6</span>
             </div>
 
             <div class="item-box discussion-box anchor-target" id="gap_pcos_causal_hierarchy_by_adiposity">
@@ -5144,7 +5364,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -5156,6 +5376,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5182,6 +5404,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5196,6 +5420,34 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:41180187" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41180187" target="_blank">PMID:41180187</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cluster C (43.3%) showed lower BP, BMI, HOMA-IR, triglycerides, testosterone, and FAI and higher LH: FSH, DHEAS, androstenedione, 17-hydroxyprogesterone, SHBG, and HDL."</div>
+
+
+                <div class="evidence-explanation">The largest cluster in a 975-patient NIH-defined cohort combines low insulin resistance with a high LH:FSH ratio, so no single insulin-first or adiposity-first ordering can hold across the syndrome. The measurements are contemporaneous and cross-sectional, so this establishes stratum heterogeneity, not which mechanism initiates in that stratum — which is exactly the gap stated here.
+</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -5687,6 +5939,8 @@ This readout is measured by oocyte maturation scoring.</span>
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5708,6 +5962,8 @@ This readout is measured by oocyte maturation scoring.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5795,6 +6051,8 @@ This readout is measured by oocyte maturation scoring.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -6076,6 +6334,238 @@ This experiment is of type human granulosa cell apoptosis assay.</span>
 
             </div>
 
+            <div class="item-box discussion-box anchor-target" id="gap_pcos_androgen_to_insulin_resistance_directness">
+                <div class="item-name">Does androgen excess in PCOS impair insulin action directly at insulin target tissues, or only indirectly — by promoting visceral and android fat deposition, and through androgen-receptor signalling in neurons? The entry asserts both an androgen-to-intrinsic-insulin-defect edge and an androgen-to-adiposity-amplified-insulin-resistance edge; is the first of those a distinct mechanism, or the second one seen at a different scale?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_pcos_androgen_to_insulin_resistance_directness</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-hyperandrogenism">pathophysiology#Hyperandrogenism</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-intrinsic-post-receptor-insulin-signaling-defect">pathophysiology#Intrinsic Post-Receptor Insulin Signaling Defect</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-adiposity-amplified-insulin-resistance">pathophysiology#Adiposity-Amplified Insulin Resistance</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Both androgen-to-insulin edges on the Hyperandrogenism node are already typed INDIRECT_KNOWN_INTERMEDIATES, but their intermediates differ (androgen receptor action in muscle and adipose tissue versus visceral fat deposition and adipokine change) and nothing in the entry distinguishes them experimentally. The mouse data locate the critical androgen-receptor target for the metabolic phenotype outside the ovary, in neurons, which is a mediated rather than a direct tissue-level route; but the mediation itself — hypothalamic androgen receptor to gonadotropin output to metabolic regulation — has not been tested by any experiment cited here. The nearest human evidence of prolonged androgen exposure comes from testosterone-treated transmasculine adults, where body composition and lipids deteriorate while fasting glucose and insulin do not measurably change; that is a different population with a different developmental history and an exogenously controlled gonadal axis, so it constrains a simple pharmacological androgen-to-insulin-resistance claim without settling the question in PCOS. Resolving this matters for whether antiandrogen therapy should be expected to improve metabolic endpoints at all, or only those that follow fat redistribution.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28320971" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28320971" target="_blank">PMID:28320971</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Neuron-specific AR signaling was required for the development of dysfunctional ovulation, classic polycystic ovaries, reduced large antral follicle health, and several metabolic traits including obesity and dyslipidemia."</div>
+
+
+                <div class="evidence-explanation">Shows the metabolic arm of the DHT mouse phenotype depends on androgen-receptor signalling in neurons rather than in the ovary, which is what makes a purely direct peripheral androgen-to-insulin route doubtful and the mediating steps the open question.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42171672" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42171672" target="_blank">PMID:42171672</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Fasting glucose, insulin, and blood pressure did not change meaningfully. The lipid profile worsened: LDL, total cholesterol and triglycerides increased, and HDL decreased throughout the study period. Weight, body mass index, waist circumference, and waist-to-hip ratio increased."</div>
+
+
+                <div class="evidence-explanation">Ten years of testosterone in 57 transmasculine adults shifted body composition toward android fat and worsened lipids while leaving fasting glucose and insulin unchanged — the dissociation this gap is about. Graded INDIRECT: a single-centre observational cohort outside PCOS, with no PCOS counterfactual and a pharmacologically controlled gonadal axis, so it cannot adjudicate causality within the syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="gap_pcos_11_oxygenated_androgen_causality">
+                <div class="item-name">Are the elevated 11-oxygenated androgens of PCOS a driver of the hyperandrogenic phenotype, or a marker of adrenal and adipose androgen handling that tracks it? And is their production insulin-dependent in common PCOS, as insulin-receptor signalling makes it in syndromes of severe insulin resistance?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_pcos_11_oxygenated_androgen_causality</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#biochemical-11-oxygenated-androgens">biochemical#11-Oxygenated Androgens</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-hyperandrogenism">pathophysiology#Hyperandrogenism</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-adiposity-amplified-insulin-resistance">pathophysiology#Adiposity-Amplified Insulin Resistance</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">11-oxygenated C19 steroids discriminate PCOS from controls better than total testosterone does, which is why they are curated as a biochemical marker here. Diagnostic discrimination is not mechanism, however, and the entry deliberately does not give them a pathophysiology node. Two lines of work make an insulin-dependent route plausible without establishing it for common PCOS: in women with syndromes of severe insulin resistance, 11-oxygenated androgens are raised in lipodystrophy but not in insulin receptoropathy, implying that intact insulin-receptor signalling is required for the adrenal excess; and in an adipocyte model, insulin-induced AKR1C3 converts 11-oxygenated precursors to potent androgens. The first is 18 women with rare monogenic disease, the second is a cell model, and neither measures the route in ordinary PCOS. The question is also directional: if 11-oxygenated androgens are largely adrenal and insulin-driven, they sit downstream of hyperinsulinemia rather than upstream of it, which would make the classical ovarian and the 11-oxygenated arms separate contributors rather than one androgen pool.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35696182" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35696182" target="_blank">PMID:35696182</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"11-Oxygenated androgens are elevated in lipodystrophy but not receptoropathy. In SIR, insulin receptor signaling is necessary for adrenal hyperandrogenemia but not ovarian hyperandrogenemia; excess classic androgens are derived from the ovaries."</div>
+
+
+                <div class="evidence-explanation">The natural-experiment contrast that motivates the insulin-dependence half of this gap, and the reason it is a gap rather than a curated mechanism: the cohort is 18 women with rare severe-insulin-resistance syndromes, not common PCOS, so the inference to PCOS is an extrapolation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35560164" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35560164" target="_blank">PMID:35560164</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We conclude that the 11-oxygenated androgens formed in adipocytes may contribute to the hyperandrogenic profile of PCOS women and that AKR1C3 is a potential therapeutic target to mitigate the AE of PCOS."</div>
+
+
+                <div class="evidence-explanation">Supplies the candidate peripheral mechanism — insulin-induced AKR1C3 activating 11-oxygenated precursors in adipocytes — while stating it at the level this gap records: the authors write that these androgens &#34;may contribute&#34;, from recombinant-enzyme kinetics and a differentiated adipocyte line rather than from PCOS tissue.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
         </div>
 
 
@@ -6090,6 +6580,7 @@ This experiment is of type human granulosa cell apoptosis assay.</span>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperandrogenism" data-dismech-node="Hyperandrogenism" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperandrogenism</div>
+
 
                 <div class="item-desc">Excess androgen production from ovarian theca cells and adrenal glands leads to hirsutism, acne, and alopecia. Elevated LH stimulates theca cell androgen production.
 </div>
@@ -6281,6 +6772,8 @@ This pathophysiological event involves Androgen Biosynthesis, annotated with and
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6304,6 +6797,8 @@ This pathophysiological event involves Androgen Biosynthesis, annotated with and
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6325,6 +6820,8 @@ This pathophysiological event involves Androgen Biosynthesis, annotated with and
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6351,6 +6848,7 @@ This pathophysiological event involves Androgen Biosynthesis, annotated with and
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypothalamic-pituitary-dysregulation" data-dismech-node="Hypothalamic-Pituitary Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypothalamic-Pituitary Dysregulation</div>
+
 
                 <div class="item-desc">Impaired hypothalamic-pituitary sensitivity to estradiol and progesterone negative feedback maintains rapid LH/GnRH pulse secretion. Elevated LH then stimulates theca-cell androgen biosynthesis, while hyperandrogenism can sustain the abnormal feedback state.
 </div>
@@ -6465,6 +6963,8 @@ This pathophysiological event involves Increased Luteinizing Hormone Secretion, 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6487,6 +6987,8 @@ This pathophysiological event involves Increased Luteinizing Hormone Secretion, 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6512,6 +7014,7 @@ This pathophysiological event involves Increased Luteinizing Hormone Secretion, 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intrinsic-post-receptor-insulin-signaling-defect" data-dismech-node="Intrinsic Post-Receptor Insulin Signaling Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Intrinsic Post-Receptor Insulin Signaling Defect</div>
+
 
                 <div class="item-desc">PCOS-associated insulin resistance can reflect an intrinsic post-binding or post-receptor defect in insulin signaling that is independent of obesity. Defective insulin receptor or IRS-associated signaling decreases metabolic glucose disposal while ovarian steroidogenic actions of insulin may remain active, allowing insulin and LH to amplify androgen production.
 </div>
@@ -6646,6 +7149,8 @@ This pathophysiological event involves decreased Insulin Signaling, annotated wi
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6670,6 +7175,8 @@ This pathophysiological event involves decreased Insulin Signaling, annotated wi
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6692,6 +7199,8 @@ This pathophysiological event involves decreased Insulin Signaling, annotated wi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6719,6 +7228,7 @@ This pathophysiological event involves decreased Insulin Signaling, annotated wi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adiposity-amplified-insulin-resistance" data-dismech-node="Adiposity-Amplified Insulin Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Adiposity-Amplified Insulin Resistance</div>
+
 
                 <div class="item-desc">Abdominal or visceral adiposity amplifies insulin resistance and hyperinsulinemia in susceptible PCOS patients. This pathway separates obesity-related hepatic/adipose insulin resistance from intrinsic lean-PCOS insulin signaling defects and explains why obesity worsens androgenic and reproductive features without being required for PCOS.
 </div>
@@ -6867,6 +7377,8 @@ This pathophysiological event involves decreased Insulin Signaling, annotated wi
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6889,6 +7401,8 @@ This pathophysiological event involves decreased Insulin Signaling, annotated wi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6915,6 +7429,8 @@ This pathophysiological event involves decreased Insulin Signaling, annotated wi
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6938,6 +7454,7 @@ This pathophysiological event involves decreased Insulin Signaling, annotated wi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ovulatory-dysfunction" data-dismech-node="Ovulatory Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Ovulatory Dysfunction</div>
+
 
                 <div class="item-desc">Disrupted folliculogenesis with arrest at small antral stage leads to anovulation. Multiple small follicles accumulate (polycystic morphology) without dominant follicle selection.
 </div>
@@ -7010,6 +7527,8 @@ This pathophysiological event involves Ovulation (GO:0030728). GO:0030728 is a b
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7031,6 +7550,8 @@ This pathophysiological event involves Ovulation (GO:0030728). GO:0030728 is a b
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7056,6 +7577,8 @@ This pathophysiological event involves Ovulation (GO:0030728). GO:0030728 is a b
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7078,6 +7601,7 @@ This pathophysiological event involves Ovulation (GO:0030728). GO:0030728 is a b
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-and-endoplasmic-reticulum-stress" data-dismech-node="Oxidative and Endoplasmic Reticulum Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative and Endoplasmic Reticulum Stress</div>
+
 
                 <div class="item-desc">Synergistic oxidative stress (OS) and endoplasmic reticulum stress (ERS) form an intracellular stress hub that initiates autophagy-ferroptosis crosstalk in ovarian granulosa cells, driving follicular atresia and ovulatory dysfunction.
 </div>
@@ -7238,6 +7762,8 @@ This pathophysiological event involves increased Endoplasmic Reticulum Stress Re
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7260,6 +7786,7 @@ This pathophysiological event involves increased Endoplasmic Reticulum Stress Re
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gut-microbiome-dysregulation-and-gut-ovarian-axis-inflammation" data-dismech-node="Gut Microbiome Dysregulation and Gut-Ovarian Axis Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Gut Microbiome Dysregulation and Gut-Ovarian Axis Inflammation</div>
+
 
                 <div class="item-desc">Dysbiosis-driven gut microbiome dysfunction amplifies low-grade chronic inflammation via the gut-ovarian axis, exacerbating granulosa cell dysfunction and follicular atresia through long-range immune and metabolic signaling.
 </div>
@@ -7352,6 +7879,8 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7374,6 +7903,7 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-low-grade-inflammation" data-dismech-node="Chronic Low-Grade Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Low-Grade Inflammation</div>
+
 
                 <div class="item-desc">Elevated inflammatory markers (CRP, IL-6) contribute to insulin resistance and cardiovascular risk in PCOS.
 </div>
@@ -7446,6 +7976,8 @@ This pathophysiological event involves Inflammatory Response (GO:0006954). GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7467,6 +7999,8 @@ This pathophysiological event involves Inflammatory Response (GO:0006954). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7491,6 +8025,7 @@ This pathophysiological event involves Inflammatory Response (GO:0006954). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-granulosa-cell-ferroptosis-autophagy-crosstalk" data-dismech-node="Granulosa Cell Ferroptosis-Autophagy Crosstalk" data-dismech-type="pathophysiology">
                 <div class="item-name">Granulosa Cell Ferroptosis-Autophagy Crosstalk</div>
+
 
                 <div class="item-desc">Granulosa cell dysfunction in PCOS arises from pathological crosstalk between autophagy and ferroptosis rather than from a single mode of cell death. Selective autophagy mechanisms (ferritinophagy and mitophagy) amplify ferroptosis through iron overload and energy collapse, driving follicular atresia and ovulatory dysfunction.
 </div>
@@ -7650,6 +8185,8 @@ This pathophysiological event involves increased Autophagy (GO:0006914). GO:0006
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7671,6 +8208,8 @@ This pathophysiological event involves increased Autophagy (GO:0006914). GO:0006
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7695,6 +8234,7 @@ This pathophysiological event involves increased Autophagy (GO:0006914). GO:0006
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-circadian-disruption-and-epigenetic-reprogramming-in-granulosa-cells" data-dismech-node="Circadian Disruption and Epigenetic Reprogramming in Granulosa Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Circadian Disruption and Epigenetic Reprogramming in Granulosa Cells</div>
+
 
                 <div class="item-desc">Circadian rhythm disruption and epigenetic reprogramming entrench the granulosa cell autophagy-ferroptosis imbalance at the temporal and molecular memory levels, amplifying follicular atresia.
 </div>
@@ -7854,6 +8394,8 @@ This pathophysiological event involves abnormal Epigenetic Regulation of Gene Ex
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7876,6 +8418,7 @@ This pathophysiological event involves abnormal Epigenetic Regulation of Gene Ex
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-granulosa-cell-apoptosis-via-pcsk9-lipid-dysregulation" data-dismech-node="Granulosa Cell Apoptosis via PCSK9-Lipid Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Granulosa Cell Apoptosis via PCSK9-Lipid Dysregulation</div>
+
 
                 <div class="item-desc">Elevated PCSK9 (proprotein convertase subtilisin/kexin type-9) in ovarian follicles triggers lipid metabolism abnormalities that activate AMP-activated protein kinase (AMPK) and glycogen synthase kinase 3β (GSK-3β), leading to granulosa cell apoptosis. This PCSK9-lipid-AMPK/GSK-3β cascade represents a distinct apoptotic pathway in granulosa cell death, independent of the ferroptosis-autophagy crosstalk mechanism, and may contribute to follicular atresia and ovulatory dysfunction in PCOS.
 </div>
@@ -8070,6 +8613,8 @@ This pathophysiological event involves abnormal Lipid Metabolism Abnormalities, 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8092,6 +8637,8 @@ This pathophysiological event involves abnormal Lipid Metabolism Abnormalities, 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8117,6 +8664,7 @@ This pathophysiological event involves abnormal Lipid Metabolism Abnormalities, 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-population-specific-metabolic-vs-inflammatory-dysregulation" data-dismech-node="Population-Specific Metabolic vs. Inflammatory Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Population-Specific Metabolic vs. Inflammatory Dysregulation</div>
+
 
                 <div class="item-desc">PCOS manifests with distinct molecular pathophysiology across populations. East Asian PCOS exhibits predominant enrichment of metabolic dysregulation pathways with emphasis on insulin/IGF signaling and gonadotropin receptor pathways. European PCOS shows a stronger inflammatory and immune-related signature, featuring enrichment of the TLR4-NF-κB-NLRP3 signaling axis. This population-specific molecular heterogeneity suggests distinct pathophysiological drivers and therapeutic opportunities across ancestries.
 </div>
@@ -8496,6 +9044,8 @@ This pathophysiological event involves Inflammatory Response (GO:0006954). GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -8520,6 +9070,8 @@ This pathophysiological event involves Inflammatory Response (GO:0006954). GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -8542,6 +9094,8 @@ This pathophysiological event involves Inflammatory Response (GO:0006954). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -8658,20 +9212,25 @@ This clinical feature is Irregular Menstruation (HP:0000858). HP:0000858 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:14671196" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:14671196" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14671196" target="_blank">PMID:14671196</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8727,20 +9286,25 @@ This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:14671196" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:14671196" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14671196" target="_blank">PMID:14671196</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8809,6 +9373,9 @@ This clinical feature is Acne (HP:0001061). HP:0001061 is a phenotype from the H
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -8850,20 +9417,25 @@ This clinical feature is Hirsutism (HP:0001007). HP:0001007 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38152131" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38152131" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38152131" target="_blank">PMID:38152131</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8914,6 +9486,9 @@ This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Androgenic pattern</div>
@@ -8970,6 +9545,9 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -9008,7 +9586,7 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">14</span>
+                <span class="card-count">16</span>
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-dennd1a" data-dismech-node="DENND1A" data-dismech-type="genetic">
@@ -9046,6 +9624,71 @@ This disease-associated gene is DENND1A (hgnc:29324). hgnc:29324 is a gene from 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31184707" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31184707" target="_blank">PMID:31184707</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The comparison of miR-130b-3p in normal and PCOS theca cells demonstrated decreased miR-130b-3p expression in PCOS theca cells, which was correlated with increased DENND1A.V2, cytochrome P450 17α-hydroxylase (CYP17A1) mRNA and androgen biosynthesis."</div>
+
+
+                <div class="evidence-explanation">Connects the DENND1A risk locus to the intrinsic theca-cell steroidogenic phenotype curated under Hyperandrogenism: loss of miR-130b-3p repression raises DENND1A.V2 and CYP17A1 together with androgen output in theca cells isolated from women with PCOS. In vitro in isolated theca cells, and the DENND1A.V2 link is correlative within that system.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32574161" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32574161" target="_blank">PMID:32574161</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"carriers of previously reported rare variants in DENND1A, a gene that regulates androgen biosynthesis, were significantly more likely to have the reproductive subtype of PCOS"</div>
+
+
+                <div class="evidence-explanation">Rare DENND1A variant carriers segregate with the reproductive (higher LH and SHBG, lower BMI and insulin) rather than the metabolic phenotype cluster, so this locus is not uniformly distributed across PCOS. European ancestry, NIH criteria, and a family-based classification cohort of 73.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-thada" data-dismech-node="THADA" data-dismech-type="genetic">
@@ -9077,6 +9720,9 @@ This disease-associated gene is THADA (hgnc:19217). hgnc:19217 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -9118,6 +9764,9 @@ This disease-associated gene is LHCGR (hgnc:6585). hgnc:6585 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9132,6 +9781,8 @@ This disease-associated gene is LHCGR (hgnc:6585). hgnc:6585 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -9189,6 +9840,9 @@ This disease-associated gene is FSHR (hgnc:3969). hgnc:3969 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9203,6 +9857,8 @@ This disease-associated gene is FSHR (hgnc:3969). hgnc:3969 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -9260,6 +9916,9 @@ This disease-associated gene is INS (hgnc:6081). hgnc:6081 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9274,6 +9933,8 @@ This disease-associated gene is INS (hgnc:6081). hgnc:6081 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -9331,6 +9992,9 @@ This disease-associated gene is INSR (hgnc:6091). hgnc:6091 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9345,6 +10009,8 @@ This disease-associated gene is INSR (hgnc:6091). hgnc:6091 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -9402,6 +10068,9 @@ This disease-associated gene is IGF1R (hgnc:5465). hgnc:5465 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9416,6 +10085,8 @@ This disease-associated gene is IGF1R (hgnc:5465). hgnc:5465 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -9475,6 +10146,9 @@ This disease-associated gene is ERBB3 (hgnc:3431). hgnc:3431 is a gene from the 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-egfr" data-dismech-node="EGFR" data-dismech-type="genetic">
@@ -9506,6 +10180,9 @@ This disease-associated gene is EGFR (hgnc:3236). hgnc:3236 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -9549,6 +10226,9 @@ This disease-associated gene is YAP1 (hgnc:16262). hgnc:16262 is a gene from the
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-pdgfra" data-dismech-node="PDGFRA" data-dismech-type="genetic">
@@ -9580,6 +10260,9 @@ This disease-associated gene is PDGFRA (hgnc:8803). hgnc:8803 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -9621,6 +10304,9 @@ This disease-associated gene is APP (hgnc:620). hgnc:620 is a gene from the HUGO
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9635,6 +10321,8 @@ This disease-associated gene is APP (hgnc:620). hgnc:620 is a gene from the HUGO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -9692,6 +10380,9 @@ This disease-associated gene is NFKB1 (hgnc:7794). hgnc:7794 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9706,6 +10397,8 @@ This disease-associated gene is NFKB1 (hgnc:7794). hgnc:7794 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -9763,6 +10456,9 @@ This disease-associated gene is IRF1 (hgnc:6116). hgnc:6116 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9779,6 +10475,8 @@ This disease-associated gene is IRF1 (hgnc:6116). hgnc:6116 is a gene from the H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -9788,6 +10486,156 @@ This disease-associated gene is IRF1 (hgnc:6116). hgnc:6116 is a gene from the H
 
                 <div class="evidence-explanation">Interferon regulatory factor 1 immune-related gene preferentially prioritized in the European PCOS gene-prioritization list.
 </div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-ar" data-dismech-node="AR" data-dismech-type="genetic">
+                <div class="item-name">
+                    AR
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: AR
+
+
+    <a href="https://bioregistry.io/hgnc:644" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-59">hgnc:644</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is AR (hgnc:644). hgnc:644 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42531755" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42531755" target="_blank">PMID:42531755</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Polymorphisms in genes such as the androgen receptor (AR), cytochrome P450 17A1 (CYP17), and follicle-stimulating hormone receptor (FSHR) have been associated with altered steroidogenesis and ovarian dysfunction, thereby influencing disease severity."</div>
+
+
+                <div class="evidence-explanation">Recent review establishes AR polymorphisms as contributors to altered steroidogenesis and ovarian dysfunction in PCOS pathophysiology.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-cyp17a1" data-dismech-node="CYP17A1" data-dismech-type="genetic">
+                <div class="item-name">
+                    CYP17A1
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CYP17A1
+
+
+    <a href="https://bioregistry.io/hgnc:2593" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-60">hgnc:2593</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CYP17A1 (hgnc:2593). hgnc:2593 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42531755" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42531755" target="_blank">PMID:42531755</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Polymorphisms in genes such as the androgen receptor (AR), cytochrome P450 17A1 (CYP17), and follicle-stimulating hormone receptor (FSHR) have been associated with altered steroidogenesis and ovarian dysfunction, thereby influencing disease severity."</div>
+
+
+                <div class="evidence-explanation">Recent review identifies CYP17 polymorphisms as key contributors to altered steroidogenesis and ovarian androgen dysregulation in PCOS.</div>
 
 
 
@@ -9816,7 +10664,7 @@ This disease-associated gene is IRF1 (hgnc:6116). hgnc:6116 is a gene from the H
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">10</span>
+                <span class="card-count">14</span>
             </div>
 
             <div class="item-box treatment-box anchor-target" id="treatment-combined-oral-contraceptives" data-dismech-node="Combined Oral Contraceptives" data-dismech-type="treatment">
@@ -9827,7 +10675,7 @@ This disease-associated gene is IRF1 (hgnc:6116). hgnc:6116 is a gene from the H
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">combined oral contraceptive therapy<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">combined oral contraceptive therapy<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is combined oral contraceptive therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9869,16 +10717,41 @@ This treatment is combined oral contraceptive therapy, annotated with Pharmacoth
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C389" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-60">NCIT:C389</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C389" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-62">NCIT:C389</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses oral contraceptive (NCIT:C389). NCIT:C389 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -9895,78 +10768,6 @@ This treatment uses oral contraceptive (NCIT:C389). NCIT:C389 is a therapeutic a
             <div class="item-box treatment-box anchor-target" id="treatment-metformin" data-dismech-node="Metformin" data-dismech-type="treatment">
                 <div class="item-name">
                     Metformin
-                </div>
-                <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-
-
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
-                    </span>
-
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                    </div>
-
-
-
-                <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-
-
-
-                    <span class="tag tag-treatment">
-                        metformin
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6801" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-62">CHEBI:6801</a>
-
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses metformin (CHEBI:6801). CHEBI:6801 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
-                    </span>
-
-                </div>
-
-
-
-                <div class="item-desc">Improves insulin sensitivity and may restore ovulation.</div>
-
-
-
-
-
-
-
-            </div>
-
-            <div class="item-box treatment-box anchor-target" id="treatment-spironolactone" data-dismech-node="Spironolactone" data-dismech-type="treatment">
-                <div class="item-name">
-                    Spironolactone
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
@@ -10008,21 +10809,178 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="tag tag-treatment">
-                        spironolactone
+                        metformin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_9241" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-64">CHEBI:9241</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6801" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-64">CHEBI:6801</a>
 
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-64">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
+This treatment uses metformin (CHEBI:6801). CHEBI:6801 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Improves insulin sensitivity and may restore ovulation.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25304843" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25304843" target="_blank">PMID:25304843</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In women with PCOS, Metformin induces a prompt decrease in LH-stimulated T secretion after only several days of use. This action precedes the medication&#39;s effects on insulin sensitivity or weight loss."</div>
+
+
+                <div class="evidence-explanation">Randomized, double-blinded, placebo-controlled crossover in 19 women with PCOS: two days of metformin already lowered LH-stimulated testosterone, which is the shortest-latency human evidence that metformin acts on ovarian steroidogenesis directly and not only through insulin sensitisation. Small and short, and the free-androgen-index effect was only borderline.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-spironolactone" data-dismech-node="Spironolactone" data-dismech-type="treatment">
+                <div class="item-name">
+                    Spironolactone
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-65">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        spironolactone
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9241" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-66">CHEBI:9241</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
 This treatment uses spironolactone (CHEBI:9241). CHEBI:9241 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -10044,7 +11002,7 @@ This treatment uses spironolactone (CHEBI:9241). CHEBI:9241 is a therapeutic age
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-65">aromatase inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-67">aromatase inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-67">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is aromatase inhibitor therapy, annotated with Aromatase Inhibition Therapy (NCIT:C15525). NCIT:C15525 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -10086,16 +11044,41 @@ This treatment is aromatase inhibitor therapy, annotated with Aromatase Inhibiti
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6413" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-66">CHEBI:6413</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6413" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-68">CHEBI:6413</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses letrozole (CHEBI:6413). CHEBI:6413 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -10117,7 +11100,7 @@ This treatment uses letrozole (CHEBI:6413). CHEBI:6413 is a therapeutic agent fr
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-67">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-67">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-69">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-69">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -10158,16 +11141,41 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_3752" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-68">CHEBI:3752</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3752" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-70">CHEBI:3752</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses clomiphene (CHEBI:3752). CHEBI:3752 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -10189,7 +11197,7 @@ This treatment uses clomiphene (CHEBI:3752). CHEBI:3752 is a therapeutic agent f
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-69">lifestyle therapy<span class="pill-tip" role="tooltip" id="pill-tip-69">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-71">lifestyle therapy<span class="pill-tip" role="tooltip" id="pill-tip-71">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is lifestyle therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -10222,6 +11230,31 @@ This treatment is lifestyle therapy (NCIT:C15900). NCIT:C15900 is a clinical int
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Weight loss improves all PCOS features.</div>
 
 
@@ -10235,176 +11268,6 @@ This treatment is lifestyle therapy (NCIT:C15900). NCIT:C15900 is a clinical int
             <div class="item-box treatment-box anchor-target" id="treatment-erbb-family-signaling-inhibitors" data-dismech-node="ERBB Family Signaling Inhibitors" data-dismech-type="treatment">
                 <div class="item-name">
                     ERBB Family Signaling Inhibitors
-                </div>
-                <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-
-
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-70">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-70">NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
-                    </span>
-
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-                <div class="item-desc">ERBB3 and ERBB2 signaling are central nodes in both East Asian and European PCOS genetic networks. ERBB-family receptor tyrosine kinase inhibition is a computationally identified candidate population-agnostic target for disrupting tyrosine kinase signaling implicated in follicular dysfunction and inflammatory amplification. This is an in silico target prediction from gene prioritization and has not been clinically tested in PCOS; no specific inhibitor is nominated by the source.
-</div>
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:42365073" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42365073" target="_blank">PMID:42365073</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
-
-                </div>
-
-                <div class="evidence-snippet">"EGFR, ERBB3, and YAP1 present in the network of both the population , are involved in signaling by receptor tyrosine kinases and Hippo which are known for their  role in PCOS"</div>
-
-
-                <div class="evidence-explanation">Gene prioritization in both East Asian and European populations identifies ERBB family members as highly ranked druggable targets with direct therapeutic potential.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-            </div>
-
-            <div class="item-box treatment-box anchor-target" id="treatment-growth-factor-receptor-inhibitors-fgfr-egfr-pdgfra" data-dismech-node="Growth Factor Receptor Inhibitors (FGFR, EGFR, PDGFRA)" data-dismech-type="treatment">
-                <div class="item-name">
-                    Growth Factor Receptor Inhibitors (FGFR, EGFR, PDGFRA)
-                </div>
-                <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-
-
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-71">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-71">NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
-                    </span>
-
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-                <div class="item-desc">FGFR, EGFR, and PDGFRA signaling pathways are preferentially enriched in East Asian PCOS and are implicated in follicular growth and ovulation. Inhibition of these growth factor receptors is a computationally identified population-specific candidate target for metabolic-dominant PCOS phenotypes. This is an in silico target prediction from gene prioritization and has not been clinically tested in PCOS; no specific inhibitor is nominated by the source.
-</div>
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:42365073" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42365073" target="_blank">PMID:42365073</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
-
-                </div>
-
-                <div class="evidence-snippet">"signaling pathways involving EGFR, PDGFRA and FGFR which are exclusively enriched due to peripheral genes (Figure 2A (iv)) are within the top priority pathways in EAS population."</div>
-
-
-                <div class="evidence-explanation">Exclusive prioritization of FGFR/EGFR/PDGFRA pathways in East Asian PCOS identifies these as population-specific therapeutic targets for metabolic-dysregulation-dominant disease.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-            </div>
-
-            <div class="item-box treatment-box anchor-target" id="treatment-nf-kb-and-inflammasome-pathway-inhibitors" data-dismech-node="NF-kB and Inflammasome Pathway Inhibitors" data-dismech-type="treatment">
-                <div class="item-name">
-                    NF-kB and Inflammasome Pathway Inhibitors
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
@@ -10442,6 +11305,255 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">ERBB3 and ERBB2 signaling are central nodes in both East Asian and European PCOS genetic networks. ERBB-family receptor tyrosine kinase inhibition is a computationally identified candidate population-agnostic target for disrupting tyrosine kinase signaling implicated in follicular dysfunction and inflammatory amplification. This is an in silico target prediction from gene prioritization and has not been clinically tested in PCOS; no specific inhibitor is nominated by the source.
+</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42365073" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42365073" target="_blank">PMID:42365073</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"EGFR, ERBB3, and YAP1 present in the network of both the population , are involved in signaling by receptor tyrosine kinases and Hippo which are known for their  role in PCOS"</div>
+
+
+                <div class="evidence-explanation">Gene prioritization in both East Asian and European populations identifies ERBB family members as highly ranked druggable targets with direct therapeutic potential.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-growth-factor-receptor-inhibitors-fgfr-egfr-pdgfra" data-dismech-node="Growth Factor Receptor Inhibitors (FGFR, EGFR, PDGFRA)" data-dismech-type="treatment">
+                <div class="item-name">
+                    Growth Factor Receptor Inhibitors (FGFR, EGFR, PDGFRA)
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-73">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-73">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">FGFR, EGFR, and PDGFRA signaling pathways are preferentially enriched in East Asian PCOS and are implicated in follicular growth and ovulation. Inhibition of these growth factor receptors is a computationally identified population-specific candidate target for metabolic-dominant PCOS phenotypes. This is an in silico target prediction from gene prioritization and has not been clinically tested in PCOS; no specific inhibitor is nominated by the source.
+</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42365073" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42365073" target="_blank">PMID:42365073</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"signaling pathways involving EGFR, PDGFRA and FGFR which are exclusively enriched due to peripheral genes (Figure 2A (iv)) are within the top priority pathways in EAS population."</div>
+
+
+                <div class="evidence-explanation">Exclusive prioritization of FGFR/EGFR/PDGFRA pathways in East Asian PCOS identifies these as population-specific therapeutic targets for metabolic-dysregulation-dominant disease.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-nf-kb-and-inflammasome-pathway-inhibitors" data-dismech-node="NF-kB and Inflammasome Pathway Inhibitors" data-dismech-type="treatment">
+                <div class="item-name">
+                    NF-kB and Inflammasome Pathway Inhibitors
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-74">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-74">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">European PCOS exhibits preferential enrichment of TLR4-NF-kB-NLRP3 signaling and inflammasome activation. NF-kB and NLRP3 inflammasome inhibition are computationally identified population-specific candidate targets for inflammatory-dominant PCOS phenotypes, addressing chronic low-grade inflammation driven by immune pathway dysregulation. This is an in silico target prediction from gene prioritization and has not been clinically tested in PCOS; no specific inhibitor is nominated by the source.
 </div>
 
@@ -10464,6 +11576,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -10495,7 +11609,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-73">Mesenchymal stem cell and exosome therapy<span class="pill-tip" role="tooltip" id="pill-tip-73">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-75">Mesenchymal stem cell and exosome therapy<span class="pill-tip" role="tooltip" id="pill-tip-75">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Mesenchymal stem cell and exosome therapy, annotated with Cellular Therapy (NCIT:C70601). NCIT:C70601 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -10528,6 +11642,31 @@ This treatment is Mesenchymal stem cell and exosome therapy, annotated with Cell
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Cell therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Investigational, preclinical regenerative and cell-based disease-modifying strategy for PCOS. Mesenchymal stem cells (MSCs) and their secreted derivatives (including exosomes), together with gene-edited induced pluripotent stem cell (iPSC) platforms, are being explored to move beyond symptom-focused management toward mechanism-directed intervention. In preclinical models these approaches modulate ovarian inflammation, restore ovarian structure, and improve metabolic parameters, while iPSC-based models support patient-specific investigation of steroidogenic and metabolic abnormalities. Not clinically validated in PCOS; translational barriers include targeted delivery, off-target effects, and phenotypic heterogeneity.
 </div>
 
@@ -10552,6 +11691,8 @@ This treatment is Mesenchymal stem cell and exosome therapy, annotated with Cell
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10573,6 +11714,469 @@ This treatment is Mesenchymal stem cell and exosome therapy, annotated with Cell
 
             </div>
 
+            <div class="item-box treatment-box anchor-target" id="treatment-glucagon-like-peptide-1-receptor-agonists" data-dismech-node="Glucagon-like Peptide-1 Receptor Agonists" data-dismech-type="treatment">
+                <div class="item-name">
+                    Glucagon-like Peptide-1 Receptor Agonists
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-76">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-76">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        GLP-1 receptor agonist
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C98085" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-77">NCIT:C98085</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-77">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses GLP-1 receptor agonist, annotated with GLP-1 Mimetic (NCIT:C98085). NCIT:C98085 is a therapeutic agent from the NCI Thesaurus.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Peptide</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">GLP-1 receptor agonists are emerging as potential therapeutic agents in PCOS, targeting insulin resistance and metabolic dysregulation. Beyond their glucose-lowering effects, GLP-1RAs may improve androgen metabolism and ovulatory function through weight loss and insulin sensitization, offering a multi-pathway intervention approach in metabolic-dominant PCOS phenotypes.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42531755" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42531755" target="_blank">PMID:42531755</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"novel therapeutic strategies have emerged, including glucagon-like peptide-1 receptor agonists (GLP-1RAs), microRNA-based therapies, and interleukin-22 (IL-22)-mediated interventions, which show potential in targeting IR and metabolic dysfunction in PCOS."</div>
+
+
+                <div class="evidence-explanation">Recent comprehensive review identifies GLP-1RAs as an emerging therapeutic strategy with demonstrated potential in addressing insulin resistance and metabolic dysfunction in PCOS. The cited sentence is the narrative review&#39;s own summary of an emerging therapeutic landscape rather than a result from a primary clinical study, so it is graded OTHER.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-microrna-based-therapies" data-dismech-node="microRNA-Based Therapies" data-dismech-type="treatment">
+                <div class="item-name">
+                    microRNA-Based Therapies
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-78">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-78">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">MicroRNA-based therapies represent an emerging precision medicine approach targeting dysregulated miRNA expression in PCOS. MicroRNA modulation may address pathways affecting ovarian function, insulin signaling, and inflammation, offering a mechanistic intervention approach distinct from conventional hormone and metabolic therapies.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42531755" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42531755" target="_blank">PMID:42531755</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"novel therapeutic strategies have emerged, including glucagon-like peptide-1 receptor agonists (GLP-1RAs), microRNA-based therapies, and interleukin-22 (IL-22)-mediated interventions, which show potential in targeting IR and metabolic dysfunction in PCOS."</div>
+
+
+                <div class="evidence-explanation">Recent review establishes microRNA-based therapies as an emerging approach for PCOS with demonstrated potential in targeting insulin resistance and metabolic dysfunction. The cited sentence is the narrative review&#39;s own summary of an emerging therapeutic landscape rather than a result from a primary clinical study, so it is graded OTHER, consistent with this treatment&#39;s preclinical-stage notes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-interleukin-22-mediated-interventions" data-dismech-node="Interleukin-22-Mediated Interventions" data-dismech-type="treatment">
+                <div class="item-name">
+                    Interleukin-22-Mediated Interventions
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-79">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-79">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">IL-22-mediated interventions represent an emerging immunomodulatory approach to PCOS, targeting the IL-22 cytokine pathway to enhance metabolic and reproductive function. IL-22 signaling supports epithelial barrier integrity and metabolic homeostasis, with potential applications in addressing both metabolic dysfunction and chronic low-grade inflammation in PCOS.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42531755" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42531755" target="_blank">PMID:42531755</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"novel therapeutic strategies have emerged, including glucagon-like peptide-1 receptor agonists (GLP-1RAs), microRNA-based therapies, and interleukin-22 (IL-22)-mediated interventions, which show potential in targeting IR and metabolic dysfunction in PCOS."</div>
+
+
+                <div class="evidence-explanation">Recent review identifies IL-22-mediated interventions as an emerging therapeutic strategy with potential in PCOS pathophysiology. The cited sentence is the narrative review&#39;s own summary of an emerging therapeutic landscape rather than a result from a primary clinical study, so it is graded OTHER, consistent with this treatment&#39;s preclinical-stage notes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-microbiota-modulation-therapy" data-dismech-node="Microbiota Modulation Therapy" data-dismech-type="treatment">
+                <div class="item-name">
+                    Microbiota Modulation Therapy
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-80">microbiota modulation therapy<span class="pill-tip" role="tooltip" id="pill-tip-80">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is microbiota modulation therapy, annotated with Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Lifestyle Therapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15900" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15900">NCIT:C15900</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Microbiota modulation through probiotics, prebiotics, and fecal microbiota transplantation (FMT) represents an emerging strategy for restoring metabolic homeostasis in PCOS. Dysbiosis-driven metabolic endotoxemia and altered short-chain fatty acid production contribute to PCOS pathophysiology, and microbiota restoration may improve insulin sensitivity, hormone metabolism, and reproductive function through multiple mechanisms.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42531755" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42531755" target="_blank">PMID:42531755</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"modulation of gut microbiota through probiotics, prebiotics, and fecal microbiota transplantation (FMT) represents an emerging strategy for restoring metabolic homeostasis."</div>
+
+
+                <div class="evidence-explanation">Recent review establishes microbiota modulation as an emerging therapeutic approach with potential for restoring metabolic homeostasis in PCOS. The quoted sentence is the review&#39;s forward-looking framing of a strategy that &#34;represents an emerging&#34; one, not a reported clinical result, so it is graded OTHER to match the three sibling emerging-therapy entries in this section and the entry&#39;s own notes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
         </div>
 
 
@@ -10582,24 +12186,7 @@ This treatment is Mesenchymal stem cell and exosome therapy, annotated with Cell
             <div class="card-header">
                 <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
                 <h2 class="card-title">Environmental Factors</h2>
-                <span class="card-count">3</span>
-            </div>
-
-            <div class="item-box environmental-box anchor-target" id="environmental-obesity" data-dismech-node="Obesity" data-dismech-type="environmental">
-                <div class="item-name">Obesity</div>
-
-
-
-
-
-
-                <div class="item-desc">Exacerbates insulin resistance and hyperandrogenism</div>
-
-
-
-
-
-
+                <span class="card-count">4</span>
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-sedentary-lifestyle" data-dismech-node="Sedentary Lifestyle" data-dismech-type="environmental">
@@ -10615,11 +12202,11 @@ This treatment is Mesenchymal stem cell and exosome therapy, annotated with Cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_6000004" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-74">ECTO:6000004</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000004" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-81">ECTO:6000004</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-81">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
 Relation: this environmental factor is this exposure
 This environmental factor is sedentary lifestyle, annotated with exposure to sedentary lifestyle (ECTO:6000004). ECTO:6000004 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
@@ -10633,10 +12220,45 @@ This environmental factor is sedentary lifestyle, annotated with exposure to sed
 
 
 
-                <div class="item-desc">Worsens metabolic features</div>
+                <div class="item-desc">Worsens metabolic features.</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39861440" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39861440" target="_blank">PMID:39861440</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Physical activity, like aerobic and resistance exercise, enhances insulin sensitivity, helps weight loss, and improves metabolic and reproductive outcomes in women with PCOS."</div>
+
+
+                <div class="evidence-explanation">Systematic review establishing that physical activity improves insulin sensitivity and metabolic outcomes in this disease. PARTIAL because it states the benefit of activity rather than measuring harm from sedentariness; the exposure claim here is the inverse of what the source reports.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -10655,11 +12277,11 @@ This environmental factor is sedentary lifestyle, annotated with exposure to sed
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_9001833" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-75">ECTO:9001833</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_9001833" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-82">ECTO:9001833</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-75">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-82">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
 Relation: this environmental factor is this exposure
 This environmental factor is prenatal androgen exposure, annotated with exposure to androgen (ECTO:9001833). ECTO:9001833 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
@@ -10673,10 +12295,245 @@ This environmental factor is prenatal androgen exposure, annotated with exposure
 
 
 
-                <div class="item-desc">May program PCOS phenotype</div>
+                <div class="item-desc">May program the PCOS phenotype. The hedge is deliberate: the evidence is strong and reproducible across several species in animal models, and indirect in humans, because fetal sampling during gestation is not ethically available.</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31499494" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31499494" target="_blank">PMID:31499494</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In utero androgen excess reliably induces polycystic ovary syndrome (PCOS)-like reproductive and metabolic traits in female monkeys, sheep, rats, and mice."</div>
+
+
+                <div class="evidence-explanation">The strongest form of this claim, and it is an animal one: prenatal androgen excess reproducibly induces the phenotype across four species. Graded MODEL_ORGANISM so it is not read as a human finding.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31499494" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31499494" target="_blank">PMID:31499494</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Evidence consistent with in utero origins for PCOS in humans has thus been slow to amass, but the balance now leans toward developmental fetal origins."</div>
+
+
+                <div class="evidence-explanation">The human counterpart, and the reason this entry&#39;s note hedges. PARTIAL because it reports a balance of indirect evidence rather than a measured exposure effect, the same review being explicit that fetal sampling constraints are why.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34529765" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34529765" target="_blank">PMID:34529765</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We tested the pAMH model in kisspeptin-specific androgen receptor knockout (KARKO) mice and found that virtually all pAMH-induced phenotypes assayed are eliminated in KARKO offspring compared to littermate controls."</div>
+
+
+                <div class="evidence-explanation">Places the androgen receptor in kisspeptin neurons downstream of the other candidate prenatal hit: the reproductive phenotype produced by prenatal AMH exposure disappears when that receptor is deleted, so the AMH and androgen developmental routes converge on androgen-receptor signalling rather than acting in parallel. Mouse only. It does not show that AMH and testosterone are both required prenatal hits in humans, and no human fetal-exposure measurement supports the two-hit sequence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-endocrine-disrupting-chemicals" data-dismech-node="Endocrine-Disrupting Chemicals" data-dismech-type="environmental">
+                <div class="item-name">Endocrine-Disrupting Chemicals</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to endocrine-disrupting chemicals
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_9001630" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-83">ECTO:9001630</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-83">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to endocrine-disrupting chemicals, annotated with exposure to endocrine disruptor (ECTO:9001630). ECTO:9001630 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-desc">Exposure to endocrine-disrupting chemicals (EDCs) may exacerbate metabolic disturbances and increase PCOS risk through interference with estrogen, androgen, and thyroid signaling pathways.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42531755" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42531755" target="_blank">PMID:42531755</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"environmental influences, including exposure to endocrine-disrupting chemicals (EDCs) and air pollution, may exacerbate metabolic disturbances and increase the risk of developing PCOS."</div>
+
+
+                <div class="evidence-explanation">Recent comprehensive review establishes EDC exposure as an environmental risk factor that may exacerbate metabolic dysfunction and PCOS severity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-air-pollution-exposure" data-dismech-node="Air Pollution Exposure" data-dismech-type="environmental">
+                <div class="item-name">Air Pollution Exposure</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to air pollution
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_8000036" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-84">ECTO:8000036</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-84">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to air pollution (ECTO:8000036). ECTO:8000036 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-desc">Air pollution exposure may contribute to systemic inflammation and metabolic disturbances in PCOS pathophysiology through oxidative stress mechanisms.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42531755" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42531755" target="_blank">PMID:42531755</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"environmental influences, including exposure to endocrine-disrupting chemicals (EDCs) and air pollution, may exacerbate metabolic disturbances and increase the risk of developing PCOS."</div>
+
+
+                <div class="evidence-explanation">Recent review identifies air pollution as an environmental contributor to metabolic dysfunction and increased PCOS risk.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -10691,7 +12548,7 @@ This environmental factor is prenatal androgen exposure, annotated with exposure
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
 
             <div class="item-box biochemical-box anchor-target" id="biochemical-testosterone" data-dismech-node="Testosterone" data-dismech-type="biochemical">
@@ -10724,6 +12581,8 @@ This environmental factor is prenatal androgen exposure, annotated with exposure
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10732,6 +12591,83 @@ This environmental factor is prenatal androgen exposure, annotated with exposure
 
 
                 <div class="evidence-explanation">Documents positive correlation between AMH and testosterone levels in PCOS patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box biochemical-box anchor-target" id="biochemical-11-oxygenated-androgens" data-dismech-node="11-Oxygenated Androgens" data-dismech-type="biochemical">
+                <div class="item-name">
+                    11-Oxygenated Androgens
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
+
+                </div>
+
+                <div class="item-desc">Context: Adrenal-derived C19 steroids (11-ketotestosterone, 11-ketoandrostenedione, 11beta-hydroxytestosterone, 11beta-hydroxyandrostenedione), measured by mass spectrometry. Not part of any diagnostic criterion; curated because they discriminate PCOS from controls better than total testosterone does, and because their production is insulin-sensitive.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39815717" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39815717" target="_blank">PMID:39815717</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Total testosterone, androstenedione, and four 11-oxyandrogens were significantly elevated in women with PCOS compared to age matched controls, controlling for age and BMI"</div>
+
+
+                <div class="evidence-explanation">Case-control comparison of 114 women with PCOS against 78 controls establishes the elevation itself, adjusted for age and BMI.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39815717" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39815717" target="_blank">PMID:39815717</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"When considered together, the four 11-oxyandrogens were more predictive of PCOS compared to testosterone and androstenedione."</div>
+
+
+                <div class="evidence-explanation">Supports curating these separately from the Testosterone marker rather than folding them into it: they carry discriminative information the classical androgens do not. Discrimination is not causation — whether they drive the phenotype is the open question recorded in gap_pcos_11_oxygenated_androgen_causality.</div>
 
 
 
@@ -10772,6 +12708,8 @@ This environmental factor is prenatal androgen exposure, annotated with exposure
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10824,6 +12762,8 @@ This environmental factor is prenatal androgen exposure, annotated with exposure
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10872,6 +12812,8 @@ This environmental factor is prenatal androgen exposure, annotated with exposure
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10924,6 +12866,8 @@ This environmental factor is prenatal androgen exposure, annotated with exposure
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10945,6 +12889,33 @@ This environmental factor is prenatal androgen exposure, annotated with exposure
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -11262,6 +13233,13 @@ category: Complex
 parents:
 - Endocrine Disease
 - Reproductive Disease
+review_notes: &gt;-
+  The `environmental:` entry &#34;Obesity&#34; was removed and migrated to
+  kb/comorbidities/com_Obesity__Polycystic_Ovary_Syndrome.yaml (dismech#8296, dismech#8551). It is a disease in
+  its own right rather than something external to the organism acting on
+  it, so ECTO and XCO have no term that could bind it. All of its evidence
+  was carried across. This clears one row from the dismech#8296
+  evidence-free backlog for a structural reason rather than by citing it.
 disease_term:
   preferred_term: polycystic ovary syndrome
   term:
@@ -11288,7 +13266,7 @@ has_subtypes:
       intrinsic insulin-action defect relevant to nonobese PCOS.
   - reference: PMID:23065822
     reference_title: &#34;Insulin resistance and the polycystic ovary syndrome revisited: an update on mechanisms and implications.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;There is general agreement that obese women with PCOS are insulin resistant, but some groups of lean affected women may have normal insulin sensitivity.&#34;
     explanation: &gt;
@@ -11331,6 +13309,29 @@ mechanistic_hypotheses:
     lesion. Androgen excess then promotes insulin resistance and hyperinsulinemia,
     disrupts hypothalamic steroid feedback, and contributes to visceral adiposity,
     closing an androgen-insulin-adiposity feedback loop.
+  notes: &gt;
+    OpenScientist deep-research verdict (see
+    kb/hypotheses/Polycystic_Ovary_Syndrome/androgen_first_feedback_model):
+    PARTIALLY SUPPORTED. The androgen-sensitive ovarian and neuroendocrine
+    components are supported — global and neuron-specific androgen-receptor
+    knockout in the DHT mouse model shows that androgen-receptor signalling is
+    required for the PCOS-like phenotype and that its critical locus is
+    extraovarian (PMID:28320971) — but temporal primacy of androgen excess is
+    not demonstrated in humans, so `status:` stays ALTERNATIVE rather than being
+    promoted. Three qualifications from the assessment
+    (assessments/openscientist-assessment-by-codex.yaml) are carried here.
+    (1) The report&#39;s central argument that androgen reduction leaves insulin
+    resistance unchanged was rejected on source check: it reads a 12-month
+    placebo-controlled flutamide trial that reported *improved* insulin
+    sensitivity as null, so no claim of a purely indirect androgen-to-insulin
+    route is curated here; see the discussion
+    gap_pcos_androgen_to_insulin_resistance_directness. (2) Long-term
+    testosterone exposure in transmasculine adults is a non-PCOS setting and
+    cannot adjudicate PCOS-specific causality. (3) The model is strongest for
+    the &#34;reproductive&#34; cluster of PCOS (21-23% of NIH-defined European-ancestry
+    cases, enriched for rare DENND1A variants), but that cluster is a
+    cross-sectional phenotype grouping, not a demonstrated androgen-first
+    subtype, and its subtype GWAS was small and unreplicated (PMID:32574161).
   evidence:
   - reference: PMID:38152131
     reference_title: &#34;Androgen excess: a hallmark of polycystic ovary syndrome.&#34;
@@ -11348,6 +13349,57 @@ mechanistic_hypotheses:
     explanation: &gt;
       Supports the androgen-to-insulin-resistance arm of the proposed feedback
       model.
+  - reference: PMID:28320971
+    reference_title: Neuroendocrine androgen action is a key extraovarian mediator in the development of polycystic ovary syndrome.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Global loss of the AR reveals that AR signaling is required for all DHT-induced features of PCOS.&#34;
+    explanation: &gt;
+      Global androgen-receptor knockout in the DHT-induced mouse model shows the
+      whole PCOS-like phenotype depends on androgen-receptor signalling, the
+      strongest available causal test of the androgen arm of this hypothesis.
+      Graded MODEL_ORGANISM: it is a mouse result and does not by itself
+      establish androgen primacy in human PCOS.
+  - reference: PMID:28320971
+    reference_title: Neuroendocrine androgen action is a key extraovarian mediator in the development of polycystic ovary syndrome.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Neuron-specific AR signaling was required for the development of dysfunctional ovulation, classic polycystic ovaries, reduced large antral follicle health, and several metabolic traits including obesity and dyslipidemia.&#34;
+    explanation: &gt;
+      Locates the critical androgen-receptor target extraovarially, in neurons:
+      the same cell-specific knockouts that prevent the reproductive phenotype
+      also prevent obesity and dyslipidemia, which is why this entry routes the
+      androgen arm through hypothalamic-pituitary dysregulation rather than
+      asserting a direct ovarian-only mechanism.
+  - reference: PMID:17710731
+    reference_title: Neuroendocrine effects of androgens in adult polycystic ovary syndrome and female puberty.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;We hypothesize that excess peripubertal androgens may reduce the sensitivity of the GnRH pulse generator to sex steroid inhibition in susceptible individuals, resulting in increased GnRH pulse frequency and subsequent abnormalities in gonadotropin secretion, ovarian androgen production, and ovulatory function.&#34;
+    explanation: &gt;
+      States the androgen-first developmental sequence this hypothesis group
+      encodes — peripubertal androgen excess desensitising the GnRH pulse
+      generator. Cited as the review&#39;s own hypothesis, not as a demonstration:
+      the authors frame it explicitly as a hypothesis, which is why this group
+      remains ALTERNATIVE.
+  - reference: PMID:32574161
+    reference_title: &#34;Distinct subtypes of polycystic ovary syndrome with novel genetic associations: An unsupervised, phenotypic clustering analysis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;carriers of previously reported rare variants in DENND1A, a gene that regulates androgen biosynthesis, were significantly more likely to have the reproductive subtype of PCOS&#34;
+    explanation: &gt;
+      Ties an intrinsic androgen-biosynthesis genotype to a reproductive
+      (higher-LH, lower-BMI/insulin) phenotype cluster, the stratum in which the
+      androgen-first ordering is most plausible.
+  - reference: PMID:32574161
+    reference_title: &#34;Distinct subtypes of polycystic ovary syndrome with novel genetic associations: An unsupervised, phenotypic clustering analysis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Limitations of our study were that only PCOS cases of European ancestry diagnosed by National Institutes of Health (NIH) criteria were included, the sample sizes for the subtype GWAS were small, and the GWAS findings were not replicated.&#34;
+    explanation: &gt;
+      The authors&#39; own limitations statement, curated so the subtype restriction
+      above is not read as a settled population prevalence or a validated
+      androgen-first subtype.
 - hypothesis_group_id: insulin_hyperinsulinemia_first_model
   hypothesis_label: Insulin/Hyperinsulinemia-First Model
   status: ALTERNATIVE
@@ -11359,6 +13411,27 @@ mechanistic_hypotheses:
     endocrine-metabolic loop. High insulin acts as a co-gonadotropin in the ovary
     and lowers hepatic SHBG, increasing bioactive androgen exposure; the resulting
     hyperandrogenism can then worsen insulin resistance and adiposity.
+  notes: &gt;
+    OpenScientist deep-research verdict (see
+    kb/hypotheses/Polycystic_Ovary_Syndrome/insulin_hyperinsulinemia_first_model):
+    PARTIALLY SUPPORTED — a co-driving parallel pathway rather than a universal
+    primary cause, so `status:` stays ALTERNATIVE. What survives source check:
+    suppressing insulin secretion with diazoxide lowers androgens and raises
+    SHBG even in lean PCOS women with normal metabolic insulin sensitivity
+    (PMID:17559844); insulin drives adipose androgen generation through AKR1C3
+    (PMID:26312838); and Mendelian randomization infers a causal effect of
+    higher insulin resistance on PCOS risk (PMID:26416764). What does not: the
+    report&#39;s claim that PCOS GWAS do not implicate insulin genes and that no
+    insulin-specific Mendelian-randomization work exists is contradicted by that
+    same 2015 analysis and by the INSR locus already curated in `genetic:`; its
+    claimed insulin-independent 28-52% testosterone contrast across two
+    NK3-antagonist trials misreports those endpoints (52% was the LH
+    area-under-curve reduction in the AZD4901 trial); and average null
+    gonadotropin effects in a heterogeneous metformin meta-analysis do not prove
+    parallel causal pathways. Note also that metformin lowers LH-stimulated
+    testosterone within days, before any insulin-sensitising effect
+    (PMID:25304843), so therapeutic response to an insulin sensitiser is not on
+    its own evidence for the insulin-first ordering.
   evidence:
   - reference: PMID:40013621
     reference_title: &#34;Reappraising the relationship between hyperinsulinemia and insulin resistance in PCOS.&#34;
@@ -11376,6 +13449,39 @@ mechanistic_hypotheses:
     explanation: &gt;
       Supports the ovarian steroidogenesis route by which hyperinsulinemia can
       increase androgen production.
+  - reference: PMID:17559844
+    reference_title: Role of insulin in the hyperandrogenemia of lean women with polycystic ovary syndrome and normal insulin sensitivity.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;In women with typical PCOS and normal insulin levels and metabolic insulin sensitivity, reducing insulin secretion significantly decreased androgen and increased SHBG levels.&#34;
+    explanation: &gt;
+      Prospective insulin-lowering intervention: eight days of diazoxide lowered
+      androgens and raised SHBG in lean PCOS women whose metabolic insulin
+      sensitivity was normal, so an insulin contribution to hyperandrogenemia
+      does not require measurable insulin resistance. Nine participants and no
+      concurrent randomized control group, so this shows a contribution, not
+      temporal primacy.
+  - reference: PMID:26312838
+    reference_title: &#34;Effect of insulin on AKR1C3 expression in female adipose tissue: in-vivo and in-vitro study of adipose androgen generation in polycystic ovary syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Insulin significantly increased AKR1C3 expression in differentiated subcutaneous adipocytes (p=0·04). Incubation with insulin significantly increased testosterone generation from androstenedione in cultured subcutaneous cell media compared with controls (p&lt;0·001).&#34;
+    explanation: &gt;
+      Identifies an extra-ovarian route from insulin to androgen: insulin
+      induces AKR1C3 in subcutaneous adipocytes, which converts androstenedione
+      to testosterone. Graded IN_VITRO because these two measurements are the
+      cultured-adipocyte arm of the study.
+  - reference: PMID:26416764
+    reference_title: Causal mechanisms and balancing selection inferred from genetic associations with polycystic ovary syndrome.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Mendelian randomization analyses indicate causal roles in PCOS aetiology for higher BMI (P=2.5 × 10(-9)), higher insulin resistance (P=6 × 10(-4)) and lower serum sex hormone binding globulin concentrations (P=5 × 10(-4)).&#34;
+    explanation: &gt;
+      Genetic instrumental-variable analysis in a European-ancestry GWAS infers
+      a causal direction from insulin resistance (and BMI, and low SHBG) to
+      PCOS, which is the strongest hypothesis-independent support for this
+      group. The BMI effect is larger, so this supports insulin resistance as a
+      causal contributor rather than as the sole initiating lesion.
 - hypothesis_group_id: neuroendocrine_lh_first_model
   hypothesis_label: Neuroendocrine LH-Pulse Model
   status: ALTERNATIVE
@@ -11460,7 +13566,7 @@ mechanistic_hypotheses:
       neuroendocrine causal chain.
   - reference: PMID:11756367
     reference_title: &#34;The role of LH and FSH in ovarian androgen secretion and ovarian follicular development: clinical studies in a patient with isolated FSH deficiency and multicystic ovaries.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;There were no clinical or laboratory consequences of LH excess in this FSH-deficient woman. These findings support the hypothesis that excessive LH stimulation alone does not cause ovarian hyperandrogenism.&#34;
     explanation: &gt;
@@ -11468,6 +13574,18 @@ mechanistic_hypotheses:
       PCOS-like LH pulse characteristics had normal androgens, showing that the
       neuroendocrine LH arm requires an intrinsic ovarian steroidogenic defect to
       produce hyperandrogenism.
+  - reference: PMID:16434454
+    reference_title: &#34;Inverse relationship between luteinizing hormone and body mass index in polycystic ovarian syndrome: investigation of hypothalamic and pituitary contributions.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;LH pulse frequency and quantity of GnRH are increased in PCOS, but there is no influence of BMI on either marker of hypothalamic function. The pituitary response to a weight-based dose of GnRH is inversely related to BMI in PCOS.&#34;
+    explanation: &gt;
+      Substantiates qualification (4) in this entry&#39;s notes, which was previously
+      uncited: GnRH pulse frequency and drive are raised in PCOS irrespective of
+      BMI, and it is the pituitary response that falls with rising BMI. So a
+      normal serum LH in an obese patient does not exclude the hypothalamic
+      abnormality this hypothesis group posits, and LH concentration is a poor
+      proxy for it. Frequent-sampling and GnRH/antagonist testing in 24 women.
 - hypothesis_group_id: population_stratified_mechanistic_heterogeneity
   hypothesis_label: Population-Stratified Mechanistic Heterogeneity
   status: EMERGING
@@ -11537,6 +13655,28 @@ discussions:
     explanation: &gt;
       Supports subtype-specific causal hierarchy rather than a single universal
       insulin-resistance sequence.
+  - reference: PMID:41180187
+    reference_title: Characterization of distinct polycystic ovary syndrome subtypes by cluster and principal component analyses.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Cluster C (43.3%) showed lower BP, BMI, HOMA-IR, triglycerides, testosterone, and FAI and higher LH: FSH, DHEAS, androstenedione, 17-hydroxyprogesterone, SHBG, and HDL.&#34;
+    explanation: &gt;
+      The largest cluster in a 975-patient NIH-defined cohort combines low
+      insulin resistance with a high LH:FSH ratio, so no single insulin-first or
+      adiposity-first ordering can hold across the syndrome. The measurements are
+      contemporaneous and cross-sectional, so this establishes stratum
+      heterogeneity, not which mechanism initiates in that stratum — which is
+      exactly the gap stated here.
+  - reference: PMID:42026183
+    reference_title: Genomic analyses implicate hormonal and metabolic dysregulation in polycystic ovary syndrome.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Hormonal regulation in the etiology of this condition, through metabolic and reproductive features, was emphasized. The proteomic analysis highlighted metabolic biology known to be related to PCOS.&#34;
+    explanation: &gt;
+      The largest PCOS genetic study to date (n = 544,513, 29 loci) implicates
+      reproductive/hormonal and metabolic biology together rather than resolving
+      to one, which is hypothesis-independent evidence that the causal-hierarchy
+      question posed here is not settled by genetics.
 - discussion_id: gap_pcos_granulosa_apoptosis_pcsk9
   prompt: &gt;-
     Granulosa cell apoptosis is a primary driver of follicular arrest and
@@ -11751,6 +13891,116 @@ discussions:
         PCSK9 gain- and loss-of-function manipulation and apoptosis readouts.
       experimental_model_type: PRIMARY_CELL_CULTURE
   notes: &#34;Seeded from PMID:42093080 — Lipid metabolism abnormalities induced by elevated PCSK9 in polycystic ovary syndrome mice lead to ovarian granulosa cell apoptosis via AMPK and GSK-3β. Complements the same-source KNOWLEDGE_GAP discussion gap_pcos_granulosa_apoptosis_pcsk9; this entry adds the HUMAN_MODEL_MISMATCH translational framing and proposed human experiments.&#34;
+- discussion_id: gap_pcos_androgen_to_insulin_resistance_directness
+  prompt: &gt;-
+    Does androgen excess in PCOS impair insulin action directly at insulin
+    target tissues, or only indirectly — by promoting visceral and android fat
+    deposition, and through androgen-receptor signalling in neurons? The entry
+    asserts both an androgen-to-intrinsic-insulin-defect edge and an
+    androgen-to-adiposity-amplified-insulin-resistance edge; is the first of
+    those a distinct mechanism, or the second one seen at a different scale?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Hyperandrogenism
+  - pathophysiology#Intrinsic Post-Receptor Insulin Signaling Defect
+  - pathophysiology#Adiposity-Amplified Insulin Resistance
+  rationale: &gt;-
+    Both androgen-to-insulin edges on the Hyperandrogenism node are already
+    typed INDIRECT_KNOWN_INTERMEDIATES, but their intermediates differ (androgen
+    receptor action in muscle and adipose tissue versus visceral fat deposition
+    and adipokine change) and nothing in the entry distinguishes them
+    experimentally. The mouse data locate the critical androgen-receptor target
+    for the metabolic phenotype outside the ovary, in neurons, which is a
+    mediated rather than a direct tissue-level route; but the mediation itself
+    — hypothalamic androgen receptor to gonadotropin output to metabolic
+    regulation — has not been tested by any experiment cited here. The nearest
+    human evidence of prolonged androgen exposure comes from
+    testosterone-treated transmasculine adults, where body composition and
+    lipids deteriorate while fasting glucose and insulin do not measurably
+    change; that is a different population with a different developmental
+    history and an exogenously controlled gonadal axis, so it constrains a
+    simple pharmacological androgen-to-insulin-resistance claim without
+    settling the question in PCOS. Resolving this matters for whether
+    antiandrogen therapy should be expected to improve metabolic endpoints at
+    all, or only those that follow fat redistribution.
+  evidence:
+  - reference: PMID:28320971
+    reference_title: Neuroendocrine androgen action is a key extraovarian mediator in the development of polycystic ovary syndrome.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Neuron-specific AR signaling was required for the development of dysfunctional ovulation, classic polycystic ovaries, reduced large antral follicle health, and several metabolic traits including obesity and dyslipidemia.&#34;
+    explanation: &gt;-
+      Shows the metabolic arm of the DHT mouse phenotype depends on
+      androgen-receptor signalling in neurons rather than in the ovary, which is
+      what makes a purely direct peripheral androgen-to-insulin route doubtful
+      and the mediating steps the open question.
+  - reference: PMID:42171672
+    reference_title: Changes in cardiometabolic risk factors in transmasculine individuals over 10 years of Gender-Affirming Hormone Therapy.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    directness: INDIRECT
+    snippet: &#34;Fasting glucose, insulin, and blood pressure did not change meaningfully. The lipid profile worsened: LDL, total cholesterol and triglycerides increased, and HDL decreased throughout the study period. Weight, body mass index, waist circumference, and waist-to-hip ratio increased.&#34;
+    explanation: &gt;-
+      Ten years of testosterone in 57 transmasculine adults shifted body
+      composition toward android fat and worsened lipids while leaving fasting
+      glucose and insulin unchanged — the dissociation this gap is about. Graded
+      INDIRECT: a single-centre observational cohort outside PCOS, with no PCOS
+      counterfactual and a pharmacologically controlled gonadal axis, so it
+      cannot adjudicate causality within the syndrome.
+- discussion_id: gap_pcos_11_oxygenated_androgen_causality
+  prompt: &gt;-
+    Are the elevated 11-oxygenated androgens of PCOS a driver of the
+    hyperandrogenic phenotype, or a marker of adrenal and adipose androgen
+    handling that tracks it? And is their production insulin-dependent in
+    common PCOS, as insulin-receptor signalling makes it in syndromes of severe
+    insulin resistance?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - biochemical#11-Oxygenated Androgens
+  - pathophysiology#Hyperandrogenism
+  - pathophysiology#Adiposity-Amplified Insulin Resistance
+  rationale: &gt;-
+    11-oxygenated C19 steroids discriminate PCOS from controls better than total
+    testosterone does, which is why they are curated as a biochemical marker
+    here. Diagnostic discrimination is not mechanism, however, and the entry
+    deliberately does not give them a pathophysiology node. Two lines of work
+    make an insulin-dependent route plausible without establishing it for common
+    PCOS: in women with syndromes of severe insulin resistance, 11-oxygenated
+    androgens are raised in lipodystrophy but not in insulin receptoropathy,
+    implying that intact insulin-receptor signalling is required for the adrenal
+    excess; and in an adipocyte model, insulin-induced AKR1C3 converts
+    11-oxygenated precursors to potent androgens. The first is 18 women with
+    rare monogenic disease, the second is a cell model, and neither measures the
+    route in ordinary PCOS. The question is also directional: if 11-oxygenated
+    androgens are largely adrenal and insulin-driven, they sit downstream of
+    hyperinsulinemia rather than upstream of it, which would make the classical
+    ovarian and the 11-oxygenated arms separate contributors rather than one
+    androgen pool.
+  evidence:
+  - reference: PMID:35696182
+    reference_title: Excess 11-Oxygenated Androgens in Women With Severe Insulin Resistance Are Mediated by Adrenal Insulin Receptor Signaling.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    directness: INDIRECT
+    snippet: &#34;11-Oxygenated androgens are elevated in lipodystrophy but not receptoropathy. In SIR, insulin receptor signaling is necessary for adrenal hyperandrogenemia but not ovarian hyperandrogenemia; excess classic androgens are derived from the ovaries.&#34;
+    explanation: &gt;-
+      The natural-experiment contrast that motivates the insulin-dependence half
+      of this gap, and the reason it is a gap rather than a curated mechanism:
+      the cohort is 18 women with rare severe-insulin-resistance syndromes, not
+      common PCOS, so the inference to PCOS is an extrapolation.
+  - reference: PMID:35560164
+    reference_title: Conversion of Classical and 11-Oxygenated Androgens by Insulin-Induced AKR1C3 in a Model of Human PCOS Adipocytes.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;We conclude that the 11-oxygenated androgens formed in adipocytes may contribute to the hyperandrogenic profile of PCOS women and that AKR1C3 is a potential therapeutic target to mitigate the AE of PCOS.&#34;
+    explanation: &gt;-
+      Supplies the candidate peripheral mechanism — insulin-induced AKR1C3
+      activating 11-oxygenated precursors in adipocytes — while stating it at
+      the level this gap records: the authors write that these androgens &#34;may
+      contribute&#34;, from recombinant-enzyme kinetics and a differentiated
+      adipocyte line rather than from PCOS tissue.
 pathophysiology:
 - name: Hyperandrogenism
   description: &gt;
@@ -12370,7 +14620,7 @@ phenotypes:
   evidence:
   - reference: PMID:14671196
     reference_title: &#34;Elevated serum level of anti-mullerian hormone in patients with polycystic ovary syndrome: relationship to the ovarian follicle excess and to the follicular arrest.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We hypothesize that an increased AMH tone within the cohort could be involved in the follicular arrest of PCOS, by interacting negatively with FSH at the time of selection.&#34;
     explanation: &gt;-
@@ -12388,7 +14638,7 @@ phenotypes:
   evidence:
   - reference: PMID:38152131
     reference_title: &#34;Androgen excess: a hallmark of polycystic ovary syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Compelling evidence suggests that hyperandrogenism is not just a primary feature of PCOS. Instead, it may be a causative factor for this condition.&#34;
     explanation: &gt;-
@@ -12423,7 +14673,7 @@ phenotypes:
   evidence:
   - reference: PMID:14671196
     reference_title: &#34;Elevated serum level of anti-mullerian hormone in patients with polycystic ovary syndrome: relationship to the ovarian follicle excess and to the follicular arrest.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Because PCOS is associated with a 2- to 3-fold increase in growing FN, we investigated whether an increased AMH serum level correlates to other hormonal and/or U/S features of PCOS.&#34;
     explanation: &gt;-
@@ -12450,6 +14700,34 @@ biochemical:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;AMH was also positively related to the serum testosterone and androstenedione levels, in PCOS exclusively (P &lt; 0.0005 and &lt;0.002, respectively).&#34;
     explanation: Documents positive correlation between AMH and testosterone levels in PCOS patients.
+- name: 11-Oxygenated Androgens
+  presence: Elevated
+  context: &gt;-
+    Adrenal-derived C19 steroids (11-ketotestosterone, 11-ketoandrostenedione,
+    11beta-hydroxytestosterone, 11beta-hydroxyandrostenedione), measured by mass
+    spectrometry. Not part of any diagnostic criterion; curated because they
+    discriminate PCOS from controls better than total testosterone does, and
+    because their production is insulin-sensitive.
+  evidence:
+  - reference: PMID:39815717
+    reference_title: Exploring the Predictive Role of 11-Oxyandrogens in Diagnosing Polycystic Ovary Syndrome.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Total testosterone, androstenedione, and four 11-oxyandrogens were significantly elevated in women with PCOS compared to age matched controls, controlling for age and BMI&#34;
+    explanation: &gt;-
+      Case-control comparison of 114 women with PCOS against 78 controls
+      establishes the elevation itself, adjusted for age and BMI.
+  - reference: PMID:39815717
+    reference_title: Exploring the Predictive Role of 11-Oxyandrogens in Diagnosing Polycystic Ovary Syndrome.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;When considered together, the four 11-oxyandrogens were more predictive of PCOS compared to testosterone and androstenedione.&#34;
+    explanation: &gt;-
+      Supports curating these separately from the Testosterone marker rather than
+      folding them into it: they carry discriminative information the classical
+      androgens do not. Discrimination is not causation — whether they drive the
+      phenotype is the open question recorded in
+      gap_pcos_11_oxygenated_androgen_causality.
 - name: LH
   presence: Elevated
   context: Often elevated LH:FSH ratio
@@ -12504,7 +14782,31 @@ genetic:
   notes: &gt;-
     Commonly prioritized in both East Asian and European populations through
     integrative gene prioritization combining regulatory genomics, long-range
-    chromatin interactions, QTLs, and protein networks.
+    chromatin interactions, QTLs, and protein networks. The functional route to
+    hyperandrogenism runs through the truncated DENND1A variant 2 isoform in
+    theca cells rather than through the full-length gene product.
+  evidence:
+  - reference: PMID:31184707
+    reference_title: miRNA Profiling Reveals miRNA-130b-3p Mediates DENND1A Variant 2 Expression and Androgen Biosynthesis.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;The comparison of miR-130b-3p in normal and PCOS theca cells demonstrated decreased miR-130b-3p expression in PCOS theca cells, which was correlated with increased DENND1A.V2, cytochrome P450 17α-hydroxylase (CYP17A1) mRNA and androgen biosynthesis.&#34;
+    explanation: &gt;
+      Connects the DENND1A risk locus to the intrinsic theca-cell steroidogenic
+      phenotype curated under Hyperandrogenism: loss of miR-130b-3p repression
+      raises DENND1A.V2 and CYP17A1 together with androgen output in theca cells
+      isolated from women with PCOS. In vitro in isolated theca cells, and the
+      DENND1A.V2 link is correlative within that system.
+  - reference: PMID:32574161
+    reference_title: &#34;Distinct subtypes of polycystic ovary syndrome with novel genetic associations: An unsupervised, phenotypic clustering analysis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;carriers of previously reported rare variants in DENND1A, a gene that regulates androgen biosynthesis, were significantly more likely to have the reproductive subtype of PCOS&#34;
+    explanation: &gt;
+      Rare DENND1A variant carriers segregate with the reproductive (higher LH
+      and SHBG, lower BMI and insulin) rather than the metabolic phenotype
+      cluster, so this locus is not uniformly distributed across PCOS. European
+      ancestry, NIH criteria, and a family-based classification cohort of 73.
 - name: THADA
   association: Risk Factor
   gene_term:
@@ -12717,23 +15019,144 @@ genetic:
     explanation: &gt;
       Interferon regulatory factor 1 immune-related gene preferentially
       prioritized in the European PCOS gene-prioritization list.
+- name: AR
+  association: Risk Factor
+  gene_term:
+    preferred_term: AR
+    term:
+      id: hgnc:644
+      label: AR
+  notes: &gt;-
+    Androgen receptor; polymorphisms in AR have been associated with altered
+    steroidogenesis and ovarian dysfunction in PCOS. AR variants contribute to
+    hyperandrogenism and ovarian androgen production.
+  evidence:
+  - reference: PMID:42531755
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Polymorphisms in genes such as the androgen receptor (AR), cytochrome P450 17A1 (CYP17), and follicle-stimulating hormone receptor (FSHR) have been associated with altered steroidogenesis and ovarian dysfunction, thereby influencing disease severity.&#34;
+    explanation: &gt;-
+      Recent review establishes AR polymorphisms as contributors to altered
+      steroidogenesis and ovarian dysfunction in PCOS pathophysiology.
+- name: CYP17A1
+  association: Risk Factor
+  gene_term:
+    preferred_term: CYP17A1
+    term:
+      id: hgnc:2593
+      label: CYP17A1
+  notes: &gt;-
+    Cytochrome P450 17A1 (17-alpha-hydroxylase/17-20-lyase); polymorphisms in
+    CYP17 influence androgen biosynthesis capacity in theca cells. Variants
+    affect the conversion of pregnenolone and progesterone to their 17-hydroxylated
+    intermediates, critical steps in androgen production.
+  evidence:
+  - reference: PMID:42531755
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Polymorphisms in genes such as the androgen receptor (AR), cytochrome P450 17A1 (CYP17), and follicle-stimulating hormone receptor (FSHR) have been associated with altered steroidogenesis and ovarian dysfunction, thereby influencing disease severity.&#34;
+    explanation: &gt;-
+      Recent review identifies CYP17 polymorphisms as key contributors to altered
+      steroidogenesis and ovarian androgen dysregulation in PCOS.
 environmental:
-- name: Obesity
-  notes: Exacerbates insulin resistance and hyperandrogenism
 - name: Sedentary Lifestyle
   exposure_term:
     preferred_term: sedentary lifestyle
     term:
       id: ECTO:6000004
       label: exposure to sedentary lifestyle
-  notes: Worsens metabolic features
+  notes: Worsens metabolic features.
+  evidence:
+  - reference: PMID:39861440
+    reference_title: &#34;The Role of Lifestyle Interventions in PCOS Management: A Systematic Review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Physical activity, like aerobic and resistance exercise, enhances insulin sensitivity, helps weight loss, and improves metabolic and reproductive outcomes in women with PCOS.&#34;
+    explanation: &gt;-
+      Systematic review establishing that physical activity improves insulin
+      sensitivity and metabolic outcomes in this disease. PARTIAL because it
+      states the benefit of activity rather than measuring harm from
+      sedentariness; the exposure claim here is the inverse of what the source
+      reports.
 - name: Prenatal Androgen Exposure
   exposure_term:
     preferred_term: prenatal androgen exposure
     term:
       id: ECTO:9001833
       label: exposure to androgen
-  notes: May program PCOS phenotype
+  notes: &gt;-
+    May program the PCOS phenotype. The hedge is deliberate: the evidence is
+    strong and reproducible across several species in animal models, and
+    indirect in humans, because fetal sampling during gestation is not
+    ethically available.
+  evidence:
+  - reference: PMID:31499494
+    reference_title: &#34;In utero Androgen Excess: A Developmental Commonality Preceding Polycystic Ovary Syndrome?&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;In utero androgen excess reliably induces polycystic ovary syndrome (PCOS)-like reproductive and metabolic traits in female monkeys, sheep, rats, and mice.&#34;
+    explanation: &gt;-
+      The strongest form of this claim, and it is an animal one: prenatal
+      androgen excess reproducibly induces the phenotype across four species.
+      Graded MODEL_ORGANISM so it is not read as a human finding.
+  - reference: PMID:31499494
+    reference_title: &#34;In utero Androgen Excess: A Developmental Commonality Preceding Polycystic Ovary Syndrome?&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Evidence consistent with in utero origins for PCOS in humans has thus been slow to amass, but the balance now leans toward developmental fetal origins.&#34;
+    explanation: &gt;-
+      The human counterpart, and the reason this entry&#39;s note hedges. PARTIAL
+      because it reports a balance of indirect evidence rather than a measured
+      exposure effect, the same review being explicit that fetal sampling
+      constraints are why.
+  - reference: PMID:34529765
+    reference_title: Reproductive Deficits Induced by Prenatal Antimüllerian Hormone Exposure Require Androgen Receptor in Kisspeptin Cells.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;We tested the pAMH model in kisspeptin-specific androgen receptor knockout (KARKO) mice and found that virtually all pAMH-induced phenotypes assayed are eliminated in KARKO offspring compared to littermate controls.&#34;
+    explanation: &gt;-
+      Places the androgen receptor in kisspeptin neurons downstream of the other
+      candidate prenatal hit: the reproductive phenotype produced by prenatal
+      AMH exposure disappears when that receptor is deleted, so the AMH and
+      androgen developmental routes converge on androgen-receptor signalling
+      rather than acting in parallel. Mouse only. It does not show that AMH and
+      testosterone are both required prenatal hits in humans, and no human
+      fetal-exposure measurement supports the two-hit sequence.
+- name: Endocrine-Disrupting Chemicals
+  exposure_term:
+    preferred_term: exposure to endocrine-disrupting chemicals
+    term:
+      id: ECTO:9001630
+      label: exposure to endocrine disruptor
+  notes: &gt;-
+    Exposure to endocrine-disrupting chemicals (EDCs) may exacerbate metabolic
+    disturbances and increase PCOS risk through interference with estrogen,
+    androgen, and thyroid signaling pathways.
+  evidence:
+  - reference: PMID:42531755
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;environmental influences, including exposure to endocrine-disrupting chemicals (EDCs) and air pollution, may exacerbate metabolic disturbances and increase the risk of developing PCOS.&#34;
+    explanation: &gt;-
+      Recent comprehensive review establishes EDC exposure as an environmental
+      risk factor that may exacerbate metabolic dysfunction and PCOS severity.
+- name: Air Pollution Exposure
+  exposure_term:
+    preferred_term: exposure to air pollution
+    term:
+      id: ECTO:8000036
+      label: exposure to air pollution
+  notes: &gt;-
+    Air pollution exposure may contribute to systemic inflammation and metabolic
+    disturbances in PCOS pathophysiology through oxidative stress mechanisms.
+  evidence:
+  - reference: PMID:42531755
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;environmental influences, including exposure to endocrine-disrupting chemicals (EDCs) and air pollution, may exacerbate metabolic disturbances and increase the risk of developing PCOS.&#34;
+    explanation: &gt;-
+      Recent review identifies air pollution as an environmental contributor to
+      metabolic dysfunction and increased PCOS risk.
 treatments:
 - name: Combined Oral Contraceptives
   description: First-line for menstrual irregularity and hyperandrogenism.
@@ -12762,7 +15185,23 @@ treatments:
       term:
         id: CHEBI:6801
         label: metformin
-  notes: Standard-of-care treatment; no supporting evidence item curated yet.
+  notes: &gt;-
+    Its androgen-lowering effect is not solely an insulin-sensitising one: serum
+    testosterone falls within days of starting metformin, before any change in
+    weight or insulin sensitivity. Metformin response is therefore not on its own
+    evidence for the insulin_hyperinsulinemia_first_model causal ordering.
+  evidence:
+  - reference: PMID:25304843
+    reference_title: Metformin induces a prompt decrease in LH-stimulated testosterone response in women with PCOS independent of its insulin-sensitizing effects.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;In women with PCOS, Metformin induces a prompt decrease in LH-stimulated T secretion after only several days of use. This action precedes the medication&#39;s effects on insulin sensitivity or weight loss.&#34;
+    explanation: &gt;-
+      Randomized, double-blinded, placebo-controlled crossover in 19 women with
+      PCOS: two days of metformin already lowered LH-stimulated testosterone,
+      which is the shortest-latency human evidence that metformin acts on ovarian
+      steroidogenesis directly and not only through insulin sensitisation. Small
+      and short, and the free-androgen-index effect was only borderline.
 - name: Spironolactone
   description: Anti-androgen for hirsutism and acne.
   therapeutic_modality: SMALL_MOLECULE
@@ -12925,6 +15364,118 @@ treatments:
     two names explicitly (&#34;polycystic ovarian syndrome/polyendocrine metabolic
     ovarian syndrome&#34;); curated here under the established PCOS identity rather
     than as a distinct disorder.
+- name: Glucagon-like Peptide-1 Receptor Agonists
+  description: &gt;-
+    GLP-1 receptor agonists are emerging as potential therapeutic agents in PCOS,
+    targeting insulin resistance and metabolic dysregulation. Beyond their
+    glucose-lowering effects, GLP-1RAs may improve androgen metabolism and
+    ovulatory function through weight loss and insulin sensitization, offering
+    a multi-pathway intervention approach in metabolic-dominant PCOS phenotypes.
+  therapeutic_modality: PEPTIDE
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: GLP-1 receptor agonist
+      term:
+        id: NCIT:C98085
+        label: GLP-1 Mimetic
+  evidence:
+  - reference: PMID:42531755
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;novel therapeutic strategies have emerged, including glucagon-like peptide-1 receptor agonists (GLP-1RAs), microRNA-based therapies, and interleukin-22 (IL-22)-mediated interventions, which show potential in targeting IR and metabolic dysfunction in PCOS.&#34;
+    explanation: &gt;-
+      Recent comprehensive review identifies GLP-1RAs as an emerging therapeutic
+      strategy with demonstrated potential in addressing insulin resistance and
+      metabolic dysfunction in PCOS. The cited sentence is the narrative review&#39;s
+      own summary of an emerging therapeutic landscape rather than a result from
+      a primary clinical study, so it is graded OTHER.
+- name: microRNA-Based Therapies
+  description: &gt;-
+    MicroRNA-based therapies represent an emerging precision medicine approach
+    targeting dysregulated miRNA expression in PCOS. MicroRNA modulation may
+    address pathways affecting ovarian function, insulin signaling, and
+    inflammation, offering a mechanistic intervention approach distinct from
+    conventional hormone and metabolic therapies.
+  therapeutic_modality: OTHER
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+  notes: Preclinical stage; mechanisms identified through PCOS patient studies but not yet clinically validated in humans.
+  evidence:
+  - reference: PMID:42531755
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;novel therapeutic strategies have emerged, including glucagon-like peptide-1 receptor agonists (GLP-1RAs), microRNA-based therapies, and interleukin-22 (IL-22)-mediated interventions, which show potential in targeting IR and metabolic dysfunction in PCOS.&#34;
+    explanation: &gt;-
+      Recent review establishes microRNA-based therapies as an emerging approach
+      for PCOS with demonstrated potential in targeting insulin resistance and
+      metabolic dysfunction. The cited sentence is the narrative review&#39;s own
+      summary of an emerging therapeutic landscape rather than a result from a
+      primary clinical study, so it is graded OTHER, consistent with this
+      treatment&#39;s preclinical-stage notes.
+- name: Interleukin-22-Mediated Interventions
+  description: &gt;-
+    IL-22-mediated interventions represent an emerging immunomodulatory approach
+    to PCOS, targeting the IL-22 cytokine pathway to enhance metabolic and
+    reproductive function. IL-22 signaling supports epithelial barrier integrity
+    and metabolic homeostasis, with potential applications in addressing both
+    metabolic dysfunction and chronic low-grade inflammation in PCOS.
+  therapeutic_modality: OTHER
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+  notes: &gt;-
+    Preclinical stage; mechanisms identified but not yet clinically validated in
+    PCOS. The cited review names only &#34;IL-22-mediated interventions&#34; without
+    specifying the agent, so the modality is left as OTHER rather than asserting
+    PROTEIN_REPLACEMENT; recombinant IL-22 fusion proteins and IL-22-directed
+    antibodies are both in development and the source does not distinguish them.
+  evidence:
+  - reference: PMID:42531755
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;novel therapeutic strategies have emerged, including glucagon-like peptide-1 receptor agonists (GLP-1RAs), microRNA-based therapies, and interleukin-22 (IL-22)-mediated interventions, which show potential in targeting IR and metabolic dysfunction in PCOS.&#34;
+    explanation: &gt;-
+      Recent review identifies IL-22-mediated interventions as an emerging
+      therapeutic strategy with potential in PCOS pathophysiology. The cited
+      sentence is the narrative review&#39;s own summary of an emerging therapeutic
+      landscape rather than a result from a primary clinical study, so it is
+      graded OTHER, consistent with this treatment&#39;s preclinical-stage notes.
+- name: Microbiota Modulation Therapy
+  description: &gt;-
+    Microbiota modulation through probiotics, prebiotics, and fecal microbiota
+    transplantation (FMT) represents an emerging strategy for restoring metabolic
+    homeostasis in PCOS. Dysbiosis-driven metabolic endotoxemia and altered
+    short-chain fatty acid production contribute to PCOS pathophysiology, and
+    microbiota restoration may improve insulin sensitivity, hormone metabolism,
+    and reproductive function through multiple mechanisms.
+  therapeutic_modality: BEHAVIORAL
+  treatment_term:
+    preferred_term: microbiota modulation therapy
+    term:
+      id: NCIT:C15900
+      label: Lifestyle Therapy
+  notes: Emerging strategy; probiotics and FMT remain investigational in PCOS clinical practice.
+  evidence:
+  - reference: PMID:42531755
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;modulation of gut microbiota through probiotics, prebiotics, and fecal microbiota transplantation (FMT) represents an emerging strategy for restoring metabolic homeostasis.&#34;
+    explanation: &gt;-
+      Recent review establishes microbiota modulation as an emerging therapeutic
+      approach with potential for restoring metabolic homeostasis in PCOS. The
+      quoted sentence is the review&#39;s forward-looking framing of a strategy that
+      &#34;represents an emerging&#34; one, not a reported clinical result, so it is
+      graded OTHER to match the three sibling emerging-therapy entries in this
+      section and the entry&#39;s own notes.
 classifications:
   harrisons_chapter:
   - classification_value: ENDOCRINOLOGY_METABOLISM
@@ -13156,6 +15707,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -13565,7 +16118,7 @@ PCOS is a complex neuroendocrine–metabolic disorder characterized by ovarian h
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Polycystic Ovary Syndrome", "mondoId": "MONDO:0008487", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Polycystic_Ovary_Syndrome", "yamlRevision": "ab56403be1da"};
+        const OS_CONFIG = {"diseaseName": "Polycystic Ovary Syndrome", "mondoId": "MONDO:0008487", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Polycystic_Ovary_Syndrome", "yamlRevision": "7cd4a5f70001"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

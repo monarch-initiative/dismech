@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4104,6 +4211,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4208,6 +4317,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4267,6 +4378,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4330,6 +4443,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4391,6 +4506,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4404,14 +4521,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23001565" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:23001565" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23001565" target="_blank">PMID:23001565</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4475,6 +4594,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4496,6 +4617,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4557,6 +4680,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4651,6 +4776,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4674,6 +4801,8 @@
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4695,6 +4824,8 @@
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4770,6 +4901,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4804,6 +4937,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sptbn2-dependent-postsynaptic-organization-defect" data-dismech-node="SPTBN2-Dependent Postsynaptic Organization Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">SPTBN2-Dependent Postsynaptic Organization Defect</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">In SCA5, mutant beta-III spectrin disrupts organization of the Purkinje-cell dendritic membrane. Beta-III spectrin normally stabilizes and positions postsynaptic proteins including EAAT4 and mGluR1alpha. Mutant SPTBN2 causes mGluR1alpha mislocalization, reduced mGluR1 signaling, and impaired synaptic plasticity, creating a cell-selective route to cerebellar dysfunction.</div>
 
@@ -5026,6 +5166,8 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5048,6 +5190,13 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cacna1a-polyglutamine-proteotoxicity-and-er-stress-decompensation" data-dismech-node="CACNA1A Polyglutamine Proteotoxicity and ER-Stress Decompensation" data-dismech-type="pathophysiology">
                 <div class="item-name">CACNA1A Polyglutamine Proteotoxicity and ER-Stress Decompensation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The SCA6 CAG expansion lengthens a polyglutamine tract in the C-terminal region encoded by CACNA1A. Mutant Cav2.1 accumulates in Purkinje cells and produces cytoplasmic aggregates. Current knock-in evidence supports misfolded-protein/ER stress, an initially protective HSP90-dependent unfolded-protein response, and age-related loss of that compensation, followed by store-operated calcium current and Purkinje-cell membrane hyperexcitability. The contribution of altered intrinsic Cav2.1 ion flux remains debated and is not modeled as a directional loss of calcium transport.</div>
 
@@ -5287,6 +5436,8 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5308,6 +5459,8 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5333,6 +5486,8 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5355,6 +5510,13 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ttbk2-dominant-negative-ciliary-dysfunction" data-dismech-node="TTBK2 Dominant-Negative Ciliary Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">TTBK2 Dominant-Negative Ciliary Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">SCA11-associated frameshift variants truncate TTBK2 after its kinase domain. In knock-in and allelic-series experiments, the truncated protein interferes with full-length TTBK2, decreases cilium formation and stability, and disrupts cilium-dependent Sonic hedgehog signaling. This provides a strong model-system mechanism, although the exact adult human Purkinje-neuron path from ciliary failure to degeneration remains incomplete.</div>
 
@@ -5543,6 +5705,8 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5565,6 +5729,13 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-eef2-translational-fidelity-and-proteostasis-defect" data-dismech-node="EEF2 Translational-Fidelity and Proteostasis Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">EEF2 Translational-Fidelity and Proteostasis Defect</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In the original SCA26 pedigree, the segregating EEF2 p.Pro596His substitution affects a conserved domain required to maintain the reading frame during translation. The yeast-equivalent variant increases programmed -1 ribosomal frameshift read-through and sensitizes cells to unfolded-protein stress. Because evidence is centered on one family and functional model systems, this mechanism remains provisional pending independent human replication.</div>
 
@@ -5753,6 +5924,8 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5775,6 +5948,13 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sca31-repeat-rna-toxicity" data-dismech-node="SCA31 Repeat-RNA Toxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">SCA31 Repeat-RNA Toxicity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The pathogenic SCA31 insertion contains a long (TGGAA)n tract in an intron shared by oppositely transcribed BEAN1 and TK2. The BEAN1-direction (UGGAA)n transcript forms nuclear RNA foci in Purkinje cells, binds serine/arginine-rich splicing factors, and is toxic in cultured-cell systems, supporting repeat-RNA toxicity and disturbed RNA processing.</div>
 
@@ -5963,6 +6143,8 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5985,6 +6167,13 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-purkinje-cell-dysfunction-and-predominant-cerebellar-atrophy" data-dismech-node="Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The canonical ADCA-III subtypes converge clinically on predominant cerebellar cortical dysfunction and atrophy. Purkinje cells are the best established vulnerable population in SCA5, SCA6, SCA11, and SCA31; SCA26 and SCA30 show cerebellum-confined atrophy in the defining families. Purkinje-cell firing dysfunction can precede overt cell loss, so the common node represents both functional failure and later degeneration rather than requiring histologic cell loss in every subtype.</div>
 
@@ -6162,6 +6351,8 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6183,6 +6374,8 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6230,7 +6423,7 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BEAN1/TK2 repeat locus (SCA31)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BEAN1\"], \"gene_terms\": [{\"label\": \"BEAN1\", \"id\": \"hgnc:24160\"}], \"subtypes\": [\"SCA31\"], \"presence\": \"Positive\", \"association\": \"Causative intronic pentanucleotide insertion containing a long (TGGAA)n tract\"}}, {\"id\": \"CACNA1A CAG expansion (SCA6)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CACNA1A\"], \"gene_terms\": [{\"label\": \"CACNA1A\", \"id\": \"hgnc:1388\"}], \"subtypes\": [\"SCA6\"], \"presence\": \"Positive\", \"association\": \"Causative CAG repeat expansion, generally 19-33 repeats\"}}, {\"id\": \"CACNA1A Polyglutamine Proteotoxicity and ER-Stress Decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The SCA6 CAG expansion lengthens a polyglutamine tract in the C-terminal region encoded by CACNA1A. Mutant Cav2.1 accumulates in Purkinje cells and produces cytoplasmic aggregates. Current knock-in evidence supports misfolded-protein/ER stress, an initially protective HSP90-dependent unfolded-protein response, and age-related loss of that compensation, followed by store-operated calcium current and Purkinje-cell membrane hyperexcitability. The contribution of altered intrinsic Cav2.1 ion flux remains debated and is not modeled as a directional loss of calcium transport.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Purkinje cell\"], \"biological_processes\": [\"endoplasmic reticulum unfolded protein response\", \"regulation of membrane potential\"], \"genes\": [\"CACNA1A\"], \"gene_terms\": [{\"label\": \"CACNA1A\", \"id\": \"hgnc:1388\"}], \"locations\": [\"cerebellar cortex\"], \"experimental_models\": [{\"name\": \"SCA6 patient-derived iPSC Purkinje-cell model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The human model tests mutant Cav2.1 processing and selective Purkinje-cell vulnerability.\"}]}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar dysarthria commonly develops as the disorder progresses.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Swallowing impairment can emerge during progression and contributes to nutritional, aspiration, and quality-of-life burden.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002015\"}}, {\"id\": \"EEF2 Translational-Fidelity and Proteostasis Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the original SCA26 pedigree, the segregating EEF2 p.Pro596His substitution affects a conserved domain required to maintain the reading frame during translation. The yeast-equivalent variant increases programmed -1 ribosomal frameshift read-through and sensitizes cells to unfolded-protein stress. Because evidence is centered on one family and functional model systems, this mechanism remains provisional pending independent human replication.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"translational elongation\", \"response to unfolded protein\"], \"genes\": [\"EEF2\"], \"gene_terms\": [{\"label\": \"EEF2\", \"id\": \"hgnc:3214\"}], \"locations\": [\"cerebellar cortex\"]}}, {\"id\": \"EEF2 p.Pro596His (SCA26)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"EEF2\"], \"gene_terms\": [{\"label\": \"EEF2\", \"id\": \"hgnc:3214\"}], \"subtypes\": [\"SCA26\"], \"presence\": \"Positive\", \"association\": \"Segregating single-family p.Pro596His causal candidate\"}}, {\"id\": \"Falls\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive gait instability can cause recurrent falls.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002527\"}}, {\"id\": \"Limb Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysmetria, dysdiadochokinesia, intention tremor, and upper-limb incoordination accompany the gait syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002070\"}}, {\"id\": \"Multidisciplinary supportive care and rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No established disease-modifying therapy exists for the canonical ADCA-III subtypes. Management uses physiotherapy for gait and balance, occupational therapy and home adaptation, speech and language therapy for dysarthria and dysphagia, and mobility or communication aids as needed. Subtype-specific experimental drugs should be represented as clinical trials rather than routine treatment.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gaze-evoked, horizontal, vertical, or downbeat nystagmus can accompany the cerebellar syndrome; its pattern and frequency vary by subtype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000639\"}}, {\"id\": \"Progressive Gait Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive gait and stance ataxia is the cardinal manifestation shared by the canonical ADCA-III subtypes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002066\"}}, {\"id\": \"Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The canonical ADCA-III subtypes converge clinically on predominant cerebellar cortical dysfunction and atrophy. Purkinje cells are the best established vulnerable population in SCA5, SCA6, SCA11, and SCA31; SCA26 and SCA30 show cerebellum-confined atrophy in the defining families. Purkinje-cell firing dysfunction can precede overt cell loss, so the common node represents both functional failure and later degeneration rather than requiring histologic cell loss in every subtype.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Purkinje cell\"], \"biological_processes\": [\"neuron apoptotic process\"], \"locations\": [\"cerebellar cortex\"]}}, {\"id\": \"SCA31 Repeat-RNA Toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The pathogenic SCA31 insertion contains a long (TGGAA)n tract in an intron shared by oppositely transcribed BEAN1 and TK2. The BEAN1-direction (UGGAA)n transcript forms nuclear RNA foci in Purkinje cells, binds serine/arginine-rich splicing factors, and is toxic in cultured-cell systems, supporting repeat-RNA toxicity and disturbed RNA processing.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Purkinje cell\"], \"biological_processes\": [\"regulation of alternative mRNA splicing, via spliceosome\"], \"genes\": [\"BEAN1\"], \"gene_terms\": [{\"label\": \"BEAN1\", \"id\": \"hgnc:24160\"}], \"locations\": [\"cerebellar cortex\"]}}, {\"id\": \"SCA6 patient-derived iPSC Purkinje-cell model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived Purkinje cells show altered full-length and C-terminal Cav2.1 abundance, downregulated alpha1ACT transcriptional targets, and thyroid-hormone-depletion-dependent degeneration.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Purkinje cell\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"SCA6 patient-derived cells\", \"Healthy control-derived cells\", \"Differentiation toward Purkinje cells\"]}}, {\"id\": \"SPTBN2 (SCA5)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SPTBN2\"], \"gene_terms\": [{\"label\": \"SPTBN2\", \"id\": \"hgnc:11276\"}], \"subtypes\": [\"SCA5\"], \"presence\": \"Positive\", \"association\": \"Causative heterozygous missense or in-frame deletion variants\"}}, {\"id\": \"SPTBN2-Dependent Postsynaptic Organization Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In SCA5, mutant beta-III spectrin disrupts organization of the Purkinje-cell dendritic membrane. Beta-III spectrin normally stabilizes and positions postsynaptic proteins including EAAT4 and mGluR1alpha. Mutant SPTBN2 causes mGluR1alpha mislocalization, reduced mGluR1 signaling, and impaired synaptic plasticity, creating a cell-selective route to cerebellar dysfunction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Purkinje cell\"], \"biological_processes\": [\"cytoskeleton organization\", \"modulation of chemical synaptic transmission\"], \"genes\": [\"SPTBN2\"], \"gene_terms\": [{\"label\": \"SPTBN2\", \"id\": \"hgnc:11276\"}], \"locations\": [\"cerebellar cortex\"]}}, {\"id\": \"TTBK2 (SCA11)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TTBK2\"], \"gene_terms\": [{\"label\": \"TTBK2\", \"id\": \"hgnc:19141\"}], \"subtypes\": [\"SCA11\"], \"presence\": \"Positive\", \"association\": \"Causative heterozygous frameshift variants producing premature truncation\"}}, {\"id\": \"TTBK2 Dominant-Negative Ciliary Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SCA11-associated frameshift variants truncate TTBK2 after its kinase domain. In knock-in and allelic-series experiments, the truncated protein interferes with full-length TTBK2, decreases cilium formation and stability, and disrupts cilium-dependent Sonic hedgehog signaling. This provides a strong model-system mechanism, although the exact adult human Purkinje-neuron path from ciliary failure to degeneration remains incomplete.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Purkinje cell\"], \"biological_processes\": [\"cilium assembly\"], \"genes\": [\"TTBK2\"], \"gene_terms\": [{\"label\": \"TTBK2\", \"id\": \"hgnc:19141\"}], \"locations\": [\"cerebellum\"]}}], \"edges\": [{\"source\": \"SPTBN2-Dependent Postsynaptic Organization Defect\", \"target\": \"Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Postsynaptic receptor and transporter mislocalization impairs Purkinje-cell signaling and precedes progressive cerebellar degeneration.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CACNA1A Polyglutamine Proteotoxicity and ER-Stress Decompensation\", \"target\": \"Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Age-dependent failure of proteostatic compensation permits aberrant Purkinje-cell firing and progressive motor dysfunction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TTBK2 Dominant-Negative Ciliary Dysfunction\", \"target\": \"Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ciliary assembly and signaling defects provide a model-supported route from truncated TTBK2 to Purkinje-neuron vulnerability.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced cilia number and stability\", \"Impaired cilium-dependent Sonic hedgehog signaling\"]}, {\"source\": \"EEF2 Translational-Fidelity and Proteostasis Defect\", \"target\": \"Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of translational fidelity and heightened proteostatic stress are the proposed intermediates linking the EEF2 variant to cerebellar degeneration.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Translational frameshift errors\", \"Proteostatic disruption\"]}, {\"source\": \"SCA31 Repeat-RNA Toxicity\", \"target\": \"Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Toxic BEAN1-direction repeat RNA and nuclear foci are associated with Purkinje-cell degeneration.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Purkinje-cell nuclear RNA foci\", \"Binding and perturbation of splicing factors\"]}, {\"source\": \"Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy\", \"target\": \"Progressive Gait Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar cortical dysfunction impairs gait and stance coordination.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy\", \"target\": \"Limb Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar cortical dysfunction impairs upper-limb coordination.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar dysfunction impairs timing and coordination of speech.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar oculomotor dysfunction produces gaze-evoked or other nystagmus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive cerebellar and bulbar coordination deficits can impair swallowing.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired coordination of swallowing musculature\"]}, {\"source\": \"Progressive Gait Ataxia\", \"target\": \"Falls\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Progressive gait instability increases fall risk.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multidisciplinary supportive care and rehabilitation\", \"target\": \"Progressive Gait Ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive care and rehabilitation\", \"target\": \"Dysarthria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive care and rehabilitation\", \"target\": \"Dysphagia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SCA6 patient-derived iPSC Purkinje-cell model\", \"target\": \"CACNA1A Polyglutamine Proteotoxicity and ER-Stress Decompensation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The human model tests mutant Cav2.1 processing and selective Purkinje-cell vulnerability.\"}, {\"source\": \"SPTBN2 (SCA5)\", \"target\": \"SPTBN2-Dependent Postsynaptic Organization Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CACNA1A CAG expansion (SCA6)\", \"target\": \"CACNA1A Polyglutamine Proteotoxicity and ER-Stress Decompensation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TTBK2 (SCA11)\", \"target\": \"TTBK2 Dominant-Negative Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"EEF2 p.Pro596His (SCA26)\", \"target\": \"EEF2 Translational-Fidelity and Proteostasis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BEAN1/TK2 repeat locus (SCA31)\", \"target\": \"SCA31 Repeat-RNA Toxicity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BEAN1/TK2 repeat locus (SCA31)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BEAN1\"], \"gene_terms\": [{\"label\": \"BEAN1\", \"id\": \"hgnc:24160\"}], \"subtypes\": [\"SCA31\"], \"presence\": \"Positive\", \"association\": \"Causative intronic pentanucleotide insertion containing a long (TGGAA)n tract\"}}, {\"id\": \"CACNA1A CAG expansion (SCA6)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CACNA1A\"], \"gene_terms\": [{\"label\": \"CACNA1A\", \"id\": \"hgnc:1388\"}], \"subtypes\": [\"SCA6\"], \"presence\": \"Positive\", \"association\": \"Causative CAG repeat expansion, generally 19-33 repeats\"}}, {\"id\": \"CACNA1A Polyglutamine Proteotoxicity and ER-Stress Decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The SCA6 CAG expansion lengthens a polyglutamine tract in the C-terminal region encoded by CACNA1A. Mutant Cav2.1 accumulates in Purkinje cells and produces cytoplasmic aggregates. Current knock-in evidence supports misfolded-protein/ER stress, an initially protective HSP90-dependent unfolded-protein response, and age-related loss of that compensation, followed by store-operated calcium current and Purkinje-cell membrane hyperexcitability. The contribution of altered intrinsic Cav2.1 ion flux remains debated and is not modeled as a directional loss of calcium transport.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Purkinje cell\"], \"biological_processes\": [\"endoplasmic reticulum unfolded protein response\", \"regulation of membrane potential\"], \"genes\": [\"CACNA1A\"], \"gene_terms\": [{\"label\": \"CACNA1A\", \"id\": \"hgnc:1388\"}], \"locations\": [\"cerebellar cortex\"], \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"SCA6 patient-derived iPSC Purkinje-cell model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The human model tests mutant Cav2.1 processing and selective Purkinje-cell vulnerability.\"}]}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar dysarthria commonly develops as the disorder progresses.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Swallowing impairment can emerge during progression and contributes to nutritional, aspiration, and quality-of-life burden.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002015\"}}, {\"id\": \"EEF2 Translational-Fidelity and Proteostasis Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the original SCA26 pedigree, the segregating EEF2 p.Pro596His substitution affects a conserved domain required to maintain the reading frame during translation. The yeast-equivalent variant increases programmed -1 ribosomal frameshift read-through and sensitizes cells to unfolded-protein stress. Because evidence is centered on one family and functional model systems, this mechanism remains provisional pending independent human replication.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"translational elongation\", \"response to unfolded protein\"], \"genes\": [\"EEF2\"], \"gene_terms\": [{\"label\": \"EEF2\", \"id\": \"hgnc:3214\"}], \"locations\": [\"cerebellar cortex\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"EEF2 p.Pro596His (SCA26)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"EEF2\"], \"gene_terms\": [{\"label\": \"EEF2\", \"id\": \"hgnc:3214\"}], \"subtypes\": [\"SCA26\"], \"presence\": \"Positive\", \"association\": \"Segregating single-family p.Pro596His causal candidate\"}}, {\"id\": \"Falls\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive gait instability can cause recurrent falls.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002527\"}}, {\"id\": \"Limb Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysmetria, dysdiadochokinesia, intention tremor, and upper-limb incoordination accompany the gait syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002070\"}}, {\"id\": \"Multidisciplinary supportive care and rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No established disease-modifying therapy exists for the canonical ADCA-III subtypes. Management uses physiotherapy for gait and balance, occupational therapy and home adaptation, speech and language therapy for dysarthria and dysphagia, and mobility or communication aids as needed. Subtype-specific experimental drugs should be represented as clinical trials rather than routine treatment.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gaze-evoked, horizontal, vertical, or downbeat nystagmus can accompany the cerebellar syndrome; its pattern and frequency vary by subtype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000639\"}}, {\"id\": \"Progressive Gait Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive gait and stance ataxia is the cardinal manifestation shared by the canonical ADCA-III subtypes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002066\"}}, {\"id\": \"Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The canonical ADCA-III subtypes converge clinically on predominant cerebellar cortical dysfunction and atrophy. Purkinje cells are the best established vulnerable population in SCA5, SCA6, SCA11, and SCA31; SCA26 and SCA30 show cerebellum-confined atrophy in the defining families. Purkinje-cell firing dysfunction can precede overt cell loss, so the common node represents both functional failure and later degeneration rather than requiring histologic cell loss in every subtype.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Purkinje cell\"], \"biological_processes\": [\"neuron apoptotic process\"], \"locations\": [\"cerebellar cortex\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"SCA31 Repeat-RNA Toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The pathogenic SCA31 insertion contains a long (TGGAA)n tract in an intron shared by oppositely transcribed BEAN1 and TK2. The BEAN1-direction (UGGAA)n transcript forms nuclear RNA foci in Purkinje cells, binds serine/arginine-rich splicing factors, and is toxic in cultured-cell systems, supporting repeat-RNA toxicity and disturbed RNA processing.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Purkinje cell\"], \"biological_processes\": [\"regulation of alternative mRNA splicing, via spliceosome\"], \"genes\": [\"BEAN1\"], \"gene_terms\": [{\"label\": \"BEAN1\", \"id\": \"hgnc:24160\"}], \"locations\": [\"cerebellar cortex\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"SCA6 patient-derived iPSC Purkinje-cell model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived Purkinje cells show altered full-length and C-terminal Cav2.1 abundance, downregulated alpha1ACT transcriptional targets, and thyroid-hormone-depletion-dependent degeneration.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Purkinje cell\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"SCA6 patient-derived cells\", \"Healthy control-derived cells\", \"Differentiation toward Purkinje cells\"]}}, {\"id\": \"SPTBN2 (SCA5)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SPTBN2\"], \"gene_terms\": [{\"label\": \"SPTBN2\", \"id\": \"hgnc:11276\"}], \"subtypes\": [\"SCA5\"], \"presence\": \"Positive\", \"association\": \"Causative heterozygous missense or in-frame deletion variants\"}}, {\"id\": \"SPTBN2-Dependent Postsynaptic Organization Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In SCA5, mutant beta-III spectrin disrupts organization of the Purkinje-cell dendritic membrane. Beta-III spectrin normally stabilizes and positions postsynaptic proteins including EAAT4 and mGluR1alpha. Mutant SPTBN2 causes mGluR1alpha mislocalization, reduced mGluR1 signaling, and impaired synaptic plasticity, creating a cell-selective route to cerebellar dysfunction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Purkinje cell\"], \"biological_processes\": [\"cytoskeleton organization\", \"modulation of chemical synaptic transmission\"], \"genes\": [\"SPTBN2\"], \"gene_terms\": [{\"label\": \"SPTBN2\", \"id\": \"hgnc:11276\"}], \"locations\": [\"cerebellar cortex\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"TTBK2 (SCA11)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TTBK2\"], \"gene_terms\": [{\"label\": \"TTBK2\", \"id\": \"hgnc:19141\"}], \"subtypes\": [\"SCA11\"], \"presence\": \"Positive\", \"association\": \"Causative heterozygous frameshift variants producing premature truncation\"}}, {\"id\": \"TTBK2 Dominant-Negative Ciliary Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SCA11-associated frameshift variants truncate TTBK2 after its kinase domain. In knock-in and allelic-series experiments, the truncated protein interferes with full-length TTBK2, decreases cilium formation and stability, and disrupts cilium-dependent Sonic hedgehog signaling. This provides a strong model-system mechanism, although the exact adult human Purkinje-neuron path from ciliary failure to degeneration remains incomplete.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Purkinje cell\"], \"biological_processes\": [\"cilium assembly\"], \"genes\": [\"TTBK2\"], \"gene_terms\": [{\"label\": \"TTBK2\", \"id\": \"hgnc:19141\"}], \"locations\": [\"cerebellum\"], \"mechanism_confidence\": \"PROVISIONAL\"}}], \"edges\": [{\"source\": \"SPTBN2-Dependent Postsynaptic Organization Defect\", \"target\": \"Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Postsynaptic receptor and transporter mislocalization impairs Purkinje-cell signaling and precedes progressive cerebellar degeneration.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CACNA1A Polyglutamine Proteotoxicity and ER-Stress Decompensation\", \"target\": \"Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Age-dependent failure of proteostatic compensation permits aberrant Purkinje-cell firing and progressive motor dysfunction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TTBK2 Dominant-Negative Ciliary Dysfunction\", \"target\": \"Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ciliary assembly and signaling defects provide a model-supported route from truncated TTBK2 to Purkinje-neuron vulnerability.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced cilia number and stability\", \"Impaired cilium-dependent Sonic hedgehog signaling\"]}, {\"source\": \"EEF2 Translational-Fidelity and Proteostasis Defect\", \"target\": \"Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of translational fidelity and heightened proteostatic stress are the proposed intermediates linking the EEF2 variant to cerebellar degeneration.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Translational frameshift errors\", \"Proteostatic disruption\"]}, {\"source\": \"SCA31 Repeat-RNA Toxicity\", \"target\": \"Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Toxic BEAN1-direction repeat RNA and nuclear foci are associated with Purkinje-cell degeneration.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Purkinje-cell nuclear RNA foci\", \"Binding and perturbation of splicing factors\"]}, {\"source\": \"Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy\", \"target\": \"Progressive Gait Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar cortical dysfunction impairs gait and stance coordination.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy\", \"target\": \"Limb Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar cortical dysfunction impairs upper-limb coordination.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar dysfunction impairs timing and coordination of speech.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar oculomotor dysfunction produces gaze-evoked or other nystagmus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive cerebellar and bulbar coordination deficits can impair swallowing.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired coordination of swallowing musculature\"]}, {\"source\": \"Progressive Gait Ataxia\", \"target\": \"Falls\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Progressive gait instability increases fall risk.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multidisciplinary supportive care and rehabilitation\", \"target\": \"Progressive Gait Ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive care and rehabilitation\", \"target\": \"Dysarthria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive care and rehabilitation\", \"target\": \"Dysphagia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SCA6 patient-derived iPSC Purkinje-cell model\", \"target\": \"CACNA1A Polyglutamine Proteotoxicity and ER-Stress Decompensation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The human model tests mutant Cav2.1 processing and selective Purkinje-cell vulnerability.\"}, {\"source\": \"SPTBN2 (SCA5)\", \"target\": \"SPTBN2-Dependent Postsynaptic Organization Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CACNA1A CAG expansion (SCA6)\", \"target\": \"CACNA1A Polyglutamine Proteotoxicity and ER-Stress Decompensation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TTBK2 (SCA11)\", \"target\": \"TTBK2 Dominant-Negative Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"EEF2 p.Pro596His (SCA26)\", \"target\": \"EEF2 Translational-Fidelity and Proteostasis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BEAN1/TK2 repeat locus (SCA31)\", \"target\": \"SCA31 Repeat-RNA Toxicity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6253,9 +6446,7 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6296,6 +6487,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6310,6 +6504,8 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6374,6 +6570,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6388,6 +6587,8 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6419,7 +6620,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-gait-ataxia" data-dismech-node="Progressive Gait Ataxia" data-dismech-type="phenotype">
@@ -6450,6 +6651,9 @@ This clinical feature is Gait ataxia (HP:0002066). HP:0002066 is a phenotype fro
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -6475,6 +6679,8 @@ This clinical feature is Gait ataxia (HP:0002066). HP:0002066 is a phenotype fro
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6483,6 +6689,80 @@ This clinical feature is Gait ataxia (HP:0002066). HP:0002066 is a phenotype fro
 
 
                 <div class="evidence-explanation">Progressive ataxia affected all examined members of the defining SCA26 family.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-limb-ataxia" data-dismech-node="Limb Ataxia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Limb Ataxia
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002070" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002070</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limb ataxia (HP:0002070). HP:0002070 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15732118" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15732118" target="_blank">PMID:15732118</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The dominantly inherited spinocerebellar ataxias (SCA) are a clinically and genetically heterogeneous group of neurodegenerative disorders characterized by progressive gait ataxia, upper limb incoordination, and dysarthria."</div>
+
+
+                <div class="evidence-explanation">Upper-limb incoordination is part of the defining cerebellar syndrome.</div>
 
 
 
@@ -6514,10 +6794,10 @@ This clinical feature is Gait ataxia (HP:0002066). HP:0002066 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001260</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001260</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6528,6 +6808,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6542,6 +6825,8 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6552,84 +6837,6 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
                 <div class="evidence-explanation">Dysarthria is explicitly part of the SCA26 cerebellar phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-limb-ataxia" data-dismech-node="Limb Ataxia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Limb Ataxia
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002070" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002070</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Limb ataxia (HP:0002070). HP:0002070 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:15732118" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15732118" target="_blank">PMID:15732118</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The dominantly inherited spinocerebellar ataxias (SCA) are a clinically and genetically heterogeneous group of neurodegenerative disorders characterized by progressive gait ataxia, upper limb incoordination, and dysarthria."</div>
-
-
-                <div class="evidence-explanation">Upper-limb incoordination is part of the defining cerebellar syndrome.</div>
 
 
 
@@ -6673,6 +6880,9 @@ This clinical feature is Falls (HP:0002527). HP:0002527 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6687,6 +6897,8 @@ This clinical feature is Falls (HP:0002527). HP:0002527 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6784,6 +6996,9 @@ This disease-associated gene is SPTBN2 (hgnc:11276). hgnc:11276 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6798,6 +7013,8 @@ This disease-associated gene is SPTBN2 (hgnc:11276). hgnc:11276 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6854,6 +7071,9 @@ This disease-associated gene is CACNA1A (hgnc:1388). hgnc:1388 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6868,6 +7088,8 @@ This disease-associated gene is CACNA1A (hgnc:1388). hgnc:1388 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6924,6 +7146,9 @@ This disease-associated gene is TTBK2 (hgnc:19141). hgnc:19141 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6938,6 +7163,8 @@ This disease-associated gene is TTBK2 (hgnc:19141). hgnc:19141 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6994,20 +7221,25 @@ This disease-associated gene is EEF2 (hgnc:3214). hgnc:3214 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23001565" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:23001565" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23001565" target="_blank">PMID:23001565</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7064,6 +7296,9 @@ This disease-associated gene is BEAN1 (hgnc:24160). hgnc:24160 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7078,6 +7313,8 @@ This disease-associated gene is BEAN1 (hgnc:24160). hgnc:24160 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7155,6 +7392,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7239,6 +7490,8 @@ This treatment targets Dysphagia (HP:0002015). HP:0002015 is a phenotype from th
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7260,6 +7513,8 @@ This treatment targets Dysphagia (HP:0002015). HP:0002015 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7289,6 +7544,513 @@ This treatment targets Dysphagia (HP:0002015). HP:0002015 is a phenotype from th
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-pattern-pedigree-and-brain-mri">
+                <div class="item-name">
+                    Clinical pattern, pedigree, and brain MRI
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Positive)</span>
+
+                </div>
+
+                <div class="item-desc">A slowly progressive, predominantly pure cerebellar syndrome in successive generations suggests ADCA-III. Brain MRI usually shows isolated or predominant cerebellar atrophy with relative preservation of the brainstem; imaging supports the phenotype but does not establish the molecular subtype.</div>
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Autosomal dominant pedigree with predominant cerebellar atrophy and minimal extracerebellar disease.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15732118" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15732118" target="_blank">PMID:15732118</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Brain magnetic resonance imaging study of 11 affected patients showed that atrophy was confined to the cerebellum."</div>
+
+
+                <div class="evidence-explanation">SCA26 demonstrates the characteristic isolated cerebellar MRI pattern.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18996908" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18996908" target="_blank">PMID:18996908</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MRI showed cerebellar atrophy with preservation of nodulus/uvula and brainstem."</div>
+
+
+                <div class="evidence-explanation">The defining SCA30 family also showed predominantly cerebellar atrophy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-subtype-directed-molecular-testing">
+                <div class="item-name">
+                    Subtype-directed molecular testing
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Positive)</span>
+
+                </div>
+
+                <div class="item-desc">Testing must combine methods: sequence and deletion/duplication analysis for SPTBN2 and TTBK2, sequence analysis for the reported EEF2 SCA26 variant, direct CAG sizing for CACNA1A/SCA6, and a repeat-capable assay for the BEAN1/TK2-region SCA31 insertion. Exome sequencing alone does not reliably detect repeat expansions. No molecular confirmation is currently available for linkage-defined SCA30.</div>
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> A pathogenic or compelling subtype-specific variant establishes the molecular diagnosis except in gene-unresolved SCA30.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301723" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301723" target="_blank">PMID:20301723</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of spinocerebellar ataxia type 11 (SCA11) is established in a proband with a heterozygous pathogenic variant in TTBK2 identified by molecular genetic testing."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports molecular confirmation for SCA11.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19878914" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19878914" target="_blank">PMID:19878914</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"By performing comprehensive Southern blot analysis and BAC- and fosmid-based sequencing, we isolated two genetic changes segregating with SCA31."</div>
+
+
+                <div class="evidence-explanation">SCA31 required repeat-capable structural analysis rather than routine coding sequencing.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18996908" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18996908" target="_blank">PMID:18996908</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The responsible gene is yet to be determined, but ODZ3 is a plausible candidate."</div>
+
+
+                <div class="evidence-explanation">SCA30 remains molecularly unresolved.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-predominantly-adult-onset-progressive-cerebellar-syndrome">
+                <div class="item-name">Predominantly adult-onset progressive cerebellar syndrome</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Adolescence through late adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Most affected individuals develop symptoms in adulthood, but onset varies substantially between subtypes and families and can occur in adolescence. Progression is usually slow, particularly in SCA5, SCA11, SCA26, SCA30, and SCA31.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23331413" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23331413" target="_blank">PMID:23331413</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The onset of symptoms typically occurs in adulthood; however, a minority of patients develop clinical features in adolescence."</div>
+
+
+                <div class="evidence-explanation">This supports the predominantly adult but variable age at onset.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-progressive-mobility-and-bulbar-complications">
+                <div class="item-name">Progressive mobility and bulbar complications</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Symptomatic disease course</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Increasing gait instability can lead to falls and loss of independent ambulation. Dysarthria and dysphagia can add communication, aspiration, and nutrition burdens even though the canonical disorders are not usually rapidly fatal.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23331413" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23331413" target="_blank">PMID:23331413</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although not fatal, ADCA Type III may cause dysphagia and falls, which reduce the quality of life of the patients and may in turn shorten the lifespan."</div>
+
+
+                <div class="evidence-explanation">The review identifies dysphagia and falls as important later complications.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+        <div class="card" id="epidemiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">🌍</div>
+                <h2 class="card-title">Epidemiology</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-unknown-overall-incidence-with-subtype-and-population-specific-distribution">
+                <div class="item-name">Unknown overall incidence with subtype- and population-specific distribution</div>
+
+                <div class="item-desc">The incidence of the ADCA-III class is unknown. SCA6 is the most commonly recognized canonical subtype in many tested populations, while SCA31 has a strong founder effect in Japan. The other canonical subtypes are rare or confined to very few reported families, so a single prevalence estimate would be misleading.</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23331413" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23331413" target="_blank">PMID:23331413</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The incidence of ADCA Type III is unknown."</div>
+
+
+                <div class="evidence-explanation">The disease-defining review states that overall incidence is unknown.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23331413" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23331413" target="_blank">PMID:23331413</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The subtype SCA6 is the most common."</div>
+
+
+                <div class="evidence-explanation">The review identifies SCA6 as the most common canonical ADCA-III subtype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19878914" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19878914" target="_blank">PMID:19878914</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The SCA31 critical region was tracked down to a 900 kb interval in chromosome 16q22.1, where the disease shows a strong founder effect."</div>
+
+
+                <div class="evidence-explanation">The original SCA31 study documents its strong founder effect.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+        <div class="card" id="clinical-burden">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ffe4e6; color: #be123c;">⚖️</div>
+                <h2 class="card-title">Clinical Burden</h2>
+            </div>
+            <div class="item-box anchor-target">
+
+                <div class="item-name">Variable</div>
+
+
+                <div class="item-desc">Burden varies with subtype, age at onset, and disease duration. Many canonical ADCA-III disorders progress slowly and life span can be normal, but chronic gait disability, falls, dysarthria, dysphagia, and eventual need for mobility aids can impose substantial long-term functional burden.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23331413" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23331413" target="_blank">PMID:23331413</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The severity of symptoms and age of onset can vary between each SCA subtype and even between families with the same subtype."</div>
+
+
+                <div class="evidence-explanation">The defining review directly supports variable severity within the class.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+        </div>
 
 
         <!-- Differential Diagnoses -->
@@ -7352,6 +8114,8 @@ This treatment targets Dysphagia (HP:0002015). HP:0002015 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7425,6 +8189,8 @@ This treatment targets Dysphagia (HP:0002015). HP:0002015 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7524,6 +8290,8 @@ This treatment targets Dysphagia (HP:0002015). HP:0002015 is a phenotype from th
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7545,6 +8313,8 @@ This treatment targets Dysphagia (HP:0002015). HP:0002015 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7632,6 +8402,8 @@ This treatment targets Dysphagia (HP:0002015). HP:0002015 is a phenotype from th
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7653,6 +8425,8 @@ This treatment targets Dysphagia (HP:0002015). HP:0002015 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7739,6 +8513,8 @@ This clinical trial targets Gait ataxia (HP:0002066). HP:0002066 is a phenotype 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7813,6 +8589,8 @@ This clinical trial targets Gait ataxia (HP:0002066). HP:0002066 is a phenotype 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7885,6 +8663,8 @@ This clinical trial targets Gait ataxia (HP:0002066). HP:0002066 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8029,6 +8809,8 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8083,6 +8865,8 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8123,6 +8907,8 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8272,6 +9058,8 @@ This experimental model concerns SPTBN2 (hgnc:11276). hgnc:11276 is a gene from 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8406,6 +9194,8 @@ This experimental model concerns CACNA1A (hgnc:1388). hgnc:1388 is a gene from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8538,6 +9328,8 @@ This experimental model concerns TTBK2 (hgnc:19141). hgnc:19141 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8795,7 +9587,7 @@ has_subtypes:
     explanation: The original linkage family establishes the pure, slowly progressive SCA26 phenotype.
   - reference: PMID:23001565
     reference_title: A conserved eEF2 coding variant in SCA26 leads to loss of translational fidelity and increased susceptibility to proteostatic insult.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       We identified a single variant that co-segregates with the disease
@@ -9029,7 +9821,7 @@ pathophysiology:
     evidence:
     - reference: PMID:30532139
       reference_title: Spinocerebellar ataxia type 11-associated alleles of Ttbk2 dominantly interfere with ciliogenesis and cilium stability.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &gt;-
         These studies provide a molecular foundation to understand the cellular
@@ -9090,7 +9882,7 @@ pathophysiology:
     evidence:
     - reference: PMID:23001565
       reference_title: A conserved eEF2 coding variant in SCA26 leads to loss of translational fidelity and increased susceptibility to proteostatic insult.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &gt;-
         Our results present a compelling candidate mutation and mechanism for
@@ -9511,7 +10303,7 @@ genetic:
   evidence:
   - reference: PMID:23001565
     reference_title: A conserved eEF2 coding variant in SCA26 leads to loss of translational fidelity and increased susceptibility to proteostatic insult.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       We identified a single variant that co-segregates with the disease
@@ -9617,7 +10409,7 @@ differential_diagnoses:
   - Prominent and persistent extracerebellar neurologic signs favor ADCA-I over the mostly pure ADCA-III pattern.
   evidence:
   - reference: url:https://www.ebi.ac.uk/europepmc/webservices/rest/PMC3558377/fullTextXML
-    reference_title: &#34;Autosomal dominant cerebellar ataxia type III: a review of the phenotypic and genotypic characteristics.&#34;
+    reference_title: &#34;Disease name/synonyms&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9638,7 +10430,7 @@ differential_diagnoses:
   - Prominent pyramidal, extrapyramidal, neuropathic, or ophthalmoplegic features can accompany ataxia.
   evidence:
   - reference: url:https://www.ebi.ac.uk/europepmc/webservices/rest/PMC3558377/fullTextXML
-    reference_title: &#34;Autosomal dominant cerebellar ataxia type III: a review of the phenotypic and genotypic characteristics.&#34;
+    reference_title: &#34;Disease name/synonyms&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9915,7 +10707,7 @@ datasets:
   publication: PMID:27806289
   evidence:
   - reference: url:https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE85349
-    reference_title: GEO Series GSE85349
+    reference_title: &#34;GEO Accession viewer&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9923,7 +10715,7 @@ datasets:
       patient-derived iPS cells
     explanation: The GEO record identifies the SCA6 patient-derived iPSC SuperSeries.
   - reference: url:https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE85349
-    reference_title: GEO Series GSE85349
+    reference_title: &#34;GEO Accession viewer&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9949,14 +10741,14 @@ datasets:
   publication: PMID:40990218
   evidence:
   - reference: url:https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE264100
-    reference_title: GEO Series GSE264100
+    reference_title: &#34;GEO Accession viewer&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       Expression profiling by high throughput sequencing
     explanation: The GEO record identifies the dataset as sequencing-based expression profiling.
   - reference: url:https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE264100
-    reference_title: GEO Series GSE264100
+    reference_title: &#34;GEO Accession viewer&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -10215,6 +11007,72 @@ review_notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Cross-provider assessment</strong> · <a href="../research/Autosomal_Dominant_Cerebellar_Ataxia_Type_III-synthesis.html">Read assessment</a></p>
+
+                    </div>
+
+                    <div>
+                        <p><strong>Review: Autosomal Dominant Cerebellar Ataxia Type III (Changes required)</strong> · 2026-05-31T03:02:04Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Dominant_Cerebellar_Ataxia_Type_III/2026-05-31T030204Z-github-review-3589.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3589
+Issue state: OPEN
+Issue created: 2026-05-31T03:02:04Z
+Issue updated: 2026-05-31T03:02:04Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: review
+
+## Completed curation review
+
+- Disease: **Autosomal Dominant Cerebellar Ataxia Type III**
+- Entry: `kb/disorders/Autosomal_Dominant_Cerebellar_Ataxia_Type_III.yaml`
+- Selection basis: #121 of the least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema, ontology-term, and reference validation pass; this is a biological/clinical/content review.
+
+## Findings
+
+1. GeneReviews/diagnosis consumption check: the entry has diagnosis content and a GeneReviews tag. Re-check that the diagnostic criteria and Clinical Characteristics from the GeneReviews baseline are fully reflected in phenotypes, diagnosis, treatment/surveillance, and genetic counseling.
+2. Research-artifact consumption: matching deep-research artifact(s) exist and should be treated as first-class review inputs. Compare the YAML against the artifact(s), especially for central mechanisms, subtype-specific features, treatments/trials, and diagnostic/surveillance details rather than only schema-valid content.
+3. Lumping/splitting review needed: this entry appears to cover a spectrum or umbrella concept with multiple subtypes (SCA5, SCA6, SCA11, SCA14). Confirm that one disease-level pathomechanism is defensible; otherwise split gene/subtype-specific mechanisms or make subtype-specific phenotype, treatment, diagnosis, and genetic assertions explicit.
+4. Pathophysiology review: the main modeled mechanisms include Purkinje Cell Calcium Dysregulation, Cytoskeletal and Scaffold Protein Defects in Purkinje Cells, Tau-Tubulin Kinase 2 Loss and Purkinje Cell Dysfunction, PKC Gamma Signaling Dysregulation. Check that each is an atomic event with direct evidence and that downstream edges do not encode multi-step chains or unsupported causal leaps from gene/product defect to organ-level phenotype.
+5. Treatment modeling: treatments are present (Supportive care and rehabilitation, Acetazolamide for episodic features (SCA6)). Check therapeutic agents, subtype applicability, evidence strength, and surveillance/supportive-care needs; avoid broad treatment claims that are not tied to the relevant phenotype or disease stage.
+6. Evidence/reference check: top references include PMID:15362569, PMID:18687887, PMID:28554312, PMID:21827906. Spot-check that snippets directly support the specific claim, frequency, and evidence_source classification, especially where the same PMID is reused across phenotype, mechanism, and treatment assertions.
+
+## Content-Completeness Checklist
+
+- Phenotype coverage: phenotype list needs manual review for disease-defining features.
+- Subtype completeness: subtypes present; verify subtype-specific anchoring.
+- Pathophysiology depth: mechanisms present but require atomicity/evidence review.
+- Treatments and trials: present; verify standard-vs-investigational scope.
+- Genetics: genetic section present; verify inheritance, variant classes, and genotype-phenotype claims.
+- Biomarkers/diagnostics: diagnosis present but should be checked against baseline sources.
+- References/research consumption: compare the YAML against listed sources and local research artifacts; do not treat retrieval-heavy papers as issues unless they are disease-specific and directly modelable.
+
+## Suggested Remediation
+
+Resolve the blocking diagnostic/baseline gaps first, then tighten subtype-specific claims, pathophysiology atomicity, treatment/trial scope, and evidence-to-claim alignment. Keep deterministic schema/term/reference validation separate from this biological review.
+
+## Sources Used
+
+- Local research artifact: `research/Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-falcon.md`
+- Local research artifact: `research/Autosomal_Dominant_Cerebellar_Ataxia_Type_III-deep-research-openscientist.md`
+- PMID:15362569: https://pubmed.ncbi.nlm.nih.gov/15362569/
+- PMID:18687887: https://pubmed.ncbi.nlm.nih.gov/18687887/
+- PMID:28554312: https://pubmed.ncbi.nlm.nih.gov/28554312/
+- PMID:21827906: https://pubmed.ncbi.nlm.nih.gov/21827906/
+
+No YAML files or `references_cache/*.md` files were edited for this review.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11723,7 +12581,7 @@ The polyglutamine expansion in the α1ACT transcription factor disrupts its tran
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Autosomal Dominant Cerebellar Ataxia Type III", "mondoId": "MONDO:0019793", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Dominant_Cerebellar_Ataxia_Type_III", "yamlRevision": "e48aa4508fe1"};
+        const OS_CONFIG = {"diseaseName": "Autosomal Dominant Cerebellar Ataxia Type III", "mondoId": "MONDO:0019793", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Dominant_Cerebellar_Ataxia_Type_III", "yamlRevision": "691a954d9392"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4108,6 +4215,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4129,6 +4238,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4186,7 +4297,7 @@ heterogeneous disease"</div>
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-PARTIAL">1 partial</span>
+                    <span class="evidence-support support-SUPPORT">1 support</span>
 
                 </div>
 
@@ -4265,14 +4376,16 @@ heterogeneous disease"</div>
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:22114815" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:22114815" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22114815" target="_blank">PMID:22114815</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4311,7 +4424,7 @@ heterogeneous disease"</div>
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-PARTIAL">1 partial</span>
+                    <span class="evidence-support support-SUPPORT">1 support</span>
 
                 </div>
 
@@ -4390,14 +4503,16 @@ heterogeneous disease"</div>
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:22114815" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:22114815" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22114815" target="_blank">PMID:22114815</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4437,6 +4552,7 @@ heterogeneous disease"</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-primary-mesodermal-developmental-arrest" data-dismech-node="Primary mesodermal developmental arrest" data-dismech-type="pathophysiology">
                 <div class="item-name">Primary mesodermal developmental arrest</div>
+
 
                 <div class="item-desc">Under the mesodermal-arrest hypothesis, abnormal somatic and splanchnic mesoderm development during weeks 6-10 impairs formation of the abdominal wall, urinary-tract musculature, and gubernaculum.
 </div>
@@ -4540,14 +4656,16 @@ heterogeneous disease"</div>
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:22114815" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:22114815" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22114815" target="_blank">PMID:22114815</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4572,6 +4690,7 @@ heterogeneous disease"</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myocd-associated-impaired-smooth-muscle-differentiation" data-dismech-node="MYOCD-associated impaired smooth-muscle differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">MYOCD-associated impaired smooth-muscle differentiation</div>
+
 
                 <div class="item-desc">MYOCD is a master transcriptional coactivator for smooth-muscle differentiation. PBS/megabladder-associated MYOCD variants and mutant mouse models implicate impaired embryonic smooth-muscle differentiation in a subset of cases.
 </div>
@@ -4740,6 +4859,8 @@ This pathophysiological event involves decreased smooth muscle tissue developmen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4761,6 +4882,8 @@ This pathophysiological event involves decreased smooth muscle tissue developmen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4785,6 +4908,7 @@ This pathophysiological event involves decreased smooth muscle tissue developmen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-piezo1-mediated-pressure-sensing" data-dismech-node="Impaired PIEZO1-mediated pressure sensing" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired PIEZO1-mediated pressure sensing</div>
+
 
                 <div class="item-desc">Compound-heterozygous PIEZO1 variants reported in one PBS patient reduce pressure-induced channel open probability without changing single-channel current, indicating impaired mechanosensation.
 </div>
@@ -4902,6 +5026,8 @@ This pathophysiological event occurs in lower urinary tract (UBERON:0001556). UB
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4924,6 +5050,7 @@ This pathophysiological event occurs in lower urinary tract (UBERON:0001556). UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-chrm3-mediated-detrusor-signaling" data-dismech-node="Impaired CHRM3-mediated detrusor signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired CHRM3-mediated detrusor signaling</div>
+
 
                 <div class="item-desc">Biallelic CHRM3 loss of function disrupts M3 muscarinic receptor signaling in bladder muscle and causes a familial congenital bladder malformation with a prune-belly-like phenotype.
 </div>
@@ -5041,6 +5168,8 @@ This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5063,6 +5192,7 @@ This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-genitourinary-smooth-muscle-development" data-dismech-node="Abnormal genitourinary smooth-muscle development" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal genitourinary smooth-muscle development</div>
+
 
                 <div class="item-desc">Reduced or dysplastic urinary-tract smooth muscle and increased fibrous connective tissue impair ureteral peristalsis and bladder function.
 </div>
@@ -5226,6 +5356,8 @@ This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5248,6 +5380,7 @@ This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fetal-lower-urinary-tract-obstruction" data-dismech-node="Fetal lower urinary tract obstruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Fetal lower urinary tract obstruction</div>
+
 
                 <div class="item-desc">Under the competing obstruction hypothesis, a hypoplastic or dysplastic prostate or abnormal urethra prevents fetal urine passage and causes downstream urinary-tract distension.
 </div>
@@ -5372,14 +5505,16 @@ This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:22114815" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:22114815" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22114815" target="_blank">PMID:22114815</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5404,6 +5539,7 @@ This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-poor-urinary-tract-contractility" data-dismech-node="Poor urinary-tract contractility" data-dismech-type="pathophysiology">
                 <div class="item-name">Poor urinary-tract contractility</div>
+
 
                 <div class="item-desc">Dysfunctional urinary smooth muscle produces poor ureteral peristalsis and variably ineffective emptying of a large-capacity bladder.
 </div>
@@ -5478,6 +5614,8 @@ This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5500,6 +5638,7 @@ This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-urinary-tract-dilation" data-dismech-node="Urinary tract dilation" data-dismech-type="pathophysiology">
                 <div class="item-name">Urinary tract dilation</div>
+
 
                 <div class="item-desc">PBS produces variably severe dilation across the bladder, ureters, and renal collecting systems, manifested as megacystis, hydroureter, and hydronephrosis.
 </div>
@@ -5606,6 +5745,8 @@ This pathophysiological event occurs in ureter (UBERON:0000056). UBERON:0000056 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5629,6 +5770,7 @@ poorly contractile smooth muscle"</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-congenital-renal-parenchymal-dysplasia" data-dismech-node="Congenital renal parenchymal dysplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Congenital renal parenchymal dysplasia</div>
+
 
                 <div class="item-desc">Congenital renal parenchymal dysplasia is present in approximately half of cases and independently contributes to impaired kidney function.
 </div>
@@ -5711,6 +5853,8 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5733,6 +5877,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-kidney-injury" data-dismech-node="Progressive kidney injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive kidney injury</div>
+
 
                 <div class="item-desc">Congenital dysplasia together with obstructive, refluxing, and infection-associated renal injury drives progressive loss of kidney function.
 </div>
@@ -5807,6 +5952,8 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5829,6 +5976,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-amniotic-fluid-volume" data-dismech-node="Reduced amniotic fluid volume" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced amniotic fluid volume</div>
+
 
                 <div class="item-desc">Severe renal dysplasia or functional fetal bladder obstruction reduces urine-derived amniotic fluid, producing oligohydramnios.
 </div>
@@ -5888,6 +6036,8 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5956,17 +6106,17 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(8)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Prenatal and Birth<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Prenatal and Birth<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(9)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6011,6 +6161,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6025,6 +6178,8 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6056,8 +6211,111 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-deficiency-of-the-abdominal-wall-musculature" data-dismech-node="Deficiency of the abdominal wall musculature" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Deficiency of the abdominal wall musculature
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Aplasia/Hypoplasia of the abdominal wall musculature</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010318" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0010318</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aplasia/Hypoplasia of the abdominal wall musculature (HP:0010318). HP:0010318 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38879764" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38879764" target="_blank">PMID:38879764</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"defined by the clinical triad
+(1) deficiency of abdominal muscles"</div>
+
+
+                <div class="evidence-explanation">Deficiency of abdominal muscles is the first component of the defining triad.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38184690" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38184690" target="_blank">PMID:38184690</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"wrinkled flaccid ventral abdominal wall with
+skeletal muscle deficiency"</div>
+
+
+                <div class="evidence-explanation">Describes the wrinkled, flaccid abdominal wall with muscle deficiency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-constipation" data-dismech-node="Constipation" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6073,15 +6331,18 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002019</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002019</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6101,6 +6362,8 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6142,15 +6405,18 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011024" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0011024</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011024" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0011024</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormality of the gastrointestinal tract (HP:0011024). HP:0011024 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6170,6 +6436,8 @@ This clinical feature is Abnormality of the gastrointestinal tract (HP:0011024).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6201,530 +6469,8 @@ This clinical feature is Abnormality of the gastrointestinal tract (HP:0011024).
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">8</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-kidney-disease" data-dismech-node="Chronic kidney disease" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Chronic kidney disease
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012622</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37968538" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37968538" target="_blank">PMID:37968538</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"at higher risk of
-developing kidney dysfunction and requiring kidney replacement therapy"</div>
-
-
-                <div class="evidence-explanation">PBS patients are at high risk of kidney dysfunction and kidney replacement therapy.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30018947" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30018947" target="_blank">PMID:30018947</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Sixteen patients (36%) developed CKD of at least stage 3; 12 patients (27%) had CKD stage 4–5."</div>
-
-
-                <div class="evidence-explanation">Supports a FREQUENT CKD frequency band in a 45-patient cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Limbs
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-talipes-equinovarus" data-dismech-node="Talipes equinovarus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Talipes equinovarus
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001762</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34016542" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34016542" target="_blank">PMID:34016542</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"talipes equinovarus (26%), hip dysplasia (5%), and congenital scoliosis (4%)"</div>
-
-
-                <div class="evidence-explanation">Quantifies talipes equinovarus and other musculoskeletal anomalies in PBS.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Prenatal and Birth
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-oligohydramnios" data-dismech-node="Oligohydramnios" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Oligohydramnios
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001562" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001562</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Oligohydramnios (HP:0001562). HP:0001562 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34016542" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34016542" target="_blank">PMID:34016542</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Pulmonary hypoplasia results from oligohydramnios secondary to renal dysplasia or to functional bladder obstruction, eventually causing newborn demise."</div>
-
-
-                <div class="evidence-explanation">Identifies oligohydramnios as a consequence of severe PBS urinary pathology.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-premature-birth" data-dismech-node="Premature birth" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Premature birth
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001622</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22114815" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22114815" target="_blank">PMID:22114815</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"43% of patients are born premature"</div>
-
-
-                <div class="evidence-explanation">Directly quantifies prematurity above the FREQUENT threshold.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-hypoplasia" data-dismech-node="Pulmonary hypoplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pulmonary hypoplasia
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002089</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:2602227" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2602227" target="_blank">PMID:2602227</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Severe urinary tract maldevelopment and pulmonary hypoplasia as part of the oligohydramnios syndrome was the most common cause of perinatal deaths."</div>
-
-
-                <div class="evidence-explanation">PBS-specific clinicopathologic evidence identifies pulmonary hypoplasia in the lethal oligohydramnios sequence.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="url:https://www.ncbi.nlm.nih.gov/books/NBK544248/" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK544248/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK544248/</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The first group (about 20% of all prune belly syndrome patients) characteristically demonstrates severe renal and pulmonary hypoplasia, and most babies are either stillborn or die shortly after birth."</div>
-
-
-                <div class="evidence-explanation">Supports the OCCASIONAL frequency band and the association with early mortality.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">9</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-deficiency-of-the-abdominal-wall-musculature" data-dismech-node="Deficiency of the abdominal wall musculature" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Deficiency of the abdominal wall musculature
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Aplasia/Hypoplasia of the abdominal wall musculature</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010318" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0010318</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Aplasia/Hypoplasia of the abdominal wall musculature (HP:0010318). HP:0010318 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38879764" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38879764" target="_blank">PMID:38879764</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"defined by the clinical triad
-(1) deficiency of abdominal muscles"</div>
-
-
-                <div class="evidence-explanation">Deficiency of abdominal muscles is the first component of the defining triad.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38184690" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38184690" target="_blank">PMID:38184690</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"wrinkled flaccid ventral abdominal wall with
-skeletal muscle deficiency"</div>
-
-
-                <div class="evidence-explanation">Describes the wrinkled, flaccid abdominal wall with muscle deficiency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-bilateral-cryptorchidism" data-dismech-node="Bilateral cryptorchidism" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6742,15 +6488,18 @@ skeletal muscle deficiency"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008689" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0008689</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008689" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0008689</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bilateral cryptorchidism (HP:0008689). HP:0008689 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6770,6 +6519,8 @@ This clinical feature is Bilateral cryptorchidism (HP:0008689). HP:0008689 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6793,6 +6544,8 @@ This clinical feature is Bilateral cryptorchidism (HP:0008689). HP:0008689 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6834,15 +6587,18 @@ This clinical feature is Bilateral cryptorchidism (HP:0008689). HP:0008689 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000021" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000021</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000021" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000021</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Megacystis (HP:0000021). HP:0000021 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6862,6 +6618,8 @@ This clinical feature is Megacystis (HP:0000021). HP:0000021 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6903,15 +6661,18 @@ This clinical feature is Megacystis (HP:0000021). HP:0000021 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000072</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000072</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hydroureter (HP:0000072). HP:0000072 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6931,6 +6692,8 @@ This clinical feature is Hydroureter (HP:0000072). HP:0000072 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6972,15 +6735,18 @@ This clinical feature is Hydroureter (HP:0000072). HP:0000072 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000126" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000126</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000126" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000126</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hydronephrosis (HP:0000126). HP:0000126 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7000,6 +6766,8 @@ This clinical feature is Hydronephrosis (HP:0000126). HP:0000126 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7041,15 +6809,18 @@ This clinical feature is Hydronephrosis (HP:0000126). HP:0000126 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000076" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000076</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000076" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000076</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Vesicoureteral reflux (HP:0000076). HP:0000076 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7069,6 +6840,8 @@ This clinical feature is Vesicoureteral reflux (HP:0000076). HP:0000076 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7110,15 +6883,18 @@ This clinical feature is Vesicoureteral reflux (HP:0000076). HP:0000076 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000110</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Renal dysplasia (HP:0000110). HP:0000110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7140,6 +6916,8 @@ This clinical feature is Renal dysplasia (HP:0000110). HP:0000110 is a phenotype
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7148,6 +6926,106 @@ This clinical feature is Renal dysplasia (HP:0000110). HP:0000110 is a phenotype
 
 
                 <div class="evidence-explanation">Directly quantifies renal dysplasia occurring in half of PBS cases.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-kidney-disease" data-dismech-node="Chronic kidney disease" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chronic kidney disease
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0012622</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37968538" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37968538" target="_blank">PMID:37968538</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"at higher risk of
+developing kidney dysfunction and requiring kidney replacement therapy"</div>
+
+
+                <div class="evidence-explanation">PBS patients are at high risk of kidney dysfunction and kidney replacement therapy.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30018947" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30018947" target="_blank">PMID:30018947</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Sixteen patients (36%) developed CKD of at least stage 3; 12 patients (27%) had CKD stage 4–5."</div>
+
+
+                <div class="evidence-explanation">Supports a FREQUENT CKD frequency band in a 45-patient cohort.</div>
 
 
 
@@ -7179,15 +7057,18 @@ This clinical feature is Renal dysplasia (HP:0000110). HP:0000110 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000010" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000010</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000010" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000010</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent urinary tract infections (HP:0000010). HP:0000010 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7207,6 +7088,8 @@ This clinical feature is Recurrent urinary tract infections (HP:0000010). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7232,6 +7115,98 @@ This clinical feature is Recurrent urinary tract infections (HP:0000010). HP:000
 
                 </div>
 
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-talipes-equinovarus" data-dismech-node="Talipes equinovarus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Talipes equinovarus
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001762</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34016542" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34016542" target="_blank">PMID:34016542</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"talipes equinovarus (26%), hip dysplasia (5%), and congenital scoliosis (4%)"</div>
+
+
+                <div class="evidence-explanation">Quantifies talipes equinovarus and other musculoskeletal anomalies in PBS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-the-musculoskeletal-system" data-dismech-node="Abnormality of the musculoskeletal system" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abnormality of the musculoskeletal system
@@ -7248,15 +7223,18 @@ This clinical feature is Recurrent urinary tract infections (HP:0000010). HP:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033127" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0033127</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033127" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0033127</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormality of the musculoskeletal system (HP:0033127). HP:0033127 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7278,6 +7256,8 @@ This clinical feature is Abnormality of the musculoskeletal system (HP:0033127).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7286,6 +7266,269 @@ This clinical feature is Abnormality of the musculoskeletal system (HP:0033127).
 
 
                 <div class="evidence-explanation">Quantifies musculoskeletal abnormalities at 58% in a clinicopathologic series.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Prenatal and Birth
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-oligohydramnios" data-dismech-node="Oligohydramnios" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Oligohydramnios
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001562" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001562</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Oligohydramnios (HP:0001562). HP:0001562 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34016542" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34016542" target="_blank">PMID:34016542</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pulmonary hypoplasia results from oligohydramnios secondary to renal dysplasia or to functional bladder obstruction, eventually causing newborn demise."</div>
+
+
+                <div class="evidence-explanation">Identifies oligohydramnios as a consequence of severe PBS urinary pathology.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-premature-birth" data-dismech-node="Premature birth" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Premature birth
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001622</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22114815" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22114815" target="_blank">PMID:22114815</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"43% of patients are born premature"</div>
+
+
+                <div class="evidence-explanation">Directly quantifies prematurity above the FREQUENT threshold.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-hypoplasia" data-dismech-node="Pulmonary hypoplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pulmonary hypoplasia
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002089</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2602227" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2602227" target="_blank">PMID:2602227</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Severe urinary tract maldevelopment and pulmonary hypoplasia as part of the oligohydramnios syndrome was the most common cause of perinatal deaths."</div>
+
+
+                <div class="evidence-explanation">PBS-specific clinicopathologic evidence identifies pulmonary hypoplasia in the lethal oligohydramnios sequence.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="url:https://www.ncbi.nlm.nih.gov/books/NBK544248/" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK544248/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK544248/</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The first group (about 20% of all prune belly syndrome patients) characteristically demonstrates severe renal and pulmonary hypoplasia, and most babies are either stillborn or die shortly after birth."</div>
+
+
+                <div class="evidence-explanation">Supports the OCCASIONAL frequency band and the association with early mortality.</div>
 
 
 
@@ -7375,6 +7618,9 @@ This disease-associated gene is MYOCD (hgnc:16067). hgnc:16067 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7389,6 +7635,8 @@ This disease-associated gene is MYOCD (hgnc:16067). hgnc:16067 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7412,6 +7660,8 @@ This disease-associated gene is MYOCD (hgnc:16067). hgnc:16067 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7470,6 +7720,9 @@ This disease-associated gene is CHRM3 (hgnc:1952). hgnc:1952 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7484,6 +7737,8 @@ This disease-associated gene is CHRM3 (hgnc:1952). hgnc:1952 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7507,6 +7762,8 @@ This disease-associated gene is CHRM3 (hgnc:1952). hgnc:1952 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7566,6 +7823,9 @@ This disease-associated gene is FLNA (hgnc:3754). hgnc:3754 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7580,6 +7840,8 @@ This disease-associated gene is FLNA (hgnc:3754). hgnc:3754 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7639,6 +7901,9 @@ This disease-associated gene is PIEZO1 (hgnc:28993). hgnc:28993 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7653,6 +7918,8 @@ This disease-associated gene is PIEZO1 (hgnc:28993). hgnc:28993 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7711,20 +7978,25 @@ This disease-associated gene is HNF1B (hgnc:11630). hgnc:11630 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:22114815" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:22114815" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22114815" target="_blank">PMID:22114815</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7748,6 +8020,8 @@ This disease-associated gene is HNF1B (hgnc:11630). hgnc:11630 is a gene from th
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7831,6 +8105,20 @@ This treatment is orchiopexy (NCIT:C111066). NCIT:C111066 is a clinical interven
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgical mobilization and fixation of the bilateral intra-abdominal testes into the scrotum, frequently required in affected males.
 </div>
 
@@ -7875,6 +8163,8 @@ This treatment targets Bilateral cryptorchidism (HP:0008689). HP:0008689 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7932,6 +8222,20 @@ This treatment is Reconstructive Surgery (NCIT:C25351). NCIT:C25351 is a clinica
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8017,6 +8321,8 @@ This treatment targets Vesicoureteral reflux (HP:0000076). HP:0000076 is a pheno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8079,6 +8385,20 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Antimicrobial treatment and prophylaxis to manage the recurrent urinary tract infections that complicate the dilated, stasis-prone urinary tract.
 </div>
 
@@ -8123,6 +8443,8 @@ This treatment targets Recurrent urinary tract infections (HP:0000010). HP:00000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8186,6 +8508,20 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Kidney replacement therapy, including kidney transplantation, for patients who progress to end-stage kidney disease.
 </div>
 
@@ -8232,6 +8568,8 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8256,6 +8594,20 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
                 <div class="item-name">
                     Vesicoamniotic shunting for selected fetal lower urinary tract obstruction
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8297,14 +8649,16 @@ This treatment targets Oligohydramnios (HP:0001562). HP:0001562 is a phenotype f
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30018947" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30018947" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30018947" target="_blank">PMID:30018947</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8367,6 +8721,20 @@ This treatment is Urinary Diversion (NCIT:C91841). NCIT:C91841 is a clinical int
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A cutaneous vesicostomy can temporarily drain a poorly emptying bladder while an infant grows before later reconstructive surgery.
 </div>
 
@@ -8413,6 +8781,8 @@ This treatment targets Megacystis (HP:0000021). HP:0000021 is a phenotype from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8440,6 +8810,373 @@ This treatment targets Megacystis (HP:0000021). HP:0000021 is a phenotype from t
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-prenatal-fetal-ultrasonography">
+                <div class="item-name">
+                    Prenatal fetal ultrasonography
+
+                </div>
+
+                <div class="item-desc">Fetal ultrasound can identify megacystis and upper-tract dilation with findings that overlap other causes of fetal bladder-outlet obstruction.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        fetal ultrasonography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C222238" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-52">NCIT:C222238</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34016542" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34016542" target="_blank">PMID:34016542</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"PBS presents prenatally by fetal ultrasound with findings common to bladder outlet obstruction, as in posterior urethral valves or megacystis-megaureter syndrome1,2."</div>
+
+
+                <div class="evidence-explanation">Supports fetal ultrasonography as a prenatal detection modality while noting overlap with other LUTO entities.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-postnatal-renal-and-bladder-ultrasonography">
+                <div class="item-name">
+                    Postnatal renal and bladder ultrasonography
+
+                </div>
+
+                <div class="item-desc">Postnatal ultrasonography characterizes hydroureteronephrosis and bladder anatomy; renography can further assess renal function and drainage.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        renal ultrasonography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C159885" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-53">NCIT:C159885</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30018947" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30018947" target="_blank">PMID:30018947</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients surviving the perinatal period (fetal period and up to 28 days of age) underwent clinical and functional evaluation on presentation, including ultrasonography and renography (20)."</div>
+
+
+                <div class="evidence-explanation">Documents postnatal ultrasonography and renography in the clinical evaluation of PBS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-voiding-cystourethrography">
+                <div class="item-name">
+                    Voiding cystourethrography
+
+                </div>
+
+                <div class="item-desc">VCUG assesses the bladder outlet, bladder morphology, urethral atresia or megalourethra, and vesicoureteral reflux.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        voiding cystourethrography
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30018947" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30018947" target="_blank">PMID:30018947</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Voiding cystourethrogram (VCUG) was performed to assess urethral and bladder pathology including urethral atresia, megalourethra, VUR, and bladder characteristics."</div>
+
+
+                <div class="evidence-explanation">Directly describes the postnatal diagnostic information obtained by VCUG.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-live-male-births-united-states-national-database">
+                <div class="item-name">Live male births (United States national database)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        3.8 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">3.8 per 100,000 live male births; strong male predominance (~95% of cases are male). PBS occurs in roughly 1 in 30,000-40,000 births overall.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22114815" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22114815" target="_blank">PMID:22114815</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a severe multisystem congenital anomaly complex affecting 3.8 per 100,000 live male births"</div>
+
+
+                <div class="evidence-explanation">Provides the population birth-prevalence estimate in live male births.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8562,7 +9299,7 @@ mechanistic_hypotheses:
   evidence:
   - reference: PMID:22114815
     reference_title: &#34;Genetic basis of prune belly syndrome: screening for HNF1β gene.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       In the second theory, involving in utero bladder obstruction, a
@@ -8583,7 +9320,7 @@ mechanistic_hypotheses:
   evidence:
   - reference: PMID:22114815
     reference_title: &#34;Genetic basis of prune belly syndrome: screening for HNF1β gene.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       In the first theory, known as the theory of mesodermal arrest, an unknown
@@ -8600,7 +9337,7 @@ pathophysiology:
   evidence:
   - reference: PMID:22114815
     reference_title: &#34;Genetic basis of prune belly syndrome: screening for HNF1β gene.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       In the first theory, known as the theory of mesodermal arrest, an unknown
@@ -8617,7 +9354,7 @@ pathophysiology:
     evidence:
     - reference: PMID:22114815
       reference_title: &#34;Genetic basis of prune belly syndrome: screening for HNF1β gene.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         In the first theory, known as the theory of mesodermal arrest, an unknown
@@ -8633,7 +9370,7 @@ pathophysiology:
     evidence:
     - reference: PMID:22114815
       reference_title: &#34;Genetic basis of prune belly syndrome: screening for HNF1β gene.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         In the first theory, known as the theory of mesodermal arrest, an unknown
@@ -8651,7 +9388,7 @@ pathophysiology:
     evidence:
     - reference: PMID:34016542
       reference_title: &#34;Modern management of and update on prune belly syndrome.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Maldevelopment of the somatic and splanchnic mesoderm results in
@@ -8709,7 +9446,7 @@ pathophysiology:
     evidence:
     - reference: PMID:34016542
       reference_title: &#34;Modern management of and update on prune belly syndrome.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         MYOCD is a critical smooth- and cardiac-specific master regulatory
@@ -8750,7 +9487,7 @@ pathophysiology:
     evidence:
     - reference: PMID:38184690
       reference_title: &#34;PIEZO1 loss-of-function compound heterozygous mutations in the rare congenital human disorder Prune Belly Syndrome.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &gt;-
         PIEZO1 is a cation-selective channel activated by various mechanical
@@ -8858,7 +9595,7 @@ pathophysiology:
   evidence:
   - reference: PMID:22114815
     reference_title: &#34;Genetic basis of prune belly syndrome: screening for HNF1β gene.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       In the second theory, involving in utero bladder obstruction, a
@@ -8873,7 +9610,7 @@ pathophysiology:
     evidence:
     - reference: PMID:22114815
       reference_title: &#34;Genetic basis of prune belly syndrome: screening for HNF1β gene.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         This obstruction of urine flow causes bladder, ureteral and renal
@@ -8889,7 +9626,7 @@ pathophysiology:
     evidence:
     - reference: PMID:22114815
       reference_title: &#34;Genetic basis of prune belly syndrome: screening for HNF1β gene.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         This obstruction of urine flow causes bladder, ureteral and renal
@@ -8903,7 +9640,7 @@ pathophysiology:
     evidence:
     - reference: PMID:34016542
       reference_title: &#34;Modern management of and update on prune belly syndrome.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         The first theory proposes an earlyin uteroposterior urethral obstruction
@@ -9572,7 +10309,7 @@ genetic:
   evidence:
   - reference: PMID:22114815
     reference_title: &#34;Genetic basis of prune belly syndrome: screening for HNF1β gene.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;chromosome 17q12 deletions encompassing the HNF1β gene&#34;
     explanation: 17q12 deletions encompassing HNF1B make it a candidate gene for PBS.
@@ -9749,7 +10486,7 @@ treatments:
   evidence:
   - reference: PMID:30018947
     reference_title: Vesicoamniotic Shunting Improves Outcomes in a Subset of Prune Belly Syndrome Patients at a Single Tertiary Center.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       These reports suggest that prenatal shunting may in fact benefit the
@@ -9801,6 +10538,25 @@ treatments:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Review and strengthen Prune Belly Syndrome curation</strong> · 2026-07-19T16:05:20Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Prune_Belly_Syndrome/2026-07-19T160520Z-codex-8b99a7.yaml">View source</a></p>
+                        <p class="research-review-text">Shepherd review cross-checked the full deep-research report and citations against the disorder YAML. Replaced weak hypothesis quotations with direct source text; split bundled pathophysiology into atomic, evidence-backed nodes and edges; added major phenotype gaps reported above 10 percent; added prenatal and postnatal diagnostic imaging; linked treatments to targeted phenotypes; added cautious selected-fetus vesicoamniotic shunting and temporizing vesicostomy; and downgraded provisional CHRM3, FLNA, and PIEZO1 gene-disease classifications to UNKNOWN. No dedicated Prune Belly Syndrome GeneReviews chapter was found in the NCBI baseline search. Generated three new reference caches only through just fetch-reference and removed one now-unused generic LUTO cache. Schema and live-term validation pass, all 76 evidence snippets and titles match their generated caches under whitespace normalization, generated cache frontmatter checks pass, focused KB conformance tests pass, graph validation and CX2 export pass, and compliance is 98.5 percent global and 99.0 percent weighted.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Prune Belly Syndrome</strong> · 2026-07-19T13:35:35Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Prune_Belly_Syndrome/2026-07-19T133535Z-claude-code-f02bbb.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of Prune Belly Syndrome / Eagle-Barrett syndrome MONDO:0007032, triggered by the prunebelly.org reference. Deep research via the claude_code provider after Edison/falcon returned 402 payment-required. Modeled the defining triad of abdominal wall muscle deficiency, bilateral cryptorchidism, and urinary tract dilation/megacystis, plus hydroureter, hydronephrosis, vesicoureteral reflux, renal dysplasia, progressive CKD, and oligohydramnios/pulmonary hypoplasia. Two competing etiologic mechanistic_hypotheses modeled with hypothesis_groups on causal edges. Genes CHRM3 biallelic AR MONDO-linked with Chrm3-null mouse phenocopy, FLNA X-linked, PIEZO1 candidate, HNF1B disputed. Treatments orchiopexy, reconstruction, antibiotics, kidney transplantation. All 41 evidence snippets verified as exact substrings of cached PubMed sources; schema, term, and reference validation pass; compliance 93.9 percent.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10266,7 +11022,7 @@ treatments:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Prune Belly Syndrome", "mondoId": "MONDO:0007032", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Prune_Belly_Syndrome", "yamlRevision": "8ca69b343b42"};
+        const OS_CONFIG = {"diseaseName": "Prune Belly Syndrome", "mondoId": "MONDO:0007032", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Prune_Belly_Syndrome", "yamlRevision": "6d3ff3522122"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

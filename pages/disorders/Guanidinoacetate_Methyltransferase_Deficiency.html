@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3726,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4010,6 +4117,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gamt-molecular-function-deficiency" data-dismech-node="GAMT molecular function deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">GAMT molecular function deficiency</div>
 
+
                 <div class="item-desc">Biallelic pathogenic variants in GAMT reduce guanidinoacetate methyltransferase catalytic activity.
 </div>
 
@@ -4236,6 +4344,8 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4258,6 +4368,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-creatine-biosynthesis" data-dismech-node="Deficient creatine biosynthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient creatine biosynthesis</div>
+
 
                 <div class="item-desc">Blocked conversion of guanidinoacetate to creatine causes systemic and cerebral creatine depletion, impairing the creatine/phosphocreatine energy shuttle needed for rapid ATP regeneration in high-energy-demand tissues.
 </div>
@@ -4478,6 +4589,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4500,6 +4613,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-guanidinoacetate-neurotoxicity" data-dismech-node="Guanidinoacetate neurotoxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">Guanidinoacetate neurotoxicity</div>
+
 
                 <div class="item-desc">Guanidinoacetate (GAA) accumulates in brain, CSF, blood, and urine due to blocked conversion to creatine. GAA is neurotoxic and may alter inhibitory neurotransmission, compounding the effects of cerebral energy deficiency.
 </div>
@@ -4705,6 +4819,8 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4726,6 +4842,8 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4750,6 +4868,7 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neuronal-energy-homeostasis" data-dismech-node="Impaired neuronal energy homeostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired neuronal energy homeostasis</div>
+
 
                 <div class="item-desc">The creatine/phosphocreatine system serves as a critical ATP buffer and energy shuttle in neurons. Creatine deficiency impairs rapid ATP regeneration during fluctuating energy demands, contributing to neurodevelopmental dysfunction, seizure susceptibility, and disrupted neurite outgrowth and neurotransmission.
 </div>
@@ -4892,6 +5011,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4913,6 +5034,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4937,6 +5060,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-and-movement-disorder-expression" data-dismech-node="Neurodevelopmental and movement disorder expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental and movement disorder expression</div>
+
 
                 <div class="item-desc">Combined cerebral creatine depletion and guanidinoacetate accumulation produce the core neurologic presentation of GAMT deficiency, including developmental impairment, epilepsy, speech disturbance, behavioral features, motor findings, hypotonia, involuntary movements, and basal ganglia abnormalities.
 </div>
@@ -5182,6 +5306,8 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5205,6 +5331,8 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5226,6 +5354,8 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5337,6 +5467,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5351,6 +5484,8 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5374,6 +5509,8 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5438,6 +5575,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5452,6 +5592,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5475,6 +5617,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5530,20 +5674,25 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39006040" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39006040" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39006040" target="_blank">PMID:39006040</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5567,6 +5716,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5622,6 +5773,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5636,6 +5790,8 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5659,6 +5815,8 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5714,6 +5872,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5728,6 +5889,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5753,6 +5916,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5774,6 +5939,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5829,6 +5996,9 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5843,6 +6013,8 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5866,6 +6038,8 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5923,6 +6097,9 @@ This clinical feature is Abnormality of movement (HP:0100022). HP:0100022 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5937,6 +6114,8 @@ This clinical feature is Abnormality of movement (HP:0100022). HP:0100022 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5960,6 +6139,8 @@ This clinical feature is Abnormality of movement (HP:0100022). HP:0100022 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6015,6 +6196,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6029,6 +6213,8 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6084,6 +6270,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6098,6 +6287,8 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6153,6 +6344,9 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6167,6 +6361,8 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6224,6 +6420,9 @@ This clinical feature is Abnormal globus pallidus morphology (HP:0002453). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6238,6 +6437,8 @@ This clinical feature is Abnormal globus pallidus morphology (HP:0002453). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6293,6 +6494,9 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6307,6 +6511,8 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6362,6 +6568,9 @@ This clinical feature is Involuntary movements (HP:0004305). HP:0004305 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6376,6 +6585,8 @@ This clinical feature is Involuntary movements (HP:0004305). HP:0004305 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6431,6 +6642,9 @@ This clinical feature is Hyperactivity (HP:0000752). HP:0000752 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6445,6 +6659,8 @@ This clinical feature is Hyperactivity (HP:0000752). HP:0000752 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6500,6 +6716,9 @@ This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6514,6 +6733,8 @@ This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6569,6 +6790,9 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6583,6 +6807,8 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6676,6 +6902,9 @@ This disease-associated gene is GAMT (hgnc:4136). hgnc:4136 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -6698,6 +6927,8 @@ This disease-associated gene is GAMT (hgnc:4136). hgnc:4136 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6723,6 +6954,8 @@ This disease-associated gene is GAMT (hgnc:4136). hgnc:4136 is a gene from the H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6744,6 +6977,8 @@ This disease-associated gene is GAMT (hgnc:4136). hgnc:4136 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6849,6 +7084,20 @@ This treatment uses creatine (CHEBI:16919). CHEBI:16919 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Oral creatine monohydrate is the cornerstone of therapy, aimed at repleting systemic and cerebral creatine stores. Typical dosing is approximately 400-800 mg/kg/day. Treatment is associated with improvement of cerebral creatine on MRS and clinical symptom stabilization or improvement, though brain creatine may not fully normalize.
 </div>
 
@@ -6904,6 +7153,8 @@ This treatment uses creatine (CHEBI:16919). CHEBI:16919 is a therapeutic agent f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6927,6 +7178,8 @@ This treatment uses creatine (CHEBI:16919). CHEBI:16919 is a therapeutic agent f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6948,6 +7201,8 @@ This treatment uses creatine (CHEBI:16919). CHEBI:16919 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7032,6 +7287,20 @@ This treatment uses ornithine (CHEBI:18257). CHEBI:18257 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Oral L-ornithine is used as a substrate-reduction strategy to inhibit AGAT activity, thereby reducing guanidinoacetate synthesis. Dosing ranges from 100 to 800 mg/kg/day. Ornithine combined with creatine is more effective than creatine alone at reducing GAA levels.
 </div>
 
@@ -7074,6 +7343,8 @@ This treatment uses ornithine (CHEBI:18257). CHEBI:18257 is a therapeutic agent 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7097,6 +7368,8 @@ This treatment uses ornithine (CHEBI:18257). CHEBI:18257 is a therapeutic agent 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7118,6 +7391,8 @@ This treatment uses ornithine (CHEBI:18257). CHEBI:18257 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7181,6 +7456,31 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Dietary restriction of protein and/or arginine intake reduces the precursor supply for guanidinoacetate synthesis via AGAT, serving as a substrate-reduction approach. This is typically combined with creatine and ornithine supplementation.
 </div>
 
@@ -7223,6 +7523,8 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7244,6 +7546,8 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7329,6 +7633,20 @@ This treatment uses sodium benzoate (CHEBI:113455). CHEBI:113455 is a therapeuti
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Sodium benzoate is used in some treatment protocols to reduce glycine availability, a precursor for guanidinoacetate synthesis. Dosing is approximately 100 mg/kg/day. This reduces the substrate pool available for AGAT, contributing to GAA lowering.
 </div>
 
@@ -7369,6 +7687,8 @@ This treatment uses sodium benzoate (CHEBI:113455). CHEBI:113455 is a therapeuti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7427,6 +7747,20 @@ This treatment is disease screening (NCIT:C15419). NCIT:C15419 is a clinical int
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7512,6 +7846,8 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7595,6 +7931,20 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Antiepileptic medications are used to manage seizures, which affect approximately 70% of patients. Seizure improvement is often observed with metabolic treatment (creatine supplementation), sometimes allowing reduction of anticonvulsant medications.
 </div>
 
@@ -7639,6 +7989,8 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7701,6 +8053,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling for affected families covers autosomal recessive inheritance, 25% recurrence risk, carrier testing, prenatal diagnosis, and the importance of premarital genetic testing in populations with high consanguinity rates.
 </div>
 
@@ -7725,6 +8091,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7746,6 +8114,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7809,6 +8179,31 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">AAV-based gene therapy expressing human GAMT in hepatocytes is under preclinical development. In a murine model, liver-directed gene therapy achieved pan-hepatic GAMT expression, marked and sustained reduction of GAA, normalization of plasma creatine, increased cerebral and myocardial creatine, and resolution of behavioral abnormalities. CNS-directed AAV9 approaches are also being investigated.
 </div>
 
@@ -7864,6 +8259,8 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7885,6 +8282,8 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8010,6 +8409,8 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8033,6 +8434,8 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8054,6 +8457,8 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8164,6 +8569,8 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8187,6 +8594,8 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8208,6 +8617,8 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8292,6 +8703,8 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8331,6 +8744,441 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-asymptomatic-neonatal-period">
+                <div class="item-name">Asymptomatic neonatal period</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Birth to the first months of life</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Newborns may appear well at birth because placental creatine transfer in utero masks the biosynthetic defect. This is what makes the disorder a newborn-screening candidate rather than a clinically-detected one: the window in which treatment works best is the window in which nothing is visible.
+</div>
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-symptom-onset">
+                <div class="item-name">Symptom onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Infancy to early childhood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Onset is distributed across early childhood rather than concentrated at one age: in a 53-case scoping review, 50% of cases presented as infants, 28% as toddlers and 15% as children, with 79% symptomatic before age five. The clinical picture untreated is hypotonia, significant intellectual disability, limited speech development, recurrent seizures, behaviour problems and involuntary movements.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39006040" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39006040" target="_blank">PMID:39006040</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"At the age of onset, 50% of the cases were infants, 28% were toddlers, and 15% were children, concluding that 79% of the reported cases developed symptoms before 5 years old."</div>
+
+
+                <div class="evidence-explanation">Gives the onset-age distribution across a 53-case scoping review, replacing an uncited prose claim about the second year of life.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37465909" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37465909" target="_blank">PMID:37465909</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Untreated, GAMT deficiency is associated with hypotonia, significant intellectual disability, limited speech development, recurrent seizures, behavior problems, and involuntary movements."</div>
+
+
+                <div class="evidence-explanation">Characterises the untreated symptomatic phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-diagnostic-delay-without-newborn-screening">
+                <div class="item-name">Diagnostic delay without newborn screening</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Without newborn screening, diagnosis characteristically arrives only after significant impairment has developed - at which point treatment has limited utility. This diagnostic-delay phase is the disease-defining problem GAMT deficiency poses, and the reason it was added to the US Recommended Uniform Screening Panel in January 2023.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37465909" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37465909" target="_blank">PMID:37465909</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Without newborn screening, diagnosis typically happens after the development of significant impairment, when treatment has limited utility."</div>
+
+
+                <div class="evidence-explanation">States the delay and its therapeutic consequence.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37465909" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37465909" target="_blank">PMID:37465909</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This recommendation was accepted in January 2023."</div>
+
+
+                <div class="evidence-explanation">Records the policy outcome that followed from the delay problem.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-treated-outcome-determined-by-age-at-initiation">
+                <div class="item-name">Treated outcome, determined by age at initiation</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Outcome tracks age at treatment initiation more than any other variable. In a 48-patient cohort, median age at treatment initiation was 25.5 months in those ending with mild developmental delay/intellectual disability, 39 months in those with moderate, and 11 years in those with severe - a monotonic relationship. The four patients treated younger than nine months had normal or almost normal developmental outcomes, and the one exception among them had inconsistent compliance. Therapy improved or stabilised symptoms in all symptomatic cases, but did not reverse established impairment.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24268530" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24268530" target="_blank">PMID:24268530</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The median age at treatment initiation was 25.5 and 39 months in patients with mild and moderate DD/ID, respectively, and 11 years in patients with severe DD/ID."</div>
+
+
+                <div class="evidence-explanation">Quantifies the relationship between age at treatment initiation and eventual severity.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24268530" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24268530" target="_blank">PMID:24268530</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The 4 patients treated younger than 9 months had normal or almost normal developmental outcomes."</div>
+
+
+                <div class="evidence-explanation">The presymptomatic-treatment result that motivates newborn screening.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24268530" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24268530" target="_blank">PMID:24268530</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Therapy was associated with improvement or stabilization of symptoms in all of the symptomatic cases."</div>
+
+
+                <div class="evidence-explanation">Establishes that treatment helps symptomatic patients but the phrasing - improvement or stabilisation - stops short of reversal.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">0.05&ndash;0.2 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 1,000,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Reviewed birth-prevalence estimate underpinning the 2023 US Recommended Uniform Screening Panel recommendation. The source words it as &#34;likely between&#34;, which is an informed estimate rather than an ascertained rate.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37465909" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37465909" target="_blank">PMID:37465909</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The birth prevalence of GAMT deficiency is likely between 0.5 and 2 per million live births."</div>
+
+
+                <div class="evidence-explanation">Gives the reviewed worldwide birth-prevalence estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-newborn-screening-programs-tandem-mass-spectrometry">
+                <div class="item-name">Newborn screening programs (tandem mass spectrometry)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Unknown</span>
+
+
+
+                    <span class="tag">Unknown</span>
+
+                </div>
+
+                <div class="item-notes">About 1 per 100,000 newborns SCREEN POSITIVE on the tandem-mass-spectrometry panel. This is a screening yield, not a prevalence: it is roughly an order of magnitude above the birth-prevalence estimate above because it counts false positives, which is precisely why the source treats &#34;the low number of positive results&#34; as an argument for feasibility. Recorded so the two figures are not confused.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37465909" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37465909" target="_blank">PMID:37465909</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"with about 1 per 100 000 newborns screening positive"</div>
+
+
+                <div class="evidence-explanation">Gives the screen-positive rate, distinct from disease birth prevalence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8760,7 +9608,7 @@ pathophysiology:
     description: Ataxia is one of the reported GAMT-associated movement abnormalities.
     evidence:
     - reference: ORPHA:382
-      reference_title: &#34;Guanidinoacetate methyltransferase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;Guanidinoacetate methyltransferase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001251 | Ataxia | Occasional (29-5%)&#34;
@@ -8772,7 +9620,7 @@ pathophysiology:
     description: Dystonia is one of the reported GAMT-associated movement abnormalities.
     evidence:
     - reference: ORPHA:382
-      reference_title: &#34;Guanidinoacetate methyltransferase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;Guanidinoacetate methyltransferase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001332 | Dystonia | Occasional (29-5%)&#34;
@@ -8793,7 +9641,7 @@ pathophysiology:
     description: Hyperactivity is part of the GAMT behavioral phenotype spectrum.
     evidence:
     - reference: ORPHA:382
-      reference_title: &#34;Guanidinoacetate methyltransferase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;Guanidinoacetate methyltransferase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000752 | Hyperactivity | Occasional (29-5%)&#34;
@@ -8805,7 +9653,7 @@ pathophysiology:
     description: Aggressive behavior is part of the GAMT behavioral phenotype spectrum.
     evidence:
     - reference: ORPHA:382
-      reference_title: &#34;Guanidinoacetate methyltransferase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;Guanidinoacetate methyltransferase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000718 | Aggressive behavior | Occasional (29-5%)&#34;
@@ -8817,7 +9665,7 @@ pathophysiology:
     description: Self-injurious behavior is part of the GAMT behavioral phenotype spectrum.
     evidence:
     - reference: ORPHA:382
-      reference_title: &#34;Guanidinoacetate methyltransferase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;Guanidinoacetate methyltransferase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0100716 | Self-injurious behavior | Occasional (29-5%)&#34;
@@ -8862,7 +9710,7 @@ phenotypes:
   evidence:
   - reference: PMID:39006040
     reference_title: &#34;Phenotypic and Molecular Spectrum of Guanidinoacetate N-Methyltransferase Deficiency: An Analytical Study of a Case Series and a Scoping Review of 53 Cases of Guanidinoacetate N-Methyltransferase.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: 43% of the cases had intellectual disabilities and mental retardation that affected their learning process; most cases required special care.
     explanation: The scoping review reports intellectual disability specifically in 43% of cases, well below the VERY_FREQUENT band. Marked PARTIAL because it supports the association while contradicting the band - see review_notes for why the band is retained.
@@ -8982,7 +9830,7 @@ phenotypes:
       label: Ataxia
   evidence:
   - reference: ORPHA:382
-    reference_title: &#34;Guanidinoacetate methyltransferase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Guanidinoacetate methyltransferase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001251 | Ataxia | Occasional (29-5%)&#34;
@@ -8997,7 +9845,7 @@ phenotypes:
       label: Dystonia
   evidence:
   - reference: ORPHA:382
-    reference_title: &#34;Guanidinoacetate methyltransferase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Guanidinoacetate methyltransferase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001332 | Dystonia | Occasional (29-5%)&#34;
@@ -9106,7 +9954,7 @@ phenotypes:
       label: Hyperactivity
   evidence:
   - reference: ORPHA:382
-    reference_title: &#34;Guanidinoacetate methyltransferase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Guanidinoacetate methyltransferase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000752 | Hyperactivity | Occasional (29-5%)&#34;
@@ -9121,7 +9969,7 @@ phenotypes:
       label: Aggressive behavior
   evidence:
   - reference: ORPHA:382
-    reference_title: &#34;Guanidinoacetate methyltransferase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Guanidinoacetate methyltransferase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000718 | Aggressive behavior | Occasional (29-5%)&#34;
@@ -9136,7 +9984,7 @@ phenotypes:
       label: Self-injurious behavior
   evidence:
   - reference: ORPHA:382
-    reference_title: &#34;Guanidinoacetate methyltransferase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Guanidinoacetate methyltransferase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0100716 | Self-injurious behavior | Occasional (29-5%)&#34;
@@ -9574,6 +10422,8 @@ notes: &#39;GAMT deficiency is one of three cerebral creatine deficiency syndrom
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9969,7 +10819,7 @@ Related pathway genes for context and differential diagnosis
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Guanidinoacetate Methyltransferase Deficiency", "mondoId": "MONDO:0012999", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Guanidinoacetate_Methyltransferase_Deficiency", "yamlRevision": "be1c44b91c1c"};
+        const OS_CONFIG = {"diseaseName": "Guanidinoacetate Methyltransferase Deficiency", "mondoId": "MONDO:0012999", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Guanidinoacetate_Methyltransferase_Deficiency", "yamlRevision": "8219e8cee6db"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

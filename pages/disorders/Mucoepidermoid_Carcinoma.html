@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3726,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4023,6 +4130,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-crtc1-maml2-fusion-oncogene-formation" data-dismech-node="CRTC1-MAML2 Fusion Oncogene Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">CRTC1-MAML2 Fusion Oncogene Formation</div>
 
+
                 <div class="item-desc">A recurrent t(11;19)(q21;p13) translocation fuses exon 1 of CRTC1 (CREB-regulated transcription coactivator 1) in-frame to exons 2-5 of MAML2 (mastermind-like 2), generating a chimeric oncoprotein that combines the CREB-binding domain of CRTC1 with the transcriptional activation domain of MAML2. This fusion is detected in up to 80% of MEC cases and is an early, often sole, cytogenetic event. A CRTC3-MAML2 variant occurs in up to 6% of cases and is mutually exclusive with CRTC1-MAML2.</div>
 
 
@@ -4186,6 +4294,31 @@ This pathophysiological event involves CRTC3 (hgnc:26148). hgnc:26148 is a gene 
 
 
 
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: SOMATIC</span>
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -4229,6 +4362,8 @@ This pathophysiological event involves CRTC3 (hgnc:26148). hgnc:26148 is a gene 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4250,6 +4385,8 @@ This pathophysiological event involves CRTC3 (hgnc:26148). hgnc:26148 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4275,6 +4412,8 @@ This pathophysiological event involves CRTC3 (hgnc:26148). hgnc:26148 is a gene 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4297,6 +4436,7 @@ This pathophysiological event involves CRTC3 (hgnc:26148). hgnc:26148 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-creb-and-notch-transcriptional-reprogramming" data-dismech-node="Aberrant CREB and Notch Transcriptional Reprogramming" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant CREB and Notch Transcriptional Reprogramming</div>
+
 
                 <div class="item-desc">Because the fusion replaces the Notch-binding region of MAML2 with the CREB-binding domain of CRTC1, the CRTC1-MAML2 oncoprotein constitutively transactivates CREB-mediated gene transcription while disrupting normal Notch receptor-mediated transcriptional activation. This aberrant transcriptional program is the proximate molecular driver of tumor-cell behavior.</div>
 
@@ -4455,6 +4595,8 @@ This pathophysiological event involves abnormal disrupted Notch signaling, annot
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4468,14 +4610,16 @@ This pathophysiological event involves abnormal disrupted Notch signaling, annot
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38658430" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38658430" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38658430" target="_blank">PMID:38658430</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4500,6 +4644,7 @@ This pathophysiological event involves abnormal disrupted Notch signaling, annot
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tumor-cell-proliferation-and-multilineage-differentiation" data-dismech-node="Tumor-Cell Proliferation and Multilineage Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Tumor-Cell Proliferation and Multilineage Differentiation</div>
+
 
                 <div class="item-desc">The CRTC1-MAML2 fusion activates AREG/EGFR signaling as a critical downstream effector, driving proliferation of salivary gland epithelial tumor cells and producing the characteristic admixture of mucous, epidermoid, and intermediate cells. The fusion is required for tumor establishment and maintenance, with 100% penetrant salivary gland tumor formation in a conditional transgenic mouse model.</div>
 
@@ -4666,6 +4811,8 @@ This pathophysiological event involves abnormal aberrant multilineage tumor-cell
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4688,6 +4835,7 @@ This pathophysiological event involves abnormal aberrant multilineage tumor-cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-p16-cdk4-6-rb-pathway-deregulation-and-high-grade-progression" data-dismech-node="p16-CDK4/6-RB Pathway Deregulation and High-Grade Progression" data-dismech-type="pathophysiology">
                 <div class="item-name">p16-CDK4/6-RB Pathway Deregulation and High-Grade Progression</div>
+
 
                 <div class="item-desc">Altered p16 (CDKN2A)-CDK4/6-RB pathway activity is a cooperating event for CRTC1-MAML2 fusion-induced tumorigenesis. CDKN2A and CDKN2B genomic alterations are common in MEC, and TP53 and FBXW7 events superimposed on the fusion mark aggressive, high-grade tumors with unfavorable prognosis. Loss of p16 abrogates cell-cycle control and confers tumor aggressiveness.</div>
 
@@ -4879,6 +5027,8 @@ This pathophysiological event involves abnormal deregulated cell cycle / G1-S ch
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4902,6 +5052,8 @@ This pathophysiological event involves abnormal deregulated cell cycle / G1-S ch
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4923,6 +5075,8 @@ This pathophysiological event involves abnormal deregulated cell cycle / G1-S ch
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4970,7 +5124,7 @@ This pathophysiological event involves abnormal deregulated cell cycle / G1-S ch
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant CREB and Notch Transcriptional Reprogramming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the fusion replaces the Notch-binding region of MAML2 with the CREB-binding domain of CRTC1, the CRTC1-MAML2 oncoprotein constitutively transactivates CREB-mediated gene transcription while disrupting normal Notch receptor-mediated transcriptional activation. This aberrant transcriptional program is the proximate molecular driver of tumor-cell behavior.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"salivary gland epithelial cell\"], \"biological_processes\": [\"aberrant CREB-driven positive regulation of transcription\", \"disrupted Notch signaling\"]}}, {\"id\": \"CDKN2A Loss\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CDKN2A\"], \"gene_terms\": [{\"label\": \"CDKN2A\", \"id\": \"hgnc:1787\"}], \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"CRTC1-MAML2 Fusion Oncogene Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A recurrent t(11;19)(q21;p13) translocation fuses exon 1 of CRTC1 (CREB-regulated transcription coactivator 1) in-frame to exons 2-5 of MAML2 (mastermind-like 2), generating a chimeric oncoprotein that combines the CREB-binding domain of CRTC1 with the transcriptional activation domain of MAML2. This fusion is detected in up to 80% of MEC cases and is an early, often sole, cytogenetic event. A CRTC3-MAML2 variant occurs in up to 6% of cases and is mutually exclusive with CRTC1-MAML2.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"salivary gland epithelial cell\"], \"genes\": [\"CRTC1\", \"MAML2\", \"CRTC3\"], \"gene_terms\": [{\"label\": \"CRTC1\", \"id\": \"hgnc:16062\"}, {\"label\": \"MAML2\", \"id\": \"hgnc:16259\"}, {\"label\": \"CRTC3\", \"id\": \"hgnc:26148\"}]}}, {\"id\": \"MAML2 (CRTC1-MAML2 Fusion)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MAML2\"], \"gene_terms\": [{\"label\": \"MAML2\", \"id\": \"hgnc:16259\"}], \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Salivary Gland Mass\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A painless mass or swelling of a salivary gland, most often the parotid gland, is the typical presenting feature of MEC.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100684\"}}, {\"id\": \"TP53 Mutation\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}], \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Tumor-Cell Proliferation and Multilineage Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The CRTC1-MAML2 fusion activates AREG/EGFR signaling as a critical downstream effector, driving proliferation of salivary gland epithelial tumor cells and producing the characteristic admixture of mucous, epidermoid, and intermediate cells. The fusion is required for tumor establishment and maintenance, with 100% penetrant salivary gland tumor formation in a conditional transgenic mouse model.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"salivary gland epithelial cell\"], \"biological_processes\": [\"tumor-cell proliferation\", \"aberrant multilineage tumor-cell differentiation\"]}}, {\"id\": \"p16-CDK4/6-RB Pathway Deregulation and High-Grade Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered p16 (CDKN2A)-CDK4/6-RB pathway activity is a cooperating event for CRTC1-MAML2 fusion-induced tumorigenesis. CDKN2A and CDKN2B genomic alterations are common in MEC, and TP53 and FBXW7 events superimposed on the fusion mark aggressive, high-grade tumors with unfavorable prognosis. Loss of p16 abrogates cell-cycle control and confers tumor aggressiveness.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"salivary gland epithelial cell\"], \"biological_processes\": [\"deregulated cell cycle / G1-S checkpoint\"], \"genes\": [\"CDKN2A\", \"TP53\"], \"gene_terms\": [{\"label\": \"CDKN2A\", \"id\": \"hgnc:1787\"}, {\"label\": \"TP53\", \"id\": \"hgnc:11998\"}]}}], \"edges\": [{\"source\": \"CRTC1-MAML2 Fusion Oncogene Formation\", \"target\": \"Aberrant CREB and Notch Transcriptional Reprogramming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fusion oncoprotein redirects transcription by transactivating CREB-responsive genes and disrupting normal Notch-dependent transcription.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant CREB and Notch Transcriptional Reprogramming\", \"target\": \"Tumor-Cell Proliferation and Multilineage Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reprogrammed transcription drives proliferation and the mucous/epidermoid/ intermediate-cell differentiation that defines MEC histology, in part through downstream AREG/EGFR signaling.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Tumor-Cell Proliferation and Multilineage Differentiation\", \"target\": \"Salivary Gland Mass\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proliferating fusion-driven tumor cells form an expanding salivary gland mass, the principal clinical manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tumor-Cell Proliferation and Multilineage Differentiation\", \"target\": \"p16-CDK4/6-RB Pathway Deregulation and High-Grade Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cooperating loss of p16 (CDKN2A) and TP53 mutation in a subset of tumors drives cell-cycle deregulation and high-grade, aggressive progression.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"MAML2 (CRTC1-MAML2 Fusion)\", \"target\": \"CRTC1-MAML2 Fusion Oncogene Formation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDKN2A Loss\", \"target\": \"p16-CDK4/6-RB Pathway Deregulation and High-Grade Progression\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TP53 Mutation\", \"target\": \"p16-CDK4/6-RB Pathway Deregulation and High-Grade Progression\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant CREB and Notch Transcriptional Reprogramming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the fusion replaces the Notch-binding region of MAML2 with the CREB-binding domain of CRTC1, the CRTC1-MAML2 oncoprotein constitutively transactivates CREB-mediated gene transcription while disrupting normal Notch receptor-mediated transcriptional activation. This aberrant transcriptional program is the proximate molecular driver of tumor-cell behavior.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"salivary gland epithelial cell\"], \"biological_processes\": [\"aberrant CREB-driven positive regulation of transcription\", \"disrupted Notch signaling\"]}}, {\"id\": \"CDKN2A Loss\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CDKN2A\"], \"gene_terms\": [{\"label\": \"CDKN2A\", \"id\": \"hgnc:1787\"}], \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"CRTC1-MAML2 Fusion Oncogene Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A recurrent t(11;19)(q21;p13) translocation fuses exon 1 of CRTC1 (CREB-regulated transcription coactivator 1) in-frame to exons 2-5 of MAML2 (mastermind-like 2), generating a chimeric oncoprotein that combines the CREB-binding domain of CRTC1 with the transcriptional activation domain of MAML2. This fusion is detected in up to 80% of MEC cases and is an early, often sole, cytogenetic event. A CRTC3-MAML2 variant occurs in up to 6% of cases and is mutually exclusive with CRTC1-MAML2.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"salivary gland epithelial cell\"], \"genes\": [\"CRTC1\", \"MAML2\", \"CRTC3\"], \"gene_terms\": [{\"label\": \"CRTC1\", \"id\": \"hgnc:16062\"}, {\"label\": \"MAML2\", \"id\": \"hgnc:16259\"}, {\"label\": \"CRTC3\", \"id\": \"hgnc:26148\"}], \"genetic_context\": {\"variant_origin\": \"SOMATIC\"}}}, {\"id\": \"MAML2 (CRTC1-MAML2 Fusion)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MAML2\"], \"gene_terms\": [{\"label\": \"MAML2\", \"id\": \"hgnc:16259\"}], \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Salivary Gland Mass\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A painless mass or swelling of a salivary gland, most often the parotid gland, is the typical presenting feature of MEC.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100684\"}}, {\"id\": \"TP53 Mutation\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}], \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Tumor-Cell Proliferation and Multilineage Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The CRTC1-MAML2 fusion activates AREG/EGFR signaling as a critical downstream effector, driving proliferation of salivary gland epithelial tumor cells and producing the characteristic admixture of mucous, epidermoid, and intermediate cells. The fusion is required for tumor establishment and maintenance, with 100% penetrant salivary gland tumor formation in a conditional transgenic mouse model.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"salivary gland epithelial cell\"], \"biological_processes\": [\"tumor-cell proliferation\", \"aberrant multilineage tumor-cell differentiation\"]}}, {\"id\": \"p16-CDK4/6-RB Pathway Deregulation and High-Grade Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered p16 (CDKN2A)-CDK4/6-RB pathway activity is a cooperating event for CRTC1-MAML2 fusion-induced tumorigenesis. CDKN2A and CDKN2B genomic alterations are common in MEC, and TP53 and FBXW7 events superimposed on the fusion mark aggressive, high-grade tumors with unfavorable prognosis. Loss of p16 abrogates cell-cycle control and confers tumor aggressiveness.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"salivary gland epithelial cell\"], \"biological_processes\": [\"deregulated cell cycle / G1-S checkpoint\"], \"genes\": [\"CDKN2A\", \"TP53\"], \"gene_terms\": [{\"label\": \"CDKN2A\", \"id\": \"hgnc:1787\"}, {\"label\": \"TP53\", \"id\": \"hgnc:11998\"}]}}], \"edges\": [{\"source\": \"CRTC1-MAML2 Fusion Oncogene Formation\", \"target\": \"Aberrant CREB and Notch Transcriptional Reprogramming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fusion oncoprotein redirects transcription by transactivating CREB-responsive genes and disrupting normal Notch-dependent transcription.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant CREB and Notch Transcriptional Reprogramming\", \"target\": \"Tumor-Cell Proliferation and Multilineage Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reprogrammed transcription drives proliferation and the mucous/epidermoid/ intermediate-cell differentiation that defines MEC histology, in part through downstream AREG/EGFR signaling.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Tumor-Cell Proliferation and Multilineage Differentiation\", \"target\": \"Salivary Gland Mass\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proliferating fusion-driven tumor cells form an expanding salivary gland mass, the principal clinical manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tumor-Cell Proliferation and Multilineage Differentiation\", \"target\": \"p16-CDK4/6-RB Pathway Deregulation and High-Grade Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cooperating loss of p16 (CDKN2A) and TP53 mutation in a subset of tumors drives cell-cycle deregulation and high-grade, aggressive progression.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"MAML2 (CRTC1-MAML2 Fusion)\", \"target\": \"CRTC1-MAML2 Fusion Oncogene Formation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDKN2A Loss\", \"target\": \"p16-CDK4/6-RB Pathway Deregulation and High-Grade Progression\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TP53 Mutation\", \"target\": \"p16-CDK4/6-RB Pathway Deregulation and High-Grade Progression\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4987,18 +5141,36 @@ This pathophysiological event involves abnormal deregulated cell cycle / G1-S ch
             </div>
 
 
+            <div class="pheno-toc">
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-salivary-gland-mass" data-dismech-node="Salivary Gland Mass" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Salivary Gland Mass
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
+
+                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
+            </div>
 
 
-                    <span class="phenotype-category">Clinical</span>
+            <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Digestive
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-salivary-gland-mass" data-dismech-node="Salivary Gland Mass" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Salivary Gland Mass
+
+
 
 
 
 
                     <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Salivary gland neoplasm</span>
+
 
 
 
@@ -5010,7 +5182,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Salivary gland neoplasm (HP:0100684). HP:0100684 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
+
+
+
 
 
 
@@ -5030,6 +5205,8 @@ This clinical feature is Salivary gland neoplasm (HP:0100684). HP:0100684 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5053,19 +5230,30 @@ This clinical feature is Salivary gland neoplasm (HP:0100684). HP:0100684 is a p
 
 
 
-            </div>
+                </div>
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-parotid-gland-enlargement" data-dismech-node="Parotid Gland Enlargement" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Parotid Gland Enlargement
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-parotid-gland-enlargement" data-dismech-node="Parotid Gland Enlargement" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Parotid Gland Enlargement
 
 
-                    <span class="phenotype-category">Clinical</span>
 
 
 
 
                     <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Enlargement of parotid gland</span>
+
 
 
 
@@ -5077,7 +5265,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Enlargement of parotid gland (HP:0011801). HP:0011801 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
+
+
+
 
 
 
@@ -5089,14 +5280,16 @@ This clinical feature is Enlargement of parotid gland (HP:0011801). HP:0011801 i
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39000457" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39000457" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39000457" target="_blank">PMID:39000457</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5120,8 +5313,34 @@ This clinical feature is Enlargement of parotid gland (HP:0011801). HP:0011801 i
 
 
 
-            </div>
+                </div>
 
+            </details>
+
+            <script>
+            (function() {
+                // TOC pill click: expand target group and scroll to it
+                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
+                    pill.addEventListener('click', function() {
+                        var target = document.getElementById(pill.dataset.target);
+                        if (target) {
+                            target.open = true;
+                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
+                        }
+                    });
+                });
+                // Expand/collapse all toggle
+                var btn = document.getElementById('phenoToggleAll');
+                if (btn) {
+                    btn.addEventListener('click', function() {
+                        var groups = document.querySelectorAll('.phenotype-category-group');
+                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
+                        groups.forEach(function(g) { g.open = !anyOpen; });
+                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
+                    });
+                }
+            })();
+            </script>
 
         </div>
 
@@ -5168,6 +5387,9 @@ This disease-associated gene is MAML2 (hgnc:16259). hgnc:16259 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5182,6 +5404,8 @@ This disease-associated gene is MAML2 (hgnc:16259). hgnc:16259 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5238,6 +5462,9 @@ This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5252,6 +5479,8 @@ This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5308,6 +5537,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5322,6 +5554,8 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5403,6 +5637,31 @@ This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Complete surgical resection (mass resection, often with lobectomy) is the primary and only consistently effective treatment for MEC.</div>
 
 
@@ -5424,6 +5683,8 @@ This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5486,6 +5747,31 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Radiotherapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Postoperative (adjuvant) radiation therapy is used in selected cases, particularly for high-grade or incompletely resected tumors.</div>
 
 
@@ -5507,6 +5793,8 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5608,6 +5896,20 @@ This treatment uses palbociclib (CHEBI:85993). CHEBI:85993 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Cotargeting CRTC1-MAML2-activated AREG/EGFR signaling with the EGFR inhibitor erlotinib and the cooperating p16-CDK4/6-RB pathway with the CDK4/6 inhibitor palbociclib produced enhanced antitumor responses in preclinical MEC models, representing a rational targeted-therapy strategy.</div>
 
 
@@ -5629,6 +5931,8 @@ This treatment uses palbociclib (CHEBI:85993). CHEBI:85993 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5691,6 +5995,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Therapeutic activation of p53 (via small-molecule MDM2-p53 inhibitors) reduces the cancer stem cell fraction and prevented tumor recurrence in preclinical MEC models, supporting p53-reactivating strategies in p53-wild-type tumors.</div>
 
 
@@ -5712,6 +6030,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5775,6 +6095,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5796,6 +6118,33 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -5993,6 +6342,8 @@ synonyms:
 - mucoepidermoid carcinoma of salivary gland
 pathophysiology:
 - name: CRTC1-MAML2 Fusion Oncogene Formation
+  genetic_context:
+    variant_origin: SOMATIC
   description: &gt;-
     A recurrent t(11;19)(q21;p13) translocation fuses exon 1 of CRTC1
     (CREB-regulated transcription coactivator 1) in-frame to exons 2-5 of MAML2
@@ -6100,7 +6451,7 @@ pathophysiology:
       transactivation.
   - reference: PMID:38658430
     reference_title: &#34;Molecular Aspects of Mucoepidermoid Carcinoma and Adenoid Cystic Carcinoma of the Salivary Gland.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Molecular analysis is essential not only to improve the diagnosis and
@@ -6256,7 +6607,7 @@ phenotypes:
   evidence:
   - reference: PMID:39000457
     reference_title: &#34;Parotid Gland Tumors: Molecular Diagnostic Approaches.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Parotid gland pathology represents a web of differential diagnoses.
@@ -6546,6 +6897,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8041,7 +8394,7 @@ While MEC models capture key biological features, the rarity of the disease limi
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Mucoepidermoid Carcinoma", "mondoId": "MONDO:0003036", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Mucoepidermoid_Carcinoma", "yamlRevision": "b09701f7297b"};
+        const OS_CONFIG = {"diseaseName": "Mucoepidermoid Carcinoma", "mondoId": "MONDO:0003036", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Mucoepidermoid_Carcinoma", "yamlRevision": "34e1448860a0"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

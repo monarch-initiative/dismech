@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4062,6 +4169,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4108,6 +4217,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-keratin-74-intermediate-filament-instability" data-dismech-node="Keratin-74 Intermediate Filament Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Keratin-74 Intermediate Filament Instability</div>
+
 
                 <div class="item-desc">KRT74 encodes a type II keratin that heterodimerizes with a type I partner to build intermediate filaments in the hair follicle inner root sheath and in nail-forming epithelium. The p.Phe274Ser substitution alters a conserved residue in the coil 1B rod domain required for long-range keratin dimerization, destabilizing filament assembly. In patient tissue the protein is undetectable, so the operative lesion is absence of keratin-74 rather than incorporation of a poison subunit - the mechanistic difference from the dominant KRT74 woolly-hair alleles, which act dominant-negatively.</div>
 
@@ -4234,6 +4344,8 @@ This pathophysiological event involves structural constituent of cytoskeleton (G
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4255,6 +4367,8 @@ This pathophysiological event involves structural constituent of cytoskeleton (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4279,6 +4393,7 @@ This pathophysiological event involves structural constituent of cytoskeleton (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inner-root-sheath-and-nail-epithelium-keratin-deficiency" data-dismech-node="Inner Root Sheath and Nail Epithelium Keratin Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Inner Root Sheath and Nail Epithelium Keratin Deficiency</div>
+
 
                 <div class="item-desc">Keratin-74 is normally expressed in the hair follicle inner root sheath and, in the nail unit, in the nail matrix, nail bed, and hyponychium. Its absence deprives exactly those compartments of mechanical support during the keratinization that shapes the emerging hair shaft and nail plate. This expression map is why the phenotype is restricted to hair and nails: the protein is simply not required in the ectodermal derivatives that PHNED spares.</div>
 
@@ -4437,6 +4552,8 @@ This pathophysiological event involves decreased keratinization (GO:0031424). GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4503,9 +4620,7 @@ This pathophysiological event involves decreased keratinization (GO:0031424). GO
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4545,6 +4660,9 @@ This clinical feature is Sparse scalp hair (HP:0002209). HP:0002209 is a phenoty
                     </div>
 
 
+
+
+
                     <div class="item-desc">No `frequency:` is asserted. The Edison review is explicit that the &#34;4/4&#34; counts describe one ascertainment family of siblings and must not be read as population frequencies, and per docs/frequency-evidence-guidelines.md an unjustifiable band is better omitted than fabricated.</div>
 
 
@@ -4564,6 +4682,8 @@ This clinical feature is Sparse scalp hair (HP:0002209). HP:0002209 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4639,6 +4759,9 @@ This clinical feature is absent Hypodontia (HP:0000668). HP:0000668 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4653,6 +4776,8 @@ This clinical feature is absent Hypodontia (HP:0000668). HP:0000668 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4684,7 +4809,7 @@ This clinical feature is absent Hypodontia (HP:0000668). HP:0000668 is a phenoty
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-nail-dystrophy" data-dismech-node="Nail Dystrophy" data-dismech-type="phenotype">
@@ -4715,6 +4840,9 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4729,6 +4857,8 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4754,107 +4884,6 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypohidrosis-absent" data-dismech-node="Hypohidrosis Absent" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypohidrosis Absent
-
-                        <span class="phenotype-freq">EXCLUDED</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000966" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000966</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is absent Hypohidrosis (HP:0000966). HP:0000966 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-    <span class="tag tag-modifier">
-        ∅ ABSENT
-    </span>
-
-
-
-
-
-
-
-
-
-
-                    </div>
-
-
-                    <div class="item-desc">Curated with `frequency: EXCLUDED` plus `modifier: ABSENT`, following the convention used in Osteogenesis_Imperfecta_Type_V and Epilepsy_with_Generalized_Tonic-Clonic_Seizures_Alone.
-Evidence is the family-specific statement in Raykova 2014 rather than the class-level PHNED sparing statement in the HOXC13 literature (PMID:28297138), which an earlier draft used. A negative asserted of one family should be evidenced from that family&#39;s own report.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24714551" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24714551" target="_blank">PMID:24714551</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The affected individuals were otherwise healthy including normal skin, dentition and self-reported normal"</div>
-
-
-                <div class="evidence-explanation">Disease-specific observation from the only reported ECTD7 family. The quoted sentence continues &#34;sweating&#34;, but that final word is hyphen-folded across a line break in the cached full text (&#34;sweat-&#34; / &#34;ing&#34;), so the quote stops one word short of it; the sentence&#39;s subject is the normality of skin, dentition and sweating in the affected siblings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-micronychia" data-dismech-node="Micronychia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Micronychia
@@ -4871,15 +4900,18 @@ Evidence is the family-specific statement in Raykova 2014 rather than the class-
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001792" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001792</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001792" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001792</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Micronychia, annotated with Small nail (HP:0001792). HP:0001792 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4899,6 +4931,8 @@ This clinical feature is Micronychia, annotated with Small nail (HP:0001792). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4938,10 +4972,10 @@ This clinical feature is Micronychia, annotated with Small nail (HP:0001792). HP
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001806" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001806</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001806" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001806</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Onycholysis (HP:0001806). HP:0001806 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -4949,10 +4983,110 @@ This clinical feature is Onycholysis (HP:0001806). HP:0001806 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">Distal onycholysis is described in the body of PMID:24714551 rather than in its abstract, so this phenotype is curated without an evidence block per the evidence SOP rather than with an unverifiable snippet. Note that the Edison report proposed `HP:0012203` for onycholysis; that CURIE is actually &#34;Unusual fungal nail infection&#34;. The correct term, HP:0001806, was substituted after OAK validation.</div>
 
 
 
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypohidrosis-absent" data-dismech-node="Hypohidrosis Absent" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypohidrosis Absent
+
+                        <span class="phenotype-freq">EXCLUDED</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000966" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000966</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is absent Hypohidrosis (HP:0000966). HP:0000966 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+    <span class="tag tag-modifier">
+        ∅ ABSENT
+    </span>
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Curated with `frequency: EXCLUDED` plus `modifier: ABSENT`, following the convention used in Osteogenesis_Imperfecta_Type_V and Epilepsy_with_Generalized_Tonic-Clonic_Seizures_Alone.
+Evidence is the family-specific statement in Raykova 2014 rather than the class-level PHNED sparing statement in the HOXC13 literature (PMID:28297138), which an earlier draft used. A negative asserted of one family should be evidenced from that family&#39;s own report.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24714551" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24714551" target="_blank">PMID:24714551</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The affected individuals were otherwise healthy including normal skin, dentition and self-reported normal"</div>
+
+
+                <div class="evidence-explanation">Disease-specific observation from the only reported ECTD7 family. The quoted sentence continues &#34;sweating&#34;, but that final word is hyphen-folded across a line break in the cached full text (&#34;sweat-&#34; / &#34;ing&#34;), so the quote stops one word short of it; the sentence&#39;s subject is the normality of skin, dentition and sweating in the affected siblings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5032,6 +5166,9 @@ This disease-associated gene is KRT74 (hgnc:28929). hgnc:28929 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5046,6 +5183,8 @@ This disease-associated gene is KRT74 (hgnc:28929). hgnc:28929 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5078,7 +5217,9 @@ This disease-associated gene is KRT74 (hgnc:28929). hgnc:28929 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
@@ -5086,6 +5227,11 @@ This disease-associated gene is KRT74 (hgnc:28929). hgnc:28929 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous missense variant (dbSNP rs147962513, transcript NM_175053) replacing a phenylalanine conserved across species and in 25 of 26 human type II keratins. Phe274 lies in the coil 1B rod domain required for long-range keratin dimerization, and patient hair follicles and epidermis showed no detectable keratin-74, indicating loss of function rather than a dominant-negative effect. This is the only ECTD7 allele reported to date.</div>
@@ -5114,6 +5260,8 @@ This disease-associated gene is KRT74 (hgnc:28929). hgnc:28929 is a gene from th
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5135,6 +5283,8 @@ This disease-associated gene is KRT74 (hgnc:28929). hgnc:28929 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5221,6 +5371,31 @@ This treatment is Symptomatic Therapy (NCIT:C170740). NCIT:C170740 is a clinical
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">No disease-modifying therapy exists. Management is supportive: gentle hair care avoiding traction, harsh chemicals, and excessive heat; conservative nail care with protection from trauma and prolonged moisture; and treatment of proven bacterial or fungal superinfection by standard dermatologic practice. Minoxidil is not a mechanism-directed option, since the lesion is a structural keratin defect rather than a follicular growth-cycle abnormality.</div>
 
 
@@ -5271,6 +5446,31 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counseling for autosomal recessive inheritance with a 25% sibling recurrence risk, cascade carrier testing once the familial variant is known, and prenatal or preimplantation genetic testing where desired. Counseling must distinguish the recessive ECTD7 phenotype from the dominant KRT74 woolly-hair phenotype, because the two carry entirely different recurrence risks for the same gene.</div>
 
 
@@ -5288,6 +5488,127 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-testing">
+                <div class="item-name">
+                    Molecular Genetic Testing
+
+                </div>
+
+                <div class="item-desc">Diagnosis starts from congenital hypotrichosis plus nail dystrophy, with deliberate examination of the appendages that should be normal - skin, teeth, and sweating - and a three-generation pedigree. Confirmation is molecular: a hereditary hypotrichosis / ectodermal-dysplasia panel containing KRT74, KRT85, and HOXC13, or exome sequencing when the phenotype is nonspecific. Because ECTD7 is recessive, the diagnosis requires two pathogenic or likely pathogenic KRT74 alleles in trans, so parental segregation or phasing is part of the confirmation rather than an optional extra. Single-gene KRT74 sequencing is efficient when the phenotype and family structure are strongly suggestive; genome sequencing is reasonable after a negative panel or exome, though its incremental yield here is unknown.</div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">Chromosomal microarray, karyotyping, FISH, mitochondrial sequencing, repeat-expansion testing, and metabolomic or proteomic testing are not first-line absent a separate indication. Trichoscopy and light microscopy may document shaft fragility but no KRT74-specific pattern is validated. Keratin-74 immunohistochemistry on a hair or skin biopsy showed loss of staining in the reported family and is mechanistically informative, but it is research-supportive rather than a standardized clinical assay.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24714551" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24714551" target="_blank">PMID:24714551</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Whole exome sequencing of affected individuals revealed homozygosity for a rare c.821T&gt;C variant (p.Phe274Ser) in the KRT74 gene that segregates AR PHNED in the family."</div>
+
+
+                <div class="evidence-explanation">The discovery family was resolved by exome sequencing plus segregation testing, the route this diagnostic strategy generalizes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">&lt;1 in 1,000,000</span>
+
+                </div>
+
+                <div class="item-notes">Four affected individuals in one consanguineous Pakistani family constitute the entire reported ECTD7 literature. The discovery paper&#39;s approximate &#34;one per million&#34; figure is a Hardy-Weinberg extrapolation from a historical Exome Variant Server allele frequency, not a measured prevalence, and assumes random mating, equilibrium, full penetrance, and that p.Phe274Ser alone accounts for disease burden. It is particularly unreliable in consanguineous populations and is therefore not recorded as a rate here.</div>
+
+
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -5899,6 +6220,19 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: KRT74-Related Pure Hair-Nail Ectodermal Dysplasia (ECTD7)</strong> · 2026-08-17T14:12:52Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/KRT74_Ectodermal_Dysplasia/2026-08-17T141252Z-claude-code-dc2f3e.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of ECTD7 (MONDO:0013975) from Edison (falcon) deep research plus independent primary-literature verification. The Edison report research/KRT74_Ectodermal_Dysplasia-deep-research-falcon.md passed &#39;just preflight-dr&#39; against MONDO:0013975 (KRT74 41 mentions vs KRT85 3, HOXC13 3) and its single extracted reference resolved. Edison&#39;s own finding that the entire disease-specific evidence base is one 2014 report of one consanguineous Pakistani family (PMID:24714551) is carried through into the entry: no frequency bands are asserted on the hair and nail phenotypes, and the paper&#39;s approximate one-per-million figure is recorded in prevalence notes as a Hardy-Weinberg extrapolation rather than as a measured rate. Two Edison-suggested HPO CURIEs were corrected after OAK validation: HP:0012203 proposed for onycholysis is actually &#39;Unusual fungal nail infection&#39; (correct term HP:0001806), and HP:0001813 proposed for micronychia does not exist (used HP:0001792 &#39;Small nail&#39; with preferred_term Micronychia). The KRT74 allelism trap flagged in the issue thread is handled explicitly: entry notes distinguish recessive ECTD7 from the dominant-negative heterozygous KRT74 woolly-hair phenotype already curated as the ADWH subtype of Isolated_Woolly_Hair, and no evidence is shared between them. Validation run: schema validation via the pre-edit hook; &#39;just validate-terms&#39; passed; &#39;just count-verified-snippets&#39; 12/12 verified against cached references; &#39;just validate-disorders&#39; run once as the pre-PR sweep.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

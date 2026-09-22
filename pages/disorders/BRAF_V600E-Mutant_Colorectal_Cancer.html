@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4226,6 +4333,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-braf-v600e-constitutive-activation" data-dismech-node="BRAF V600E Constitutive Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">BRAF V600E Constitutive Activation</div>
 
+
                 <div class="item-desc">The V600E mutation substitutes glutamic acid for valine at position 600 in the activation segment of BRAF kinase. This mimics phosphorylation-induced activation, locking BRAF in an active conformation. The mutant kinase signals constitutively through MEK and ERK without upstream RAS activation.</div>
 
 
@@ -4347,14 +4455,16 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30739887" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30739887" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30739887" target="_blank">PMID:30739887</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4376,6 +4486,8 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4400,6 +4512,7 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-uncontrolled-mapk-pathway-signaling" data-dismech-node="Uncontrolled MAPK Pathway Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Uncontrolled MAPK Pathway Signaling</div>
+
 
                 <div class="item-desc">Constitutive BRAF V600E activation leads to continuous phosphorylation of MEK1/2, which phosphorylates ERK1/2. Activated ERK translocates to the nucleus and drives expression of genes promoting cell proliferation, survival, and invasion. This signaling is independent of growth factor receptor activation.</div>
 
@@ -4522,6 +4635,7 @@ This pathophysiological event involves increased signal transduction (GO:0007165
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-cell-proliferation" data-dismech-node="Enhanced Cell Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced Cell Proliferation</div>
 
+
                 <div class="item-desc">Sustained ERK signaling promotes entry into the cell cycle by inducing cyclin D1 and other proliferative genes while suppressing cell cycle inhibitors. This drives continuous tumor cell division independent of external growth signals.</div>
 
 
@@ -4568,6 +4682,7 @@ This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-serrated-neoplasia-and-cimp-high-progression" data-dismech-node="Serrated Neoplasia and CIMP-High Progression" data-dismech-type="pathophysiology">
                 <div class="item-name">Serrated Neoplasia and CIMP-High Progression</div>
+
 
                 <div class="item-desc">BRAF V600E-mutant CRC commonly develops through sessile serrated lesions rather than the classic APC-driven adenoma-carcinoma sequence. Constitutive MAPK signaling cooperates with widespread CpG island methylation to silence tumor suppressor loci, creating a CIMP-high intermediate state that can progress through either an MSI-H or MSS trajectory.</div>
 
@@ -4644,6 +4759,7 @@ This pathophysiological event involves colon epithelial cell (CL:0011108). CL:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mlh1-silencing-and-msi-h-branch" data-dismech-node="MLH1 Silencing and MSI-H Branch" data-dismech-type="pathophysiology">
                 <div class="item-name">MLH1 Silencing and MSI-H Branch</div>
 
+
                 <div class="item-desc">In approximately half of BRAF V600E CRCs, CIMP-high methylation silences MLH1, producing mismatch-repair deficiency and high microsatellite instability. This branch is usually sporadic rather than Lynch syndrome-associated and creates a more immunogenic tumor phenotype that can respond to immune checkpoint blockade.</div>
 
 
@@ -4708,6 +4824,7 @@ This pathophysiological event involves decreased mismatch repair (GO:0006298). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-egfr-feedback-reactivation" data-dismech-node="EGFR Feedback Reactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">EGFR Feedback Reactivation</div>
 
+
                 <div class="item-desc">Unlike melanoma, colorectal cancer cells have high EGFR expression. When BRAF is inhibited, relief of ERK-mediated negative feedback leads to rapid EGFR reactivation, which signals through RAS and CRAF to restore MAPK pathway activity. This explains why BRAF inhibitor monotherapy fails in colorectal cancer but works in melanoma.</div>
 
 
@@ -4771,6 +4888,7 @@ This pathophysiological event involves increased ERBB signaling pathway (GO:0038
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acquired-mapk-reactivation" data-dismech-node="Acquired MAPK Reactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Acquired MAPK Reactivation</div>
+
 
                 <div class="item-desc">Resistance to BRAF/EGFR-targeted therapy is often polyclonal and converges on renewed MAPK signaling. Reported escape mechanisms include amplification of EGFR, KRAS, or mutant BRAF, acquired KRAS or MAP2K1 mutations, and MET alterations; baseline TP53 mutation has been associated with acquired MET amplification.</div>
 
@@ -4907,6 +5025,8 @@ This pathophysiological event involves abnormal response to xenobiotic stimulus 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Adenocarcinoma is the most common pathologic subtype of colon cancer"</div>
@@ -5019,6 +5139,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -5055,6 +5178,9 @@ This clinical feature is Colon cancer (HP:0003003). HP:0003003 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5109,6 +5235,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
@@ -5136,6 +5265,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5181,6 +5313,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5264,20 +5399,25 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32674932" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32674932" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32674932" target="_blank">PMID:32674932</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5299,6 +5439,8 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5357,6 +5499,9 @@ This disease-associated gene is MLH1 (hgnc:7127). hgnc:7127 is a gene from the H
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-pik3ca" data-dismech-node="PIK3CA" data-dismech-type="genetic">
@@ -5394,6 +5539,9 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-pten" data-dismech-node="PTEN" data-dismech-type="genetic">
@@ -5425,6 +5573,9 @@ This disease-associated gene is PTEN (hgnc:9588). hgnc:9588 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -5493,6 +5644,8 @@ This disease-associated gene is PTEN (hgnc:9588). hgnc:9588 is a gene from the H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5557,6 +5710,8 @@ This disease-associated gene is PTEN (hgnc:9588). hgnc:9588 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5672,6 +5827,20 @@ This treatment uses cetuximab (NCIT:C1723). NCIT:C1723 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">FDA-approved combination for BRAF V600E metastatic CRC after prior therapy. Encorafenib inhibits mutant BRAF while cetuximab blocks EGFR to prevent feedback reactivation. BEACON CRC trial demonstrated significant improvement in overall survival and response rate compared to standard chemotherapy.</div>
 
 
@@ -5685,14 +5854,16 @@ This treatment uses cetuximab (NCIT:C1723). NCIT:C1723 is a therapeutic agent fr
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="CIVIC_EID:126" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="CIVIC_EID:126" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://civicdb.org/links/evidence_items/126" target="_blank">CIVIC_EID:126</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5812,6 +5983,20 @@ This treatment uses binimetinib (CHEBI:145371). CHEBI:145371 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Triple combination adding the MEK inhibitor binimetinib to encorafenib and cetuximab. Provides more complete MAPK pathway suppression. Originally studied in BEACON CRC but doublet (encorafenib/cetuximab) is preferred due to similar efficacy with less toxicity.</div>
 
 
@@ -5915,6 +6100,20 @@ This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Intensive triplet chemotherapy (5-FU, leucovorin, oxaliplatin, irinotecan) with bevacizumab may provide benefit for fit patients with BRAF V600E mCRC who can tolerate aggressive therapy. TRIBE2 showed benefit in this subgroup.</div>
 
 
@@ -6005,6 +6204,20 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Pembrolizumab or nivolumab-based immune checkpoint blockade is used for MSI-H/dMMR BRAF V600E CRC. The MSI-H branch is more immunogenic because mismatch-repair deficiency increases neoantigen load, though BRAF V600E still carries adverse prognostic implications within MSI-H CRC.</div>
 
 
@@ -6050,6 +6263,31 @@ This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is 
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -6107,6 +6345,33 @@ This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is 
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6230,7 +6495,7 @@ pathophysiology:
   evidence:
   - reference: PMID:30739887
     reference_title: &#34;The prognostic value of KRAS and BRAF in stage I-III colorectal cancer. A systematic review.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: BRAF mutations confers a poor prognosis in Western CRC patients, particularly in metastatic CRC (mCRC) and its mutations occur in approximately 4-20% CRC, with the vast majority being the V600E hotspot mutation.
     explanation: This abstract links BRAF mutations in CRC to the V600E hotspot and supports the relevance of V600E in colorectal cancer.
   - reference: CIVIC_ASSERTION:20
@@ -6461,7 +6726,7 @@ genetic:
   evidence:
   - reference: PMID:32674932
     reference_title: &#34;[BRAF V600E-mutant colorectal cancers: Where are we?].&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;The BRAFV600E mutation, observed in 8 % of colorectal cancers (CRC), introduces a particular phenotype and a poor prognosis at the localized or metastatic stage.&#34;
     explanation: &#34;Abstract reports BRAF V600E frequency and associated poor prognosis in colorectal cancer.&#34;
   - reference: CIVIC_ASSERTION:20
@@ -6528,7 +6793,7 @@ treatments:
   evidence:
   - reference: CIVIC_EID:126
     reference_title: &#34;BRAF V600E / Colorectal Cancer (Predictive Resistance)&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: Authors concluded that BRAF mutation (23/24 of mutants were BRAF V600E) was strongly associated with poor response to cetuximab
     explanation: CIViC&#39;s accepted evidence item supports BRAF V600E-associated resistance to cetuximab alone, motivating BRAF/EGFR combination strategies rather than anti-EGFR monotherapy.
@@ -6797,7 +7062,7 @@ references:
     - reference: DOI:10.3389/fonc.2024.1349572
       reference_title: &#39;The histological and molecular characteristics of early-onset colorectal cancer: a systematic review and meta-analysis&#39;
       supports: SUPPORT
-      evidence_source: OTHER
+      evidence_source: HUMAN_CLINICAL
       snippet: Early-onset colorectal cancer (CRC), defined as diagnosis before age 50, has increased in recent decades.
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: DOI:10.3390/cancers15215243
@@ -6867,7 +7132,7 @@ references:
     - reference: DOI:10.5772/intechopen.1004189
       reference_title: Biomarkers as a Therapeutic Approach in Colorectal Carcinoma
       supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
+      evidence_source: OTHER
       snippet: This review highlights the most promising biomarker tests of tumor tissue from colonoscopy biopsy for more individualized therapeutic approaches to patients with colorectal carcinoma (CRC).
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:21102416
@@ -6951,7 +7216,7 @@ references:
     - reference: PMID:25005754
       reference_title: A very low incidence of BRAF mutations in Middle Eastern colorectal carcinoma.
       supports: SUPPORT
-      evidence_source: COMPUTATIONAL
+      evidence_source: HUMAN_CLINICAL
       snippet: Recent studies emphasize the role of BRAF as a genetic marker for prediction, prognosis and risk stratification in colorectal cancer.
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:27312529
@@ -6965,7 +7230,7 @@ references:
     - reference: PMID:27312529
       reference_title: Molecular Landscape of Acquired Resistance to Targeted Therapy Combinations in BRAF-Mutant Colorectal Cancer.
       supports: SUPPORT
-      evidence_source: OTHER
+      evidence_source: HUMAN_CLINICAL
       snippet: &#39;Although recent clinical trials of BRAF inhibitor combinations have demonstrated improved efficacy in BRAF-mutant colorectal cancer, emergence of acquired resistance limits clinical benefit.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:27765849
@@ -6993,7 +7258,7 @@ references:
     - reference: PMID:29540830
       reference_title: &#39;Classifying BRAF alterations in cancer: new rational therapeutic strategies for actionable mutations.&#39;
       supports: SUPPORT
-      evidence_source: COMPUTATIONAL
+      evidence_source: OTHER
       snippet: &#39;The RAS-RAF-MEK-ERK signaling cascade is among the most frequently mutated pathways in human cancer.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:29666172
@@ -7119,7 +7384,7 @@ references:
     - reference: PMID:34249672
       reference_title: Current Therapeutic Strategies in BRAF-Mutant Metastatic Colorectal Cancer.
       supports: SUPPORT
-      evidence_source: OTHER
+      evidence_source: HUMAN_CLINICAL
       snippet: &#39;Around 8-12% of patients with advanced colon rectal cancer (CRC) present with BRAF alterations, in particular V600E mutation, which is associated with right-side, poorly differentiated and mucinous type tumors.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:35248712
@@ -7161,7 +7426,7 @@ references:
     - reference: PMID:35696748
       reference_title: &#39;Encorafenib plus cetuximab with or without binimetinib in patients with BRAF V600E-mutated metastatic colorectal cancer: real-life data from an Italian multicenter experience.&#39;
       supports: SUPPORT
-      evidence_source: OTHER
+      evidence_source: HUMAN_CLINICAL
       snippet: Encorafenib plus cetuximab with or without binimetinib showed increased objective response rate (ORR), progression-free survival (PFS), and overall survival (OS) compared with chemotherapy plus anti-EGFR in previously treated patients with BRAF V600E-mutated (mut) metastatic colorectal cancer (mCRC).
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:36368253
@@ -7175,7 +7440,7 @@ references:
     - reference: PMID:36368253
       reference_title: &#39;Real-world first-line treatment of patients with BRAF(V600E)-mutant metastatic colorectal cancer: the CAPSTAN CRC study.&#39;
       supports: SUPPORT
-      evidence_source: OTHER
+      evidence_source: HUMAN_CLINICAL
       snippet: BRAFV600E mutations occur in 8%-12% of metastatic colorectal cancer (mCRC) cases and are associated with poor survival.
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:37064498
@@ -7217,7 +7482,7 @@ references:
     - reference: PMID:37455182
       reference_title: &#39;Treatment of metastatic colorectal cancer with BRAF V600E mutation: A multicenter real-world study in China.&#39;
       supports: SUPPORT
-      evidence_source: OTHER
+      evidence_source: HUMAN_CLINICAL
       snippet: BRAF V600E mutant-metastatic colorectal cancer (mCRC) is characterized by its short survival time.
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:37815847
@@ -7231,7 +7496,7 @@ references:
     - reference: PMID:37815847
       reference_title: &#39;SEAMARK: phase II study of first-line encorafenib and cetuximab plus pembrolizumab for MSI-H/dMMR BRAFV600E-mutant mCRC.&#39;
       supports: SUPPORT
-      evidence_source: OTHER
+      evidence_source: HUMAN_CLINICAL
       snippet: &#39;Patients with both BRAF V600E mutations and microsatellite instability-high (MSI-H)/mismatch repair-deficient (dMMR) metastatic colorectal cancer (mCRC) have poor prognosis.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:37973552
@@ -7259,7 +7524,7 @@ references:
     - reference: PMID:38553360
       reference_title: &#39;Safety and Efficacy of Encorafenib, Binimetinib, and Cetuximab for BRAF(V600E)-Mutant Metastatic Colorectal Cancer: Results of the Japanese Expanded Access Program.&#39;
       supports: SUPPORT
-      evidence_source: OTHER
+      evidence_source: HUMAN_CLINICAL
       snippet: The phase 3 BEACON CRC study demonstrated the survival benefits of encorafenib and cetuximab, with or without binimetinib (the BEACON triplet or doublet regimen), for BRAFV600E-mutant metastatic colorectal cancer (mCRC).
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:39255538
@@ -7329,7 +7594,7 @@ references:
     - reference: PMID:39935752
       reference_title: &#39;Treatment outcomes of patients with BRAF(V600E)-mutated metastatic colorectal cancer: a Polish retrospective cohort study.&#39;
       supports: SUPPORT
-      evidence_source: OTHER
+      evidence_source: HUMAN_CLINICAL
       snippet: &#39;The BRAFV600E mutation is found in 6-11% of metastatic colo-rectal cancer (mCRC) patients.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:39961465
@@ -7385,7 +7650,7 @@ references:
     - reference: PMID:41677963
       reference_title: &#39;Safety and Efficacy of Triple Therapy Containing Encorafenib, Cetuximab, and Binimetinib for BRAF V600E-Mutated Colorectal Cancer: a Systematic Review and Meta-Analysis.&#39;
       supports: SUPPORT
-      evidence_source: OTHER
+      evidence_source: HUMAN_CLINICAL
       snippet: BRAF V600E-mutated colorectal cancer (CRC) is associated with poor prognosis and resistance to standard chemotherapy.
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:41736753
@@ -7476,6 +7741,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7659,6 +7926,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7727,6 +7996,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7836,6 +8107,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7904,6 +8177,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8013,6 +8288,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8081,6 +8358,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8153,6 +8432,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8221,6 +8502,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8293,7 +8576,9 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -8361,6 +8646,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8433,6 +8720,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8501,6 +8790,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8573,6 +8864,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8643,7 +8936,9 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -8711,6 +9006,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8783,6 +9080,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8851,6 +9150,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8923,6 +9224,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8991,6 +9294,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9063,7 +9368,9 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -9133,7 +9440,9 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -9201,6 +9510,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9273,7 +9584,9 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -9341,6 +9654,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9413,6 +9728,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9481,6 +9798,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9553,6 +9872,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9621,6 +9942,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9693,6 +10016,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9761,6 +10086,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9833,6 +10160,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9903,7 +10232,9 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -9971,6 +10302,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10043,6 +10376,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10113,7 +10448,9 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -10183,7 +10520,9 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -10251,6 +10590,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10323,6 +10664,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10393,7 +10736,9 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -10463,7 +10808,9 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -10531,6 +10878,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10603,7 +10952,9 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -10671,6 +11022,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10743,6 +11096,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10811,6 +11166,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10883,6 +11240,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10953,7 +11312,9 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -11021,6 +11382,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -11093,6 +11456,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11161,6 +11526,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -11233,7 +11600,9 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -11301,6 +11670,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -11373,6 +11744,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11407,6 +11780,24 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Cross-provider assessment</strong> · <a href="../research/BRAF_V600E_Mutant_Colorectal_Cancer-synthesis.html">Read assessment</a></p>
+
+                    </div>
+
+                    <div>
+                        <p><strong>Detailed evidence review: BRAF V600E-Mutant Colorectal Cancer</strong> · 2026-08-28T23:04:28Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/BRAF_V600E_Mutant_Colorectal_Cancer/2026-08-28T230428Z-claude-code-390161.yaml">View source</a></p>
+                        <p class="research-review-text">Full evidence review of kb/disorders/BRAF_V600E_Mutant_Colorectal_Cancer.yaml. All 62 evidence items were checked against all 64 unique cited references (42 PMIDs, 20 DOIs, CIVIC_ASSERTION:20, CIVIC_EID:126): every PMID and CIViC cache file was re-read (title plus abstract/content), and each item was verified for exact-substring snippet match (mechanical check: 47/62 verified against cache, the remaining 15 being DOI-prefixed items that the snippet auditor skips by configured prefix and that cannot be cache-verified), semantic support of the attached claim, supports grading, evidence_source classification, reference_title agreement with cache frontmatter (just check-reference-titles and just check-title-snippets reported no findings for this file), and named-entity confusion (confirmed the CIViC records target BRAF V600E in colorectal cancer, not melanoma/NSCLC, and that quotes about generic CRC are only attached to generic-CRC claims). Thirteen evidence_source misclassifications were found and fixed, all in the deep-research references index: PMID:25005754 (770-patient human cohort sequencing study) and PMID:29540830 (narrative review of human cancer genomics) were graded COMPUTATIONAL though neither reports computational work, both corrected to HUMAN_CLINICAL; nine items quoting sentences that state human clinical or epidemiologic findings (patient mutation frequencies, survival, trial efficacy) from human clinical studies were graded OTHER and corrected to HUMAN_CLINICAL (PMID:27312529, PMID:34249672, PMID:35696748, PMID:36368253, PMID:37455182, PMID:37815847, PMID:38553360, PMID:39935752, PMID:41677963); DOI:10.3389/fonc.2024.1349572 (epidemiologic claim from a systematic review/meta-analysis) OTHER corrected to HUMAN_CLINICAL; and DOI:10.5772/intechopen.1004189, whose quote is a review scope self-description rather than clinical data, HUMAN_CLINICAL corrected to OTHER. Borderline OTHER gradings on purely generic background sentences were deliberately left unchanged to avoid churn. Minor observations, no change made: the histopathology Adenocarcinoma item cites a general colon-cancer sentence from an adenosquamous-carcinoma case report (PMID:35613396) - the quote genuinely states the claim though the host paper is about a different histology; the 15 DOI-referenced snippets in the references index remain unverifiable by the offline snippet auditor. Post-edit validation: just validate passed; just count-verified-snippets 47/62 verified (15 skipped by DOI prefix).
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -13247,7 +13638,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "BRAF V600E-Mutant Colorectal Cancer", "mondoId": "MONDO:0005575", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "BRAF_V600E-Mutant_Colorectal_Cancer", "yamlRevision": "59ae282b2f6b"};
+        const OS_CONFIG = {"diseaseName": "BRAF V600E-Mutant Colorectal Cancer", "mondoId": "MONDO:0005575", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "BRAF_V600E-Mutant_Colorectal_Cancer", "yamlRevision": "6145ffe0e403"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

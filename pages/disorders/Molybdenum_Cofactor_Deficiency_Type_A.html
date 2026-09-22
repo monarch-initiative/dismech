@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4080,6 +4187,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4101,6 +4210,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4434,6 +4545,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mocs1-loss-of-function" data-dismech-node="MOCS1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">MOCS1 Loss of Function</div>
 
+
                 <div class="item-desc">The initiating lesion, and its position in the pathway is what makes this subtype treatable. Molybdenum cofactor is built in three steps by the products of MOCS1, MOCS2, MOCS3 and GPHN. MOCS1 catalyzes the first of them, the conversion of GTP into cyclic pyranopterin monophosphate. A block at step one leaves every downstream step intact and starved of substrate - which is precisely the situation a substrate can be given back into.</div>
 
 
@@ -4566,6 +4678,8 @@ This pathophysiological event involves decreased Mo-molybdopterin cofactor biosy
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4587,6 +4701,8 @@ This pathophysiological event involves decreased Mo-molybdopterin cofactor biosy
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4611,6 +4727,7 @@ This pathophysiological event involves decreased Mo-molybdopterin cofactor biosy
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-molybdenum-cofactor-and-combined-molybdoenzyme-failure" data-dismech-node="Absent Molybdenum Cofactor and Combined Molybdoenzyme Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent Molybdenum Cofactor and Combined Molybdoenzyme Failure</div>
+
 
                 <div class="item-desc">Four molybdoenzymes exist in humans, and all of them lose activity together: sulfite oxidase, xanthine oxidoreductase, aldehyde oxidase and the mitochondrial amidoxime-reducing component. The name of the disease - combined deficiency of sulfite oxidase, xanthine dehydrogenase and aldehyde oxidase - records this. What the name does not record is that the deficiencies are not clinically equal, which the next two nodes separate.</div>
 
@@ -4743,6 +4860,8 @@ This pathophysiological event involves decreased xanthine dehydrogenase activity
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4765,6 +4884,7 @@ This pathophysiological event involves decreased xanthine dehydrogenase activity
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sulfite-accumulation-and-s-sulfocysteine-formation" data-dismech-node="Sulfite Accumulation and S-Sulfocysteine Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Sulfite Accumulation and S-Sulfocysteine Formation</div>
+
 
                 <div class="item-desc">Sulfite oxidase normally converts sulfite to sulfate at the end of cysteine catabolism. Without it sulfite accumulates and drives secondary chemistry: S-sulfocysteine and thiosulfate rise while cysteine and cystine fall. This is the arm that produces the clinical disease. The evidence for that is comparative rather than direct - isolated sulfite oxidase deficiency, in which only this one enzyme is lost, reproduces almost the whole phenotype.</div>
 
@@ -4837,6 +4957,8 @@ This pathophysiological event involves decreased xanthine dehydrogenase activity
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4858,6 +4980,8 @@ This pathophysiological event involves decreased xanthine dehydrogenase activity
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4883,6 +5007,8 @@ This pathophysiological event involves decreased xanthine dehydrogenase activity
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4905,6 +5031,7 @@ This pathophysiological event involves decreased xanthine dehydrogenase activity
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-purine-catabolism-block" data-dismech-node="Purine Catabolism Block" data-dismech-type="pathophysiology">
                 <div class="item-name">Purine Catabolism Block</div>
+
 
                 <div class="item-desc">Xanthine oxidoreductase converts hypoxanthine to xanthine and xanthine to urate, so its loss raises xanthine and lowers urate. This arm is curated separately from the sulfite arm because it behaves differently: it produces the biochemical signature that makes the diagnosis - high xanthine with a urate below the reference range - while contributing little of the clinical disease. A patient with isolated xanthinuria has kidney stones, not a neonatal encephalopathy.</div>
 
@@ -4980,6 +5107,8 @@ This pathophysiological event involves decreased hypoxanthine catabolic process 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5002,6 +5131,7 @@ This pathophysiological event involves decreased hypoxanthine catabolic process 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-s-sulfocysteine-nmda-receptor-excitotoxicity" data-dismech-node="S-Sulfocysteine NMDA-Receptor Excitotoxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">S-Sulfocysteine NMDA-Receptor Excitotoxicity</div>
+
 
                 <div class="item-desc">The step that converts a metabolic block into neuronal death. S-sulfocysteine is a structural analog of glutamate, and it activates NMDA-type glutamate receptors, admitting calcium and triggering downstream signalling including calpain activation. This is why the encephalopathy is destructive rather than merely dysfunctional, and why the neonatal window is so narrow.</div>
 
@@ -5164,6 +5294,8 @@ This pathophysiological event involves increased NMDA glutamate receptor activit
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5177,14 +5309,16 @@ This pathophysiological event involves increased NMDA glutamate receptor activit
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36296488" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36296488" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36296488" target="_blank">PMID:36296488</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5209,6 +5343,7 @@ This pathophysiological event involves increased NMDA glutamate receptor activit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neonatal-encephalopathy-and-cerebral-injury" data-dismech-node="Neonatal Encephalopathy and Cerebral Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Neonatal Encephalopathy and Cerebral Injury</div>
+
 
                 <div class="item-desc">Presentation in the first days of life with severe encephalopathy - refractory seizures, opisthotonos, axial and appendicular hypotonia, feeding difficulty and apnea - with imaging showing loss of grey-white differentiation, gyral swelling and panlobar diffusion restriction through the forebrain and midbrain, characteristically sparing the brain stem. The injury is largely complete by the time it is recognized, which is the central fact governing treatment.</div>
 
@@ -5281,6 +5416,8 @@ This pathophysiological event involves increased NMDA glutamate receptor activit
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5302,6 +5439,8 @@ This pathophysiological event involves increased NMDA glutamate receptor activit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5326,6 +5465,7 @@ This pathophysiological event involves increased NMDA glutamate receptor activit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-profound-neurodevelopmental-disability-and-early-mortality" data-dismech-node="Profound Neurodevelopmental Disability and Early Mortality" data-dismech-type="pathophysiology">
                 <div class="item-name">Profound Neurodevelopmental Disability and Early Mortality</div>
+
 
                 <div class="item-desc">Survivors have profound developmental delay, truncal hypotonia and limb hypertonia evolving into spastic quadriplegia or diplegia, acquired microcephaly and dysmorphic features. Mortality is high and early: about a quarter of neonatal-onset type A patients die before their first birthday, and the median age at death is 2.4 years.</div>
 
@@ -5363,6 +5503,8 @@ This pathophysiological event involves increased NMDA glutamate receptor activit
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5386,6 +5528,8 @@ This pathophysiological event involves increased NMDA glutamate receptor activit
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5407,6 +5551,8 @@ This pathophysiological event involves increased NMDA glutamate receptor activit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5477,13 +5623,15 @@ This pathophysiological event involves increased NMDA glutamate receptor activit
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(3)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5528,6 +5676,9 @@ This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:000887
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5542,6 +5693,8 @@ This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:000887
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5604,6 +5757,9 @@ This clinical feature is Ectopia lentis (HP:0001083). HP:0001083 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5618,6 +5774,8 @@ This clinical feature is Ectopia lentis (HP:0001083). HP:0001083 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5648,13 +5806,13 @@ This clinical feature is Ectopia lentis (HP:0001083). HP:0001083 is a phenotype 
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
+                    Head and Neck
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-opisthotonus" data-dismech-node="Opisthotonus" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-acquired-microcephaly" data-dismech-node="Acquired Microcephaly" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Opisthotonus
+                        Acquired Microcephaly
 
 
 
@@ -5663,18 +5821,23 @@ This clinical feature is Ectopia lentis (HP:0001083). HP:0001083 is a phenotype 
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Progressive microcephaly</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002179" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002179</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000253" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000253</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Opisthotonus (HP:0002179). HP:0002179 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Progressive microcephaly (HP:0000253). HP:0000253 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5686,24 +5849,26 @@ This clinical feature is Opisthotonus (HP:0002179). HP:0002179 is a phenotype fr
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34870926" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:35192225" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34870926" target="_blank">PMID:34870926</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35192225" target="_blank">PMID:35192225</a>
                     </span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"refractory seizures, opisthotonos, axial and appendicular hypotonia"</div>
+                <div class="evidence-snippet">"dysmorphic features, and acquired microcephaly"</div>
 
 
-                <div class="evidence-explanation">Names opisthotonus in the presenting syndrome.</div>
+                <div class="evidence-explanation">Records the microcephaly as acquired, which is what the progressive term captures and what distinguishes it from a primary microcephaly syndrome.</div>
 
 
 
@@ -5724,13 +5889,13 @@ This clinical feature is Opisthotonus (HP:0002179). HP:0002179 is a phenotype fr
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">2</span>
+                    Metabolism
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-drug-resistant-epilepsy" data-dismech-node="Drug-Resistant Epilepsy" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Global Developmental Delay
+                        Drug-Resistant Epilepsy
 
 
 
@@ -5739,85 +5904,23 @@ This clinical feature is Opisthotonus (HP:0002179). HP:0002179 is a phenotype fr
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Refractory drug response</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0020174" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0020174</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Refractory drug response (HP:0020174). HP:0020174 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
 
 
 
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35192225" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35192225" target="_blank">PMID:35192225</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Sequelae included profound developmental delay, truncal hypotonia"</div>
-
-
-                <div class="evidence-explanation">Names profound developmental delay among the sequelae. No denominator is given for the sequelae specifically, so no frequency band is asserted.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dystonia" data-dismech-node="Dystonia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dystonia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001332</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
 
 
 
@@ -5839,14 +5942,16 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"commonly consist of altered mental status, dystonia, choreoathetosis, ataxia, nystagmus, and fluctuating hypotonia and hypertonia"</div>
+                <div class="evidence-snippet">"severe encephalopathy, including refractory seizures, opisthotonos"</div>
 
 
-                <div class="evidence-explanation">Names the movement disorder of the late-onset decompensation episodes.</div>
+                <div class="evidence-explanation">States the refractory character of the seizures.</div>
 
 
 
@@ -5867,13 +5972,13 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">1</span>
+                    Musculoskeletal
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-apnea" data-dismech-node="Apnea" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-opisthotonus" data-dismech-node="Opisthotonus" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Apnea
+                        Opisthotonus
 
 
 
@@ -5885,15 +5990,18 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002104" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002104</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002179" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002179</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Apnea (HP:0002104). HP:0002104 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Opisthotonus (HP:0002179). HP:0002179 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5915,161 +6023,16 @@ This clinical feature is Apnea (HP:0002104). HP:0002104 is a phenotype from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"appendicular hypotonia, feeding difficulties, and apnea"</div>
-
-
-                <div class="evidence-explanation">Names apnea among the presenting features of the neonatal syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-neonatal-seizures" data-dismech-node="Neonatal Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Neonatal Seizures
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0032807</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Neonatal seizure (HP:0032807). HP:0032807 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35192225" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35192225" target="_blank">PMID:35192225</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"The most common presenting symptoms in the overall population were seizures (60.3%) and feeding difficulties (53.4%)"</div>
+                <div class="evidence-snippet">"refractory seizures, opisthotonos, axial and appendicular hypotonia"</div>
 
 
-                <div class="evidence-explanation">60.3 percent falls in the FREQUENT band (30-79 percent), counted across the cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-drug-resistant-epilepsy" data-dismech-node="Drug-Resistant Epilepsy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Drug-Resistant Epilepsy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Refractory drug response</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0020174" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0020174</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Refractory drug response (HP:0020174). HP:0020174 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34870926" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34870926" target="_blank">PMID:34870926</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"severe encephalopathy, including refractory seizures, opisthotonos"</div>
-
-
-                <div class="evidence-explanation">States the refractory character of the seizures.</div>
+                <div class="evidence-explanation">Names opisthotonus in the presenting syndrome.</div>
 
 
 
@@ -6099,15 +6062,18 @@ This clinical feature is Refractory drug response (HP:0020174). HP:0020174 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0008936</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0008936</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band is asserted. The two sources here are qualitative, and the one series that does give a number - 11 percent hypotonia among initial cardinal features in PMID:25764214 - counts only hypotonia as the presenting sign, in an all-subtype population, which is a different quantity from how many patients ever have it.</div>
@@ -6131,6 +6097,8 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6152,6 +6120,8 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6191,15 +6161,18 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002510</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002510</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spastic tetraplegia (HP:0002510). HP:0002510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6219,6 +6192,8 @@ This clinical feature is Spastic tetraplegia (HP:0002510). HP:0002510 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6244,9 +6219,20 @@ This clinical feature is Spastic tetraplegia (HP:0002510). HP:0002510 is a pheno
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-acquired-microcephaly" data-dismech-node="Acquired Microcephaly" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neonatal-seizures" data-dismech-node="Neonatal Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Acquired Microcephaly
+                        Neonatal Seizures
+
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
 
@@ -6255,20 +6241,21 @@ This clinical feature is Spastic tetraplegia (HP:0002510). HP:0002510 is a pheno
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Progressive microcephaly</span>
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0032807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0032807</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000253" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000253</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Progressive microcephaly (HP:0000253). HP:0000253 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Neonatal seizure (HP:0032807). HP:0032807 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6290,14 +6277,241 @@ This clinical feature is Progressive microcephaly (HP:0000253). HP:0000253 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"dysmorphic features, and acquired microcephaly"</div>
+                <div class="evidence-snippet">"The most common presenting symptoms in the overall population were seizures (60.3%) and feeding difficulties (53.4%)"</div>
 
 
-                <div class="evidence-explanation">Records the microcephaly as acquired, which is what the progressive term captures and what distinguishes it from a primary microcephaly syndrome.</div>
+                <div class="evidence-explanation">60.3 percent falls in the FREQUENT band (30-79 percent), counted across the cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Global Developmental Delay
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35192225" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35192225" target="_blank">PMID:35192225</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Sequelae included profound developmental delay, truncal hypotonia"</div>
+
+
+                <div class="evidence-explanation">Names profound developmental delay among the sequelae. No denominator is given for the sequelae specifically, so no frequency band is asserted.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dystonia" data-dismech-node="Dystonia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dystonia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001332</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34870926" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34870926" target="_blank">PMID:34870926</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"commonly consist of altered mental status, dystonia, choreoathetosis, ataxia, nystagmus, and fluctuating hypotonia and hypertonia"</div>
+
+
+                <div class="evidence-explanation">Names the movement disorder of the late-onset decompensation episodes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-apnea" data-dismech-node="Apnea" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Apnea
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002104" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002104</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Apnea (HP:0002104). HP:0002104 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34870926" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34870926" target="_blank">PMID:34870926</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"appendicular hypotonia, feeding difficulties, and apnea"</div>
+
+
+                <div class="evidence-explanation">Names apnea among the presenting features of the neonatal syndrome.</div>
 
 
 
@@ -6387,6 +6601,9 @@ This disease-associated gene is MOCS1 (hgnc:7190). hgnc:7190 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6401,6 +6618,8 @@ This disease-associated gene is MOCS1 (hgnc:7190). hgnc:7190 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6424,6 +6643,8 @@ This disease-associated gene is MOCS1 (hgnc:7190). hgnc:7190 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6527,6 +6748,31 @@ This treatment uses fosdenopterin (NCIT:C175065). NCIT:C175065 is a therapeutic 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The only disease-modifying therapy, and it exists only for type A. Fosdenopterin is synthetic cyclic pyranopterin monophosphate - the exact intermediate MOCS1 fails to make - given by daily infusion through an indwelling catheter. It works because the block is at step one: everything downstream is intact and merely starved, so supplying cPMP restores the pathway. Substitution is highly effective at reducing sulfite toxicity and restoring biochemical homeostasis, but biochemical rescue is not the same as clinical rescue, and outcome depends on how much brain injury has already occurred. Patients on fosdenopterin must avoid direct sunlight and UV phototherapy.</div>
 
 
@@ -6550,6 +6796,8 @@ This treatment uses fosdenopterin (NCIT:C175065). NCIT:C175065 is a therapeutic 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6563,14 +6811,16 @@ This treatment uses fosdenopterin (NCIT:C175065). NCIT:C175065 is a therapeutic 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36296488" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36296488" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36296488" target="_blank">PMID:36296488</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6594,6 +6844,8 @@ This treatment uses fosdenopterin (NCIT:C175065). NCIT:C175065 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6656,6 +6908,31 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Low protein intake with restriction of whole natural protein, aimed at reducing the cysteine load whose catabolism generates sulfite. Unlike fosdenopterin this is applied across all subtypes. It requires monitoring of essential amino acids, since the restriction that lowers sulfite also risks deficiency.</div>
 
 
@@ -6679,6 +6956,8 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6700,6 +6979,8 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6784,6 +7065,31 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A contraindication rather than a therapy, and one that collides with the presentation: valproate is a standard choice for refractory neonatal seizures, which is exactly how these patients present. GeneReviews advises avoiding it where possible because sulfite intoxication impairs mitochondrial function in vitro, and valproate is itself mitochondrially toxic.</div>
 
 
@@ -6805,6 +7111,8 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6867,6 +7175,31 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Autosomal recessive counseling with a 25 percent recurrence risk, but with an unusual operational consequence: because the therapeutic window is days, an at-risk newborn sib should be started on metabolic treatment immediately and only stopped once the diagnosis is excluded. Treatment precedes diagnosis rather than following it.</div>
 
 
@@ -6888,6 +7221,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6951,6 +7286,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6997,6 +7334,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7020,6 +7359,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7041,6 +7382,268 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-testing">
+                <div class="item-name">
+                    Molecular Genetic Testing
+
+                </div>
+
+                <div class="item-desc">Sequencing of MOCS1, MOCS2, MOCS3 and GPHN. This is the only way to distinguish type A from types B and C, and because the distinction gates access to fosdenopterin within a window measured in days, the testing is genuinely time-critical rather than confirmatory. Fibroblast sulfite oxidase activity is the fallback when molecular testing is unavailable, but the chapter notes it discriminates poorly between total and partial loss.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Whole Exome Sequencing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C101295" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C101295</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34870926" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34870926" target="_blank">PMID:34870926</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of molybdenum cofactor deficiency is established by identification of biallelic pathogenic variants in GPHN, MOCS1, MOCS2, or MOCS3, or when unavailable, of significantly reduced activity of the enzyme sulfite oxidase in cultured fibroblasts"</div>
+
+
+                <div class="evidence-explanation">The diagnostic pathway and its enzymatic fallback.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34870926" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34870926" target="_blank">PMID:34870926</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"due to low expression of sulfite oxidase in fibroblasts, differentiation between total and partial loss of enzyme activity is difficult to discern"</div>
+
+
+                <div class="evidence-explanation">Curated PARTIAL because it qualifies the fallback assay rather than supporting it - the enzymatic route cannot grade severity.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25764214" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25764214" target="_blank">PMID:25764214</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The median time to diagnosis (diagnostic delay) was 89 days"</div>
+
+
+                <div class="evidence-explanation">Quantifies how far actual practice sits from the timeline the therapy requires. Against a median onset on the first day of life, a median 89-day delay means the diagnostic route described here is, as things stand, usually completed long after the window in which substitution changes the neurological outcome. This is the measured form of the treatment-window gap recorded in the discussions.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">The largest natural history study assembled 58 patients across types A and B, of whom 41 had type A. The disease is described in the literature as ultra-rare, and the study cited here was itself framed as a quantitative analysis of an ultra-orphan disease.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35192225" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35192225" target="_blank">PMID:35192225</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This natural history study analyzed retrospective data for 58 living or deceased patients (MoCD-A, n = 41; MoCD-B, n = 17)"</div>
+
+
+                <div class="evidence-explanation">The size of the largest assembled cohort, with the type A stratum stated.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35192225" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35192225" target="_blank">PMID:35192225</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Molybdenum cofactor deficiency (MoCD) includes three ultrarare autosomal recessive inborn errors of metabolism"</div>
+
+
+                <div class="evidence-explanation">The source&#39;s characterization of the disease family as ultra-rare.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7106,6 +7709,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7175,6 +7780,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7232,14 +7839,16 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34870926" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:34870926" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34870926" target="_blank">PMID:34870926</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7365,6 +7974,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7408,14 +8019,16 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:15862276" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:15862276" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15862276" target="_blank">PMID:15862276</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7461,6 +8074,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7770,7 +8385,7 @@ pathophysiology:
       effector.
   - reference: PMID:36296488
     reference_title: &#34;Molybdenum Cofactor Deficiency in Humans.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;The effects of these S-sulfonated species remain largely unknown except for
       S-sulfocysteine (SSC)&#34;
@@ -8220,7 +8835,7 @@ diagnosis:
       The diagnostic pathway and its enzymatic fallback.
   - reference: PMID:34870926
     reference_title: &#34;Molybdenum Cofactor Deficiency.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;due to low expression of sulfite oxidase in fibroblasts, differentiation
       between total and partial loss of enzyme activity is difficult to discern&#34;
@@ -8275,7 +8890,7 @@ treatments:
       omits the registered trademark symbol after NULIBRY as the cached record renders it.
   - reference: PMID:36296488
     reference_title: &#34;Molybdenum Cofactor Deficiency in Humans.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Substitution therapy with cPMP is highly effective in reducing sulfite
       toxicity and restoring biochemical homeostasis, while the clinical outcome critically
@@ -8432,7 +9047,7 @@ animal_models:
     evidence:
     - reference: PMID:15862276
       reference_title: &#34;The pathogenesis of molybdenum cofactor deficiency, its delay by maternal clearance, and its expression pattern in microarray analysis.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;We now analyzed these mice in detail and excluded morphological brain damage,
         while expression analysis with microarrays indicates a massive cell death program&#34;
@@ -8529,7 +9144,7 @@ differential_diagnoses:
   evidence:
   - reference: PMID:34870926
     reference_title: &#34;Molybdenum Cofactor Deficiency.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Head imaging may demonstrate loss of gray and white matter differentiation,
       gyral swelling, sulci injury&#34;
@@ -8699,6 +9314,48 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope. This entry curates molybdenum cofactor deficiency type A, the MOCS1 complementation group. Types B (MOCS2) and C (GPHN) are curated only as differentials. That boundary is load-bearing rather than tidy: fosdenopterin is licensed for type A alone, so blending the types would attach a treatment to diseases it cannot help. Every claim in this entry is drawn from a type A or all-subtype statement. Where a source reports combined figures, the type A stratum is quoted instead - the one-year survival is given as 71.8 percent for neonatal-onset type A rather than the 77.4 percent overall figure. The animal model curated here is the Mocs1-null mouse, which is the type A genotype; the Mocs2 model in PMID:27138983 is deliberately left out, because a type B model cannot test cPMP substitution - in that model cPMP is already being made - so it speaks to the shared downstream consequence of cofactor absence rather than to the MOCS1 step that defines type A. NEC preflight returned WARN rather than PASS, and the warning is benign and expected. MOCS1 is mentioned 34 times; the flagged rival MOCS2 appears 11 times, with SUOX and GPHN behind it. All three are the complementation groups and the principal differential of the disease being curated, so a report that did not mention them would be a worse report. The rival-gene heuristic cannot distinguish a differential from a second entity. Deep research provenance. The report was generated with the claude_code provider and was the cleanest of this batch: 23 of 23 references resolved, confabulation_rate 0.0, and no needs_review flag. One quoted claim was recorded as not checkable.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Address review findings on PR 9120: type A animal model, diagnostic-delay evidence, two GeneReviews phenotypes</strong> · 2026-08-20T19:41:16Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Molybdenum_Cofactor_Deficiency_Type_A/2026-08-20T194116Z-claude-code-20531f.yaml">View source</a></p>
+                        <p class="research-review-text">PR Shepherd follow-up to the ai4c-reviewer CHANGES_REQUESTED review of 2026-08-20T18:49:05Z. All three findings addressed from material already committed in this branch; no new literature search and no new reference cache files. CRITICAL finding: the HUMAN_MODEL_MISMATCH discussion mismatch_no_type_a_animal_model_is_curated asserted that the only published mouse was a Mocs2 type B model. That premise was wrong - the deep-research artifact leads with a Mocs1 knockout mouse, PMID:15862276, MGI:1928904, whose cached abstract also states that an efficient therapy using a biosynthetic precursor of Moco was established in that model. Added an animal_models entry for the Mocs1-null mouse with two modeled_mechanisms links, RECAPITULATES against Sulfite Accumulation and S-Sulfocysteine Formation and PARTIALLY_RECAPITULATES against Neonatal Encephalopathy and Cerebral Injury, each with MODEL_ORGANISM evidence, fidelity and limitations, plus link-level evidence for the model being informative at all. Recorded in the model notes that the cited abstract names the disease but not the gene, so the Mocs1 genotype attribution comes from the deep-research artifact and MGI rather than from the quoted text. Replaced the retired discussion with mismatch_type_a_mouse_lacks_the_human_structural_lesion, which states the mismatch that actually survives - the mouse excluded morphological brain damage and died within two weeks, against human MRI structural destruction over an infancy-long course - and rewrote the proposed experiment to test whether that difference is one of kind or only of duration. Updated the top-level scope notes, which still said no animal model was curated. Second finding: PMID:25764214 was committed but uncited. Added its median 36-month survival to the Profound Neurodevelopmental Disability and Early Mortality node as an untreated-natural-history corroboration of the stratified figure, and its median 89-day diagnostic delay to the Molecular Genetic Testing diagnosis entry, where it quantifies the treatment-window gap the discussions describe qualitatively. Third finding: added the two missing GeneReviews phenotypes above the 10 percent threshold, Axial hypotonia HP:0008936 and Apnea HP:0002104, both quoting GeneReviews sentences the entry already cited elsewhere. No frequency band asserted on axial hypotonia, with the reason recorded in its notes. Validated with just validate - schema, terms and references all pass, snippets 51/51 verified against cached references - just check-duplicate-keys, and the model/target/discussion subset of tests/test_data.py, 17295 passed.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Molybdenum Cofactor Deficiency Type A (MOCS1)</strong> · 2026-08-20T18:37:14Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Molybdenum_Cofactor_Deficiency_Type_A/2026-08-20T183714Z-claude-code-c34ebc.yaml">View source</a></p>
+                        <p class="research-review-text">New Disease entry for molybdenum cofactor deficiency type A (MONDO:0009643, OMIM 252150), autosomal recessive, biallelic MOCS1 (hgnc:7190).
+
+Mechanism curated as 7 atomic nodes with a deliberate fork. MOCS1 loss blocks step one of molybdenum cofactor biosynthesis (GTP to cyclic pyranopterin monophosphate), which disables all four human molybdoenzymes at once. The entry then splits that combined failure into two arms that are curated separately because they behave differently: the sulfite oxidase arm (sulfite accumulation, S-sulfocysteine formation, NMDA-receptor excitotoxicity, neonatal encephalopathy) carries essentially the whole clinical disease, while the xanthine oxidoreductase arm (high xanthine, low urate) supplies the diagnostic biochemical signature and little of the morbidity. The evidence for that asymmetry is comparative: isolated sulfite oxidase deficiency mirrors most of the phenotype, and isolated xanthinuria is a stone-forming condition rather than an encephalopathy.
+
+The excitotoxicity step is the mechanistic centrepiece: S-sulfocysteine is a structural analog of glutamate and activates NMDA receptors, causing calcium influx and calpain activation. That is what converts a metabolic block into destructive brain injury and explains why the treatment window is so narrow.
+
+Scope discipline was the main curation risk and is recorded in two places. Types B (MOCS2) and C (GPHN) are clinically indistinguishable and appear throughout the literature, but only type A is treatable, so blending them would attach fosdenopterin to diseases it cannot help. Every claim here is from a type A or all-subtype statement; where a source gives combined figures the type A stratum is quoted instead (one-year survival 71.8 percent for neonatal-onset type A, not the 77.4 percent overall). The Mocs2 mouse model in PMID:27138983 is deliberately not curated and no animal_models section is asserted, with the reasoning in a HUMAN_MODEL_MISMATCH discussion: a type B model cannot test the cPMP-bypass argument because in that model cPMP is already being made.
+
+Both GeneReviews Agents/Circumstances to Avoid items are carried: valproate avoidance (its own treatment entry, noting the collision with the fact that these patients present with refractory neonatal seizures) and UV avoidance for patients on fosdenopterin.
+
+Three discussions: a KNOWLEDGE_GAP on the unquantified treatment window (GeneReviews says &#39;a very short window&#39; with no number, and the excitotoxicity mechanism suggests hours rather than days, which would change whether to treat before molecular confirmation); a KNOWLEDGE_GAP on what the non-sulfite molybdoenzymes actually contribute; and the HUMAN_MODEL_MISMATCH above.
+
+Three differentials: isolated sulfite oxidase deficiency (same sulfite arm, intact purine arm, distinguished by normal urate), types B and C, and hypoxic-ischemic encephalopathy — the last being the differential that actually costs time, where a low serum urate is the cheap discriminator.
+
+Validation: just validate passed; 43/43 snippets verified; just validate-terms passed; check-duplicate-keys, check-title-snippets, check-snippet-length, check-folded-hyphens and check-environmental-evidence all clean.
+
+Two errors caught during curation and worth recording. First, I initially bound MONDO:0009116 for isolated sulfite oxidase deficiency in the differential; the term validator rejected it and it turned out to be &#39;obsolete lactose intolerance&#39;. The correct term, MONDO:0010089, was taken from the existing KB entry rather than guessed again. Second, one evidence snippet initially quoted an article title (PMID:21031595); check-title-snippets rejected it and it was replaced with the abstract sentence mapping each gene to its complementation group.
+
+GeneReviews baseline: PMID:34870926 exists and was used as the mandatory phenotype baseline, tagged in the top-level references block. Deep-research report was the cleanest of this batch — 23 of 23 references resolved, confabulation_rate 0.0, no needs_review flag.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9455,7 +10112,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Molybdenum Cofactor Deficiency Type A", "mondoId": "MONDO:0009643", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Molybdenum_Cofactor_Deficiency_Type_A", "yamlRevision": "26f6c109cddd"};
+        const OS_CONFIG = {"diseaseName": "Molybdenum Cofactor Deficiency Type A", "mondoId": "MONDO:0009643", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Molybdenum_Cofactor_Deficiency_Type_A", "yamlRevision": "6ebd0c30f1f6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

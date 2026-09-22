@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -289,6 +290,16 @@
             border: 1px solid var(--teal-light);
         }
 
+        /* Study-area category pills. Colour comes from ModuleCategoryEnum via
+           the renderer, so only the shape is set here. */
+        .badge-study-area {
+            border: 1px solid;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 5px 13px;
+            cursor: help;
+        }
+
         .badge-module {
             background: #e0f2fe;
             color: #0369a1;
@@ -457,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -634,9 +657,7 @@
             font-weight: 600;
         }
         .support-SUPPORT { background: #d1fae5; color: #065f46; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
-        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
@@ -974,6 +995,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -982,7 +1017,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -1022,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1037,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1091,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1104,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1262,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1272,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1313,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1519,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1552,6 +1626,15 @@
         <header class="page-header">
             <h1>Thrombospondin Type-1 Repeat O-Glycosylation Quality Control</h1>
             <div class="header-meta">
+                
+                <span class="badge badge-study-area"
+                      title="Morphogenesis and embryonic patterning — signalling gradients, segmentation, cell-fate specification, and migration defects whose lesion acts during development rather than in mature tissue."
+                      style="background: hsl(120, 68%, 96%); border-color: hsl(120, 52%, 78%); color: hsl(120, 62%, 26%);">Developmental biology</span>
+                
+                <span class="badge badge-study-area"
+                      title="Intermediary metabolism, bioenergetics, and cellular quality control of metabolic substrate: inborn errors of metabolism, mitochondrial and lysosomal function, nutrient sensing, and storage or intoxication phenotypes."
+                      style="background: hsl(258, 68%, 96%); border-color: hsl(258, 52%, 78%); color: hsl(258, 62%, 26%);">Metabolism</span>
+                
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">tsr_o_glycosylation_quality_control</span>
                 <span class="badge badge-count">2 disorders</span>
@@ -1860,6 +1943,8 @@ This mechanism module involves dysregulated transforming growth factor beta rece
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
@@ -1948,11 +2033,13 @@ This mechanism module involves dysregulated transforming growth factor beta rece
             
             <div class="item-box anchor-target" id="module-pathophysiology-absent-o-fucose-on-folded-thrombospondin-type-1-repeats" data-dismech-node="Absent O-Fucose on Folded Thrombospondin Type-1 Repeats" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent O-Fucose on Folded Thrombospondin Type-1 Repeats</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The first arm loses O-fucose from a correctly folded TSR, either because POFUT2 activity is absent or because a substrate variant disrupts its O-fucosylation site. This removes the glycan that stabilizes the folded domain and also prevents the downstream B3GLCT glucose extension. In the worked human substrate example, ADAMTSL2 p.Ser641Leu eliminates O-fucosylation of TSR3 and reduces secretion.</div>
                 
@@ -2030,11 +2117,13 @@ This pathophysiological event involves decreased protein O-linked glycosylation 
             
             <div class="item-box anchor-target" id="module-pathophysiology-absent-glucose-beta-1-3-fucose-disaccharide-on-thrombospondin-type-1-repeats" data-dismech-node="Absent Glucose-beta-1,3-Fucose Disaccharide on Thrombospondin Type-1 Repeats" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent Glucose-beta-1,3-Fucose Disaccharide on Thrombospondin Type-1 Repeats</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The second arm retains the POFUT2-added O-fucose but loses B3GLCT-dependent glucose extension, leaving a fucose monosaccharide in place of the mature glucose-beta-1,3-fucose disaccharide. The added glucose supplies further fold stabilization, but this step is required by only a subset of POFUT2 substrates.</div>
                 
@@ -2110,11 +2199,13 @@ This pathophysiological event involves decreased protein O-linked glycosylation 
             
             <div class="item-box anchor-target" id="module-pathophysiology-impaired-er-quality-control-and-secretion-of-tsr-containing-proteins" data-dismech-node="Impaired ER Quality Control and Secretion of TSR-Containing Proteins" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired ER Quality Control and Secretion of TSR-Containing Proteins</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">POFUT2 and B3GLCT form a noncanonical ER quality-control pathway: POFUT2 recognizes a correctly folded TSR, and sequential glycosylation stabilizes that fold and favors efficient secretion. Loss of the relevant sugar makes susceptible TSR domains less stable and delays or prevents ER exit. The effect is selective rather than universal because dependence varies by TSR, substrate, cell type, and compensating modifications such as C-mannosylation.</div>
                 
@@ -2246,11 +2337,13 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
             
             <div class="item-box anchor-target" id="module-pathophysiology-selective-depletion-or-dysfunction-of-tsr-containing-extracellular-proteins" data-dismech-node="Selective Depletion or Dysfunction of TSR-Containing Extracellular Proteins" data-dismech-type="pathophysiology">
                 <div class="item-name">Selective Depletion or Dysfunction of TSR-Containing Extracellular Proteins</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The affected extracellular client set is enriched for ADAMTS and ADAMTS-like proteins but is not limited to that family. Which clients fall below a functional threshold depends on the lost glycosylation step, individual TSR folding energetics, compensating C-mannosylation, and the tissue context. Disease-specific conformers name the demonstrated client, such as ADAMTSL2 in geleophysic dysplasia or ADAMTS9/ADAMTS20 in the Peters plus mouse model.</div>
                 
@@ -2314,11 +2407,13 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
             
             <div class="item-box anchor-target" id="module-pathophysiology-extracellular-matrix-remodeling-and-growth-factor-signaling-dysregulation" data-dismech-node="Extracellular Matrix Remodeling and Growth-Factor Signaling Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Extracellular Matrix Remodeling and Growth-Factor Signaling Dysregulation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Altered abundance or extracellular function of ADAMTS/ADAMTSL proteins changes fibrillin microfibril composition, matrix remodeling, and the availability of matrix-regulated BMP, IHH, and TGF-beta signals. The resulting anatomical phenotype is disorder- and tissue-specific; this module stops at the conserved matrix/signaling consequence rather than treating eye, skeletal, cardiac, or CNS malformations as interchangeable.</div>
                 
@@ -2423,6 +2518,9 @@ This pathophysiological event involves dysregulated transforming growth factor b
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

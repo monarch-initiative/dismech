@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4207,6 +4314,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-receptor-mediated-viral-entry-and-endosomal-uncoating" data-dismech-node="Receptor-mediated viral entry and endosomal uncoating" data-dismech-type="pathophysiology">
                 <div class="item-name">Receptor-mediated viral entry and endosomal uncoating</div>
 
+
                 <div class="item-desc">EV-A71 uses a two-step entry mechanism. PSGL-1 (SELPLG) serves as the cell-surface attachment receptor on hematopoietic cells, while SCARB2 acts as an intracellular uncoating receptor within late endosomes and lysosomes, where acid-dependent genome release occurs. This separation of attachment and uncoating receptors determines tissue tropism and is a key determinant of disease severity.</div>
 
 
@@ -4326,6 +4434,8 @@ This pathophysiological event involves receptor-mediated endocytosis of virus by
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4347,6 +4457,8 @@ This pathophysiological event involves receptor-mediated endocytosis of virus by
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4371,6 +4483,7 @@ This pathophysiological event involves receptor-mediated endocytosis of virus by
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-viremia-and-systemic-dissemination" data-dismech-node="Viremia and systemic dissemination" data-dismech-type="pathophysiology">
                 <div class="item-name">Viremia and systemic dissemination</div>
+
 
                 <div class="item-desc">Following initial mucosal replication, enteroviruses undergo primary and secondary viremia enabling systemic spread to skin, mucous membranes, and in severe cases the central nervous system. The viremic phase typically occurs 4-5 days post-infection and determines the extent of disease.</div>
 
@@ -4465,6 +4578,8 @@ This pathophysiological event involves symbiont entry into host cell (GO:0046718
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4486,6 +4601,8 @@ This pathophysiological event involves symbiont entry into host cell (GO:0046718
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4510,6 +4627,7 @@ This pathophysiological event involves symbiont entry into host cell (GO:0046718
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enteroviral-mucocutaneous-injury" data-dismech-node="Enteroviral mucocutaneous injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Enteroviral mucocutaneous injury</div>
+
 
                 <div class="item-desc">Viral cytopathic effects and immune-mediated inflammation in epidermal keratinocytes produce the characteristic vesicular lesions on hands, feet, and oral mucosa. Lesion formation involves direct viral lysis of epithelial cells combined with local inflammatory cell infiltration.</div>
 
@@ -4663,6 +4781,8 @@ This pathophysiological event occurs in oral mucosa, annotated with mouth mucosa
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4685,6 +4805,7 @@ This pathophysiological event occurs in oral mucosa, annotated with mouth mucosa
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-innate-immune-sensing-and-viral-evasion" data-dismech-node="Innate immune sensing and viral evasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Innate immune sensing and viral evasion</div>
+
 
                 <div class="item-desc">Host pattern recognition receptors (TLR3, TLR7, RIG-I, MDA5) detect viral RNA and activate MAVS-TBK1-IRF3/7 and NF-kB signaling, inducing type I interferons and pro-inflammatory cytokines. EV-A71 counteracts these defenses through viral protease-mediated cleavage of RIG-I, inhibition of IFNAR/STAT signaling, and modulation of NLRP3 inflammasome activation.</div>
 
@@ -4809,6 +4930,8 @@ This pathophysiological event involves dysregulated defense response to virus (G
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4831,6 +4954,7 @@ This pathophysiological event involves dysregulated defense response to virus (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-blood-brain-barrier-disruption-and-neuroinvasion" data-dismech-node="Blood-brain barrier disruption and neuroinvasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Blood-brain barrier disruption and neuroinvasion</div>
+
 
                 <div class="item-desc">In severe HFMD, the IP-10 (CXCL10)/TNF-alpha regulatory axis induces downregulation of endothelial tight junction proteins (Claudin5, Occludin, ZO-1, VE-cadherin), compromising blood-brain barrier integrity and facilitating viral entry into the CNS. MMP-9-mediated junctional disruption provides an additional mechanism of BBB compromise.</div>
 
@@ -4976,6 +5100,8 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4997,6 +5123,8 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5021,6 +5149,7 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-brainstem-neuroinflammation" data-dismech-node="Brainstem neuroinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Brainstem neuroinflammation</div>
+
 
                 <div class="item-desc">After CNS entry, enteroviral infection triggers inflammatory injury in the brainstem, a key substrate for severe neurologic disease in EV-A71 HFMD.</div>
 
@@ -5166,6 +5295,8 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5188,6 +5319,7 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-brainstem-structural-injury" data-dismech-node="Brainstem structural injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Brainstem structural injury</div>
+
 
                 <div class="item-desc">Severe CNS involvement produces radiographically and clinically detectable brainstem lesions.</div>
 
@@ -5303,6 +5435,8 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5325,6 +5459,7 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sympathetic-nervous-system-overactivation" data-dismech-node="Sympathetic nervous system overactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Sympathetic nervous system overactivation</div>
+
 
                 <div class="item-desc">Brainstem autonomic dysfunction produces excessive sympathetic outflow during severe EV-A71 CNS disease.</div>
 
@@ -5377,6 +5512,8 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5399,6 +5536,7 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-catecholamine-excess" data-dismech-node="Catecholamine excess" data-dismech-type="pathophysiology">
                 <div class="item-name">Catecholamine excess</div>
+
 
                 <div class="item-desc">Severe EV-A71 CNS disease is accompanied by excess circulating norepinephrine and epinephrine, consistent with a catecholamine storm.</div>
 
@@ -5489,6 +5627,8 @@ This pathophysiological event involves increased catecholamine secretion (GO:005
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5511,6 +5651,7 @@ This pathophysiological event involves increased catecholamine secretion (GO:005
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-host-metabolic-reprogramming-by-ev-a71" data-dismech-node="Host metabolic reprogramming by EV-A71" data-dismech-type="pathophysiology">
                 <div class="item-name">Host metabolic reprogramming by EV-A71</div>
+
 
                 <div class="item-desc">EV-A71 reprograms host cell glycolysis by upregulating alpha-enolase (ENO1), increasing glucose absorption and glycolytic metabolite production to support viral replication. Glycolysis inhibition through ENO1 knockdown or dichloroacetic acid (DCA) treatment significantly suppresses viral infection.</div>
 
@@ -5586,6 +5727,8 @@ This pathophysiological event involves increased glycolytic process (GO:0006096)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5607,6 +5750,8 @@ This pathophysiological event involves increased glycolytic process (GO:0006096)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5732,6 +5877,9 @@ This clinical feature is myocarditis (HP:0012819). HP:0012819 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5746,6 +5894,8 @@ This clinical feature is myocarditis (HP:0012819). HP:0012819 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5812,6 +5962,9 @@ This clinical feature is decreased appetite, annotated with Poor appetite (HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5826,6 +5979,8 @@ This clinical feature is decreased appetite, annotated with Poor appetite (HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5892,6 +6047,9 @@ This clinical feature is oral enanthema, annotated with Oral ulcer (HP:0000155).
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5906,6 +6064,8 @@ This clinical feature is oral enanthema, annotated with Oral ulcer (HP:0000155).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5961,6 +6121,9 @@ This clinical feature is drooling (HP:0002307). HP:0002307 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5975,6 +6138,8 @@ This clinical feature is drooling (HP:0002307). HP:0002307 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6041,6 +6206,9 @@ This clinical feature is maculopapular exanthem, annotated with Maculopapular ex
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6055,6 +6223,8 @@ This clinical feature is maculopapular exanthem, annotated with Maculopapular ex
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6110,6 +6280,9 @@ This clinical feature is aseptic meningitis, annotated with Meningitis (HP:00012
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6124,6 +6297,8 @@ This clinical feature is aseptic meningitis, annotated with Meningitis (HP:00012
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6181,6 +6356,9 @@ This clinical feature is brainstem encephalitis, annotated with Infectious encep
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6195,6 +6373,8 @@ This clinical feature is brainstem encephalitis, annotated with Infectious encep
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6261,6 +6441,9 @@ This clinical feature is vesicular exanthem on hands and feet, annotated with Sk
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6275,6 +6458,8 @@ This clinical feature is vesicular exanthem on hands and feet, annotated with Sk
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6330,6 +6515,9 @@ This clinical feature is onychomadesis (HP:0025088). HP:0025088 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6344,6 +6532,8 @@ This clinical feature is onychomadesis (HP:0025088). HP:0025088 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6408,6 +6598,9 @@ This clinical feature is fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6422,6 +6615,8 @@ This clinical feature is fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6477,6 +6672,9 @@ This clinical feature is neurogenic pulmonary edema, annotated with Pulmonary ed
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6491,6 +6689,8 @@ This clinical feature is neurogenic pulmonary edema, annotated with Pulmonary ed
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6546,6 +6746,9 @@ This clinical feature is dehydration (HP:0001944). HP:0001944 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6560,6 +6763,8 @@ This clinical feature is dehydration (HP:0001944). HP:0001944 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6624,6 +6829,9 @@ This clinical feature is irritability (HP:0000737). HP:0000737 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6638,6 +6846,8 @@ This clinical feature is irritability (HP:0000737). HP:0000737 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6693,6 +6903,9 @@ This clinical feature is acute flaccid paralysis, annotated with Paralysis (HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6707,6 +6920,8 @@ This clinical feature is acute flaccid paralysis, annotated with Paralysis (HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6762,6 +6977,9 @@ This clinical feature is seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6776,6 +6994,8 @@ This clinical feature is seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6842,6 +7062,9 @@ This clinical feature is sore throat, annotated with Pharyngitis (HP:0025439). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6856,6 +7079,8 @@ This clinical feature is sore throat, annotated with Pharyngitis (HP:0025439). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6920,6 +7145,9 @@ This clinical feature is malaise (HP:0033834). HP:0033834 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6934,6 +7162,8 @@ This clinical feature is malaise (HP:0033834). HP:0033834 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7007,6 +7237,9 @@ This clinical feature is malaise (HP:0033834). HP:0033834 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7021,6 +7254,8 @@ This clinical feature is malaise (HP:0033834). HP:0033834 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7102,6 +7337,20 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Primary management is supportive, including adequate hydration, antipyretics for fever, and analgesics for pain relief.</div>
 
 
@@ -7123,6 +7372,8 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7186,6 +7437,20 @@ This treatment is antipyretic and analgesic therapy, annotated with Pharmacother
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Acetaminophen or ibuprofen for fever and pain management, particularly for oral ulcer pain.</div>
 
 
@@ -7207,6 +7472,8 @@ This treatment is antipyretic and analgesic therapy, annotated with Pharmacother
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7270,6 +7537,31 @@ This treatment is EV-A71 vaccination, annotated with Vaccination (NCIT:C15346). 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Vaccine</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">An inactivated EV-A71 vaccine approved in China provides high-level protection against EV-A71-related HFMD, but does not protect against other enterovirus serotypes. Real-world surveillance shows sharp reductions in EV-A71 detections following vaccine rollout.</div>
 
 
@@ -7293,6 +7585,8 @@ This treatment is EV-A71 vaccination, annotated with Vaccination (NCIT:C15346). 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7314,6 +7608,8 @@ This treatment is EV-A71 vaccination, annotated with Vaccination (NCIT:C15346). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7377,6 +7673,8 @@ This treatment is EV-A71 vaccination, annotated with Vaccination (NCIT:C15346). 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7425,6 +7723,8 @@ This treatment is EV-A71 vaccination, annotated with Vaccination (NCIT:C15346). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7480,6 +7780,8 @@ This treatment is EV-A71 vaccination, annotated with Vaccination (NCIT:C15346). 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7528,6 +7830,8 @@ This treatment is EV-A71 vaccination, annotated with Vaccination (NCIT:C15346). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7583,6 +7887,8 @@ This treatment is EV-A71 vaccination, annotated with Vaccination (NCIT:C15346). 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7633,6 +7939,8 @@ This treatment is EV-A71 vaccination, annotated with Vaccination (NCIT:C15346). 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7661,6 +7969,1142 @@ This treatment is EV-A71 vaccination, annotated with Vaccination (NCIT:C15346). 
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-diagnosis">
+                <div class="item-name">
+                    Clinical diagnosis
+
+                </div>
+
+                <div class="item-desc">HFMD is usually diagnosed clinically from the characteristic combination of low-grade fever, oral ulcerations, and acral papulovesicular rash on the hands and feet.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        physical examination
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C20989" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C20989</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31573162" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31573162" target="_blank">PMID:31573162</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients present with a low-grade fever, a maculopapular or papulovesicular rash on the hands and soles of the feet, and painful oral ulcerations."</div>
+
+
+                <div class="evidence-explanation">Supports bedside clinical recognition of HFMD based on its characteristic symptom constellation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-enterovirus-rt-pcr-and-sequencing-confirmation">
+                <div class="item-name">
+                    Enterovirus RT-PCR and sequencing confirmation
+
+                </div>
+
+                <div class="item-desc">Molecular confirmation with RT-PCR, with or without sequencing, can confirm EV-A71 infection from clinical specimens in severe or atypical cases.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        nucleic acid amplification testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C20055" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-40">NCIT:C20055</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39599865" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39599865" target="_blank">PMID:39599865</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"EV-A71 was identified through RT-PCR and next-generation sequencing of stool and skin lesion samples."</div>
+
+
+                <div class="evidence-explanation">Directly supports molecular confirmation of EV-A71-associated HFMD from patient specimens.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-incubation">
+                <div class="item-name">Incubation</div>
+                <div class="item-meta">
+
+
+
+
+                    <span class="tag">Incubation: 3-6 days</span>
+
+                </div>
+
+                <div class="item-notes">Asymptomatic period following viral exposure.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29184105" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29184105" target="_blank">PMID:29184105</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The incubation period of HFMD was typically described as about 3-7 days but empirical evidence is lacking."</div>
+
+
+                <div class="evidence-explanation">Supports the expected incubation window for HFMD prior to symptom onset.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-prodrome">
+                <div class="item-name">Prodrome</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">Duration: 1-2 days</span>
+
+
+                </div>
+
+                <div class="item-notes">Low-grade fever, malaise, decreased appetite, and sore throat before rash onset.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25528808" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25528808" target="_blank">PMID:25528808</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The onset of the disease was characterized by moderate fever, coryza and spontaneous endobuccal pains followed at a short interval of time by the simultaneous of a papulo-vesicular eruption on hands and feet."</div>
+
+
+                <div class="evidence-explanation">Supports a short prodromal period with fever and mucosal symptoms preceding the characteristic exanthem.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-acute-mucocutaneous-illness">
+                <div class="item-name">Acute mucocutaneous illness</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">Duration: 7-10 days</span>
+
+
+                </div>
+
+                <div class="item-notes">Oral enanthema appears first, followed by vesicular exanthem on hands, feet, and buttocks. Lesions typically resolve within 7-10 days.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31573162" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31573162" target="_blank">PMID:31573162</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients present with a low-grade fever, a maculopapular or papulovesicular rash on the hands and soles of the feet, and painful oral ulcerations. Lesions usually resolve in seven to 10 days"</div>
+
+
+                <div class="evidence-explanation">Directly supports the acute exanthem/enanthem phase and its typical 7-10 day duration.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-resolution">
+                <div class="item-name">Resolution</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Spontaneous resolution of lesions without scarring. Onychomadesis may occur 4-8 weeks after acute illness.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1186/s12929-023-00908-4" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s12929-023-00908-4" target="_blank">DOI:10.1186/s12929-023-00908-4</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These symptoms typically resolve spontaneously within a few days without complications."</div>
+
+
+                <div class="evidence-explanation">Confirms self-limiting nature of typical HFMD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-china-chengdu">
+                <div class="item-name">China (Chengdu)</div>
+                <div class="item-meta">
+
+
+
+
+
+                </div>
+
+                <div class="item-notes">29,861 laboratory-confirmed cases over 10 years (2013-2022) in a single Chinese city, demonstrating high endemic burden in the Asia-Pacific region.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1186/s12985-023-02169-x" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s12985-023-02169-x" target="_blank">DOI:10.1186/s12985-023-02169-x</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A total of 29,861 laboratory-confirmed cases of HFMD-related enterovirus infection were reported from 2013 to 2022."</div>
+
+
+                <div class="evidence-explanation">Quantifies the large case burden of HFMD in a Chinese surveillance setting.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-india">
+                <div class="item-name">India</div>
+                <div class="item-meta">
+
+
+
+
+
+                </div>
+
+                <div class="item-notes">403 cases at a single centre over 10 years (2009-2019), with 84% under 5 years old and male:female ratio of 1.6:1.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36226004" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36226004" target="_blank">PMID:36226004</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There were 96.8% children and adolescents (M:F 1.6:1) aged 2 months to 18 years and 84% were aged &lt;5 years."</div>
+
+
+                <div class="evidence-explanation">Demonstrates HFMD demographic pattern in an Indian cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+        <div class="card" id="epidemiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">🌍</div>
+                <h2 class="card-title">Epidemiology</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-global-incidence-and-pathogen-shift">
+                <div class="item-name">Global incidence and pathogen shift</div>
+
+                <div class="item-desc">Common worldwide with millions of cases annually, especially in the Asia-Pacific region. EV-A71 vaccine rollout has shifted the dominant pathogen from EV-A71 to CV-A6/CV-A10 in many settings.</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1186/s12985-023-02169-x" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s12985-023-02169-x" target="_blank">DOI:10.1186/s12985-023-02169-x</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A total of 29,861 laboratory-confirmed cases of HFMD-related enterovirus infection were reported from 2013 to 2022."</div>
+
+
+                <div class="evidence-explanation">Demonstrates large-scale HFMD burden in a single Chinese city over 10 years.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-age-distribution">
+                <div class="item-name">Age distribution</div>
+
+                <div class="item-desc">Predominantly affects children under 5 years, with highest incidence in children aged 1-3 years.</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1186/s12929-023-00908-4" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s12929-023-00908-4" target="_blank">DOI:10.1186/s12929-023-00908-4</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HFMD is a viral illness commonly seen in young children under 5 years of age"</div>
+
+
+                <div class="evidence-explanation">Confirms predominant age group affected by HFMD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-seasonality">
+                <div class="item-name">Seasonality</div>
+
+                <div class="item-desc">Peaks in summer and early autumn in temperate climates; year-round in tropical regions.</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.2196/59604" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.2196/59604" target="_blank">DOI:10.2196/59604</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The 2021-2023 epidemic seasons for HFMD in Henan usually lasted from June to August, with peaks around June and July."</div>
+
+
+                <div class="evidence-explanation">Confirms summer seasonality of HFMD in temperate settings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Infectious Agent -->
+
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-coxsackievirus-a16">
+                <div class="item-name">Coxsackievirus A16</div>
+
+                <div class="item-desc">The most common causative agent of classical HFMD worldwide, typically associated with mild, self-limiting disease.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Coxsackievirus A16
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_31704" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-41">NCBITaxon:31704</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-41">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1186/s12985-023-02169-x" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s12985-023-02169-x" target="_blank">DOI:10.1186/s12985-023-02169-x</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The proportion of CV-A16 cases decreased from 13.96% in 2013–2015 to 10.84% in 2017–2019 and then to 4.54% in 2020–2022."</div>
+
+
+                <div class="evidence-explanation">Confirms CV-A16 as a significant HFMD pathogen, though its proportion has been declining.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-enterovirus-a71">
+                <div class="item-name">Enterovirus A71</div>
+
+                <div class="item-desc">A major causative agent of HFMD associated with severe neurological complications including brainstem encephalitis, aseptic meningitis, and acute flaccid paralysis, particularly in young children.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Enterovirus A71
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_39054" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-42">NCBITaxon:39054</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-42">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1186/s12929-023-00908-4" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s12929-023-00908-4" target="_blank">DOI:10.1186/s12929-023-00908-4</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HFMD has been linked to severe cardiopulmonary complications, as well as severe neurological sequelae that can be observed during follow-up."</div>
+
+
+                <div class="evidence-explanation">Supports EV-A71 as the primary agent associated with severe neurological and cardiopulmonary complications of HFMD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-coxsackievirus-a6">
+                <div class="item-name">Coxsackievirus A6</div>
+
+                <div class="item-desc">An increasingly dominant cause of HFMD outbreaks globally, associated with atypical presentations including more widespread vesicular rash and onychomadesis. CV-A6 has become the leading HFMD pathogen in many Chinese surveillance settings since 2020.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Coxsackievirus A6
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_86107" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-43">NCBITaxon:86107</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-43">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1186/s12985-023-02169-x" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s12985-023-02169-x" target="_blank">DOI:10.1186/s12985-023-02169-x</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Other (non-EV-A71 and non-CV-A16) serotypes accounted for 95.45% during 2020–2022, with CV-A6 accounting for 50.39% and CV-A10 accounting for 10.81%."</div>
+
+
+                <div class="evidence-explanation">Demonstrates CV-A6 as the dominant HFMD pathogen in recent years.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.2196/59604" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.2196/59604" target="_blank">DOI:10.2196/59604</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CV-A6 emerged as the major pathogen for HFMD in 2022 (203/732, 27.73%) and 2023 (262/708, 37.01%)."</div>
+
+
+                <div class="evidence-explanation">Confirms CV-A6 as the leading HFMD pathogen in recent Chinese surveillance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Transmission -->
+
+        <div class="card" id="transmission">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">↔️</div>
+                <h2 class="card-title">Transmission</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-fecal-oral-transmission">
+                <div class="item-name">Fecal-oral transmission</div>
+
+                <div class="item-desc">Primary route of transmission through contact with feces of infected individuals, facilitated by poor hygiene and close contact in childcare settings.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31573162" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31573162" target="_blank">PMID:31573162</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hand-foot-and-mouth disease is transmitted by fecal-oral, oral-oral, and respiratory droplet contact."</div>
+
+
+                <div class="evidence-explanation">Directly states fecal-oral transmission as one of the major HFMD transmission routes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-respiratory-droplet-transmission">
+                <div class="item-name">Respiratory droplet transmission</div>
+
+                <div class="item-desc">Spread via respiratory droplets from coughing or sneezing of infected individuals.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31573162" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31573162" target="_blank">PMID:31573162</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hand-foot-and-mouth disease is transmitted by fecal-oral, oral-oral, and respiratory droplet contact."</div>
+
+
+                <div class="evidence-explanation">Directly identifies respiratory droplet contact as a transmission route for HFMD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-oral-oral-direct-contact-transmission">
+                <div class="item-name">Oral-oral/direct contact transmission</div>
+
+                <div class="item-desc">Transmission through close contact with saliva and other oral secretions of infected persons.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31573162" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31573162" target="_blank">PMID:31573162</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hand-foot-and-mouth disease is transmitted by fecal-oral, oral-oral, and respiratory droplet contact."</div>
+
+
+                <div class="evidence-explanation">Directly identifies oral-oral contact as a transmission route and supports close-contact spread via oral secretions.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7729,6 +9173,8 @@ This treatment is EV-A71 vaccination, annotated with Vaccination (NCIT:C15346). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7809,6 +9255,8 @@ This treatment is EV-A71 vaccination, annotated with Vaccination (NCIT:C15346). 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7886,6 +9334,8 @@ This treatment is EV-A71 vaccination, annotated with Vaccination (NCIT:C15346). 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7960,6 +9410,8 @@ This treatment is EV-A71 vaccination, annotated with Vaccination (NCIT:C15346). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8042,6 +9494,8 @@ This treatment is EV-A71 vaccination, annotated with Vaccination (NCIT:C15346). 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8108,6 +9562,8 @@ This treatment is EV-A71 vaccination, annotated with Vaccination (NCIT:C15346). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8178,6 +9634,8 @@ This treatment is EV-A71 vaccination, annotated with Vaccination (NCIT:C15346). 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8242,6 +9700,8 @@ This treatment is EV-A71 vaccination, annotated with Vaccination (NCIT:C15346). 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"The purpose of this study is to evaluate the 5-year Immune Persistence of Inactivated Enterovirus Type 71 (EV71) Vaccine manufactured by Sinovac (Beijing) Biotech Co., Ltd."</div>
@@ -8290,6 +9750,8 @@ This treatment is EV-A71 vaccination, annotated with Vaccination (NCIT:C15346). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -8388,6 +9850,8 @@ This treatment is EV-A71 vaccination, annotated with Vaccination (NCIT:C15346). 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8468,6 +9932,8 @@ This treatment is EV-A71 vaccination, annotated with Vaccination (NCIT:C15346). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8669,7 +10135,7 @@ pathophysiology:
     evidence:
     - reference: DOI:10.1371/journal.ppat.1012022
       reference_title: &#34;Enterovirus A71 does not meet the uncoating receptor SCARB2 at the cell surface&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;although both PSGL-1 and SCARB2 are essential for virus infection of Jurkat cells&#34;
       explanation: Demonstrates that receptor engagement and SCARB2-dependent uncoating are required for productive infection, making them necessary upstream events for later systemic dissemination.
@@ -8703,7 +10169,7 @@ pathophysiology:
     evidence:
     - reference: PMID:31573162
       reference_title: &#34;Hand-Foot-and-Mouth Disease: Rapid Evidence Review.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Patients present with a low-grade fever, a maculopapular or papulovesicular rash on the hands and soles of the feet, and painful oral ulcerations.&#34;
       explanation: The simultaneous involvement of skin and oral mucosa is consistent with systemic viral dissemination to peripheral epithelial sites, though the abstract does not directly measure viremia.
@@ -8945,7 +10411,7 @@ pathophysiology:
     evidence:
     - reference: PMID:26252639
       reference_title: &#34;Norepinephrine and Epinephrine Enhanced the Infectivity of Enterovirus 71.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;ANS dysregulation is related to the overactivation of the sympathetic nervous system, which results from catecholamine release.&#34;
       explanation: Links autonomic dysregulation, sympathetic overactivation, and catecholamine release, supporting this causal transition even though the directionality is summarized in review-style language.
@@ -9830,6 +11296,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10368,7 +11836,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hand Foot and Mouth Disease", "mondoId": "MONDO:0005779", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hand_Foot_and_Mouth_Disease", "yamlRevision": "e4a26f4ef563"};
+        const OS_CONFIG = {"diseaseName": "Hand Foot and Mouth Disease", "mondoId": "MONDO:0005779", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hand_Foot_and_Mouth_Disease", "yamlRevision": "d4ab33599e19"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

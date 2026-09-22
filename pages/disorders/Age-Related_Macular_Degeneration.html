@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4171,6 +4278,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4232,6 +4341,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4276,6 +4387,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-complement-pathway-genetic-susceptibility" data-dismech-node="Complement-Pathway Genetic Susceptibility" data-dismech-type="pathophysiology">
                 <div class="item-name">Complement-Pathway Genetic Susceptibility</div>
+
 
                 <div class="item-desc">Common variation at CFH and in other complement-pathway genes, including C3 and CFB, alters susceptibility to AMD. CFB is not modeled as uniformly risk-increasing because human haplotype studies identify both risk and protective complement-region haplotypes.</div>
 
@@ -4473,14 +4585,16 @@ This pathophysiological event involves complement activation (GO:0006956). GO:00
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/biomedicines12071479" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/biomedicines12071479" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/biomedicines12071479" target="_blank">DOI:10.3390/biomedicines12071479</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4506,6 +4620,8 @@ This pathophysiological event involves complement activation (GO:0006956). GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4527,6 +4643,8 @@ This pathophysiological event involves complement activation (GO:0006956). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4551,6 +4669,7 @@ This pathophysiological event involves complement activation (GO:0006956). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-10q26-arms2-htra1-genetic-susceptibility" data-dismech-node="10q26 ARMS2/HTRA1 Genetic Susceptibility" data-dismech-type="pathophysiology">
                 <div class="item-name">10q26 ARMS2/HTRA1 Genetic Susceptibility</div>
+
 
                 <div class="item-desc">Common variants at the chromosome 10q26 ARMS2/HTRA1 locus confer AMD susceptibility. The association is modeled at both candidate genes without selecting one causal gene or assigning an unsupported downstream molecular mechanism.</div>
 
@@ -4670,6 +4789,8 @@ This pathophysiological event involves HTRA1 (hgnc:9476). hgnc:9476 is a gene fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4692,6 +4813,7 @@ This pathophysiological event involves HTRA1 (hgnc:9476). hgnc:9476 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rpe-oxidative-and-lysosomal-stress" data-dismech-node="RPE Oxidative and Lysosomal Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">RPE Oxidative and Lysosomal Stress</div>
+
 
                 <div class="item-desc">Age-related photo-oxidative products and reactive oxygen species stress retinal pigment epithelial cells. Protein-adduct formation and impaired autophagic flux compromise lysosomal clearance and cellular homeostasis.</div>
 
@@ -4858,6 +4980,8 @@ This pathophysiological event involves decreased autophagy (GO:0006914). GO:0006
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4879,6 +5003,8 @@ This pathophysiological event involves decreased autophagy (GO:0006914). GO:0006
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4903,6 +5029,7 @@ This pathophysiological event involves decreased autophagy (GO:0006914). GO:0006
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-complement-mediated-para-inflammation" data-dismech-node="Complement-Mediated Para-inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Complement-Mediated Para-inflammation</div>
+
 
                 <div class="item-desc">Dysregulated complement activation in the posterior eye contributes to chronic low-grade para-inflammation and, when poorly controlled, inflammatory tissue injury that can impair retinal integrity.</div>
 
@@ -5027,6 +5154,8 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5048,6 +5177,8 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5072,6 +5203,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-outer-retinal-extracellular-deposit-accumulation" data-dismech-node="Outer-Retinal Extracellular Deposit Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Outer-Retinal Extracellular Deposit Accumulation</div>
+
 
                 <div class="item-desc">Lipid-, complement-, amyloid-, and protein-containing extracellular deposits accumulate in the outer retina, including drusen beneath the retinal pigment epithelium. Drusen are a hallmark and progression marker, but are not treated here as a universally necessary or sufficient cause of advanced AMD.</div>
 
@@ -5187,6 +5319,8 @@ This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5200,14 +5334,16 @@ This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:00
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38731137" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38731137" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38731137" target="_blank">PMID:38731137</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5232,6 +5368,7 @@ This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-photoreceptor-degeneration-and-outer-retinal-atrophy" data-dismech-node="Photoreceptor Degeneration and Outer-Retinal Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Photoreceptor Degeneration and Outer-Retinal Atrophy</div>
+
 
                 <div class="item-desc">Degeneration of macular photoreceptors and loss of supporting retinal pigment epithelium produce outer-retinal atrophy; the advanced dry endpoint is geographic atrophy.</div>
 
@@ -5457,6 +5594,8 @@ This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5478,6 +5617,8 @@ This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5502,6 +5643,7 @@ This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vegf-driven-macular-neovascularization" data-dismech-node="VEGF-Driven Macular Neovascularization" data-dismech-type="pathophysiology">
                 <div class="item-name">VEGF-Driven Macular Neovascularization</div>
+
 
                 <div class="item-desc">Localized ischemia and inflammation increase VEGF production by retinal pigment epithelial and/or Mueller cells, promoting abnormal macular vascular growth from choriocapillaris or retinal microvascular sources.</div>
 
@@ -5749,6 +5891,8 @@ This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5771,6 +5915,7 @@ This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-subretinal-intraretinal-exudative-injury" data-dismech-node="Subretinal/Intraretinal Exudative Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Subretinal/Intraretinal Exudative Injury</div>
+
 
                 <div class="item-desc">Macular neovascular lesions disrupt outer-retinal architecture through intraretinal thickening and subretinal or intraretinal exudation, producing distortion, central field defects, and central visual loss.</div>
 
@@ -5860,6 +6005,8 @@ This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5922,36 +6069,18 @@ This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:00
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(5)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-central-vision-loss" data-dismech-node="Central Vision Loss" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Central Vision Loss
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Eye
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-central-vision-loss" data-dismech-node="Central Vision Loss" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Central Vision Loss
-
-
+                    <span class="phenotype-category">Eye</span>
 
 
 
 
                     <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Visual loss</span>
-
 
 
 
@@ -5963,7 +6092,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Central vision loss, annotated with Visual loss (HP:0000572). HP:0000572 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5983,6 +6115,8 @@ This clinical feature is Central vision loss, annotated with Visual loss (HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6006,13 +6140,14 @@ This clinical feature is Central vision loss, annotated with Visual loss (HP:000
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-central-scotoma" data-dismech-node="Central Scotoma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Central Scotoma
+            <div class="item-box phenotype-box anchor-target" id="phenotype-metamorphopsia" data-dismech-node="Metamorphopsia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Metamorphopsia
 
 
+                    <span class="phenotype-category">Eye</span>
 
 
 
@@ -6021,92 +6156,18 @@ This clinical feature is Central vision loss, annotated with Visual loss (HP:000
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000603" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000603</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0012508</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Central scotoma (HP:0000603). HP:0000603 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39222802" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39222802" target="_blank">PMID:39222802</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"MNV frequently appears as a grey-green macular lesion with overlying intraretinal thickening and/or subretinal exudation, causing metamorphopsia, reduced central vision, relative central scotoma, decreased reading speed, and problems with color recognition."</div>
-
-
-                <div class="evidence-explanation">The review directly reports relative central scotoma with exudative MNV.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-metamorphopsia" data-dismech-node="Metamorphopsia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Metamorphopsia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0012508</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
 This clinical feature is Metamorphopsia (HP:0012508). HP:0012508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6126,6 +6187,8 @@ This clinical feature is Metamorphopsia (HP:0012508). HP:0012508 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6149,13 +6212,14 @@ This clinical feature is Metamorphopsia (HP:0012508). HP:0012508 is a phenotype 
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-contrast-sensitivity" data-dismech-node="Reduced Contrast Sensitivity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reduced Contrast Sensitivity
+            <div class="item-box phenotype-box anchor-target" id="phenotype-central-scotoma" data-dismech-node="Central Scotoma" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Central Scotoma
 
 
+                    <span class="phenotype-category">Eye</span>
 
 
 
@@ -6164,16 +6228,18 @@ This clinical feature is Metamorphopsia (HP:0012508). HP:0012508 is a phenotype 
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0000603" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000603</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032036" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0032036</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Reduced contrast sensitivity (HP:0032036). HP:0032036 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Central scotoma (HP:0000603). HP:0000603 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6185,14 +6251,88 @@ This clinical feature is Reduced contrast sensitivity (HP:0032036). HP:0032036 i
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34412522" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39222802" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39222802" target="_blank">PMID:39222802</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MNV frequently appears as a grey-green macular lesion with overlying intraretinal thickening and/or subretinal exudation, causing metamorphopsia, reduced central vision, relative central scotoma, decreased reading speed, and problems with color recognition."</div>
+
+
+                <div class="evidence-explanation">The review directly reports relative central scotoma with exudative MNV.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-contrast-sensitivity" data-dismech-node="Reduced Contrast Sensitivity" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Reduced Contrast Sensitivity
+
+
+                    <span class="phenotype-category">Eye</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032036" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0032036</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced contrast sensitivity (HP:0032036). HP:0032036 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34412522" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34412522" target="_blank">PMID:34412522</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6216,19 +6356,19 @@ This clinical feature is Reduced contrast sensitivity (HP:0032036). HP:0032036 i
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-macular-drusen" data-dismech-node="Macular Drusen" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Macular Drusen
+            <div class="item-box phenotype-box anchor-target" id="phenotype-macular-drusen" data-dismech-node="Macular Drusen" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Macular Drusen
 
 
+                    <span class="phenotype-category">Eye</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -6240,7 +6380,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Macular drusen (HP:0030499). HP:0030499 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6260,6 +6403,8 @@ This clinical feature is Macular drusen (HP:0030499). HP:0030499 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6283,19 +6428,19 @@ This clinical feature is Macular drusen (HP:0030499). HP:0030499 is a phenotype 
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-macular-geographic-atrophy" data-dismech-node="Macular Geographic Atrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Macular Geographic Atrophy
+            <div class="item-box phenotype-box anchor-target" id="phenotype-macular-geographic-atrophy" data-dismech-node="Macular Geographic Atrophy" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Macular Geographic Atrophy
 
 
+                    <span class="phenotype-category">Eye</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -6307,7 +6452,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Macular geographic atrophy (HP:0031609). HP:0031609 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6327,6 +6475,8 @@ This clinical feature is Macular geographic atrophy (HP:0031609). HP:0031609 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6350,19 +6500,19 @@ This clinical feature is Macular geographic atrophy (HP:0031609). HP:0031609 is 
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-choroidal-neovascularization" data-dismech-node="Choroidal Neovascularization" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Choroidal Neovascularization
+            <div class="item-box phenotype-box anchor-target" id="phenotype-choroidal-neovascularization" data-dismech-node="Choroidal Neovascularization" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Choroidal Neovascularization
 
 
+                    <span class="phenotype-category">Eye</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -6374,7 +6524,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Choroidal neovascularization (HP:0011506). HP:0011506 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6394,6 +6547,8 @@ This clinical feature is Choroidal neovascularization (HP:0011506). HP:0011506 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6417,34 +6572,8 @@ This clinical feature is Choroidal neovascularization (HP:0011506). HP:0011506 i
 
 
 
-                </div>
+            </div>
 
-            </details>
-
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
 
         </div>
 
@@ -6495,6 +6624,9 @@ This disease-associated gene is CFH (hgnc:4883). hgnc:4883 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6509,6 +6641,8 @@ This disease-associated gene is CFH (hgnc:4883). hgnc:4883 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6569,6 +6703,9 @@ This disease-associated gene is ARMS2 (hgnc:32685). hgnc:32685 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6583,6 +6720,8 @@ This disease-associated gene is ARMS2 (hgnc:32685). hgnc:32685 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6643,6 +6782,9 @@ This disease-associated gene is HTRA1 (hgnc:9476). hgnc:9476 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6657,6 +6799,8 @@ This disease-associated gene is HTRA1 (hgnc:9476). hgnc:9476 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6717,6 +6861,9 @@ This disease-associated gene is C3 (hgnc:1318). hgnc:1318 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6731,6 +6878,8 @@ This disease-associated gene is C3 (hgnc:1318). hgnc:1318 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6791,6 +6940,9 @@ This disease-associated gene is CFB (hgnc:1037). hgnc:1037 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6805,6 +6957,8 @@ This disease-associated gene is CFB (hgnc:1037). hgnc:1037 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6828,6 +6982,8 @@ This disease-associated gene is CFB (hgnc:1037). hgnc:1037 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6933,6 +7089,20 @@ This treatment uses Angiogenesis inhibitor (NCIT:C1742). NCIT:C1742 is a therape
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Intravitreal VEGF inhibition is first-line therapy for exudative neovascular AMD and preserves visual acuity relative to sham treatment.</div>
 
 
@@ -6963,6 +7133,8 @@ This treatment uses Angiogenesis inhibitor (NCIT:C1742). NCIT:C1742 is a therape
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7029,6 +7201,8 @@ This treatment targets Choroidal Neovascularization (HP:0011506). HP:0011506 is 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7050,6 +7224,8 @@ This treatment targets Choroidal Neovascularization (HP:0011506). HP:0011506 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7115,6 +7291,20 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">High-dose antioxidant vitamins, carotenoids, and zinc reduce progression to late-stage AMD in appropriately selected patients; this is not modeled as a direct correction of one molecular node.</div>
 
 
@@ -7136,6 +7326,8 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7222,6 +7414,20 @@ This treatment uses Complement inhibitor (NCIT:C199456). NCIT:C199456 is a thera
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Intravitreal complement inhibitors reduce geographic-atrophy lesion growth, but the cited network meta-analysis found no significant BCVA benefit and identified an increased macular-neovascularization risk with monthly pegcetacoplan.</div>
 
 
@@ -7244,14 +7450,16 @@ This treatment uses Complement inhibitor (NCIT:C199456). NCIT:C199456 is a thera
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.3389/fphar.2024.1410172" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3389/fphar.2024.1410172" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fphar.2024.1410172" target="_blank">DOI:10.3389/fphar.2024.1410172</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7318,6 +7526,8 @@ This treatment targets Macular Geographic Atrophy (HP:0031609). HP:0031609 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7331,14 +7541,16 @@ This treatment targets Macular Geographic Atrophy (HP:0031609). HP:0031609 is a 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.3389/fphar.2024.1410172" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3389/fphar.2024.1410172" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fphar.2024.1410172" target="_blank">DOI:10.3389/fphar.2024.1410172</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7426,6 +7638,20 @@ This treatment uses verteporfin (CHEBI:32293). CHEBI:32293 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Verteporfin photodynamic therapy is an occasional treatment option for selected macular neovascular lesions.</div>
 
 
@@ -7461,14 +7687,16 @@ This treatment targets Choroidal Neovascularization (HP:0011506). HP:0011506 is 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39222802" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39222802" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39222802" target="_blank">PMID:39222802</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7533,6 +7761,20 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Low-vision aids and rehabilitation are recommended for geographic-atrophy-related visual loss.</div>
 
 
@@ -7576,6 +7818,8 @@ This treatment targets Central Vision Loss, annotated with Visual loss (HP:00005
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7637,6 +7881,8 @@ This treatment targets Central Vision Loss, annotated with Visual loss (HP:00005
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7712,6 +7958,8 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7752,14 +8000,16 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38193957" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38193957" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38193957" target="_blank">PMID:38193957</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7790,6 +8040,876 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-ophthalmic-examination">
+                <div class="item-name">
+                    Clinical Ophthalmic Examination
+
+                </div>
+
+                <div class="item-desc">Primary diagnosis uses clinical ophthalmic examination with a special lens that focuses slit-lamp light through the pupil.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-51">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38193957" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38193957" target="_blank">PMID:38193957</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"AMD is diagnosed primarily with clinical examination that includes a special lens that focuses light of the slit lamp through the pupil."</div>
+
+
+                <div class="evidence-explanation">The review describes the primary clinical ophthalmic examination used to diagnose AMD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-optical-coherence-tomography">
+                <div class="item-name">
+                    Optical Coherence Tomography
+
+                </div>
+
+                <div class="item-desc">OCT identifies and characterizes exudative neovascular AMD and associated retinal fluid or thickening.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        optical coherence tomography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C20828" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-52">NCIT:C20828</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38193957" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38193957" target="_blank">PMID:38193957</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Exudative neovascular AMD is best identified using angiography and by optical coherence tomography."</div>
+
+
+                <div class="evidence-explanation">The review identifies OCT as a preferred diagnostic modality for exudative neovascular AMD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-angiography">
+                <div class="item-name">
+                    Angiography
+
+                </div>
+
+                <div class="item-desc">Dye-based or OCT angiography delineates macular neovascularization in wet AMD.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        angiography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C190556" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-53">NCIT:C190556</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38193957" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38193957" target="_blank">PMID:38193957</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Exudative neovascular AMD is best identified using angiography and by optical coherence tomography."</div>
+
+
+                <div class="evidence-explanation">The review identifies angiography as a preferred diagnostic modality for exudative neovascular AMD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+        <div class="card" id="imaging-findings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">🩻</div>
+                <h2 class="card-title">Imaging Findings</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-macular-neovascularization-with-intraretinal-thickening-and-subretinal-exudation-on-oct">
+                <div class="item-name">
+                    Macular neovascularization with intraretinal thickening and subretinal exudation on OCT
+
+                </div>
+
+                <div class="item-desc">OCT can show a focal macular neovascular lesion with overlying intraretinal thickening and/or subretinal exudation, supporting diagnosis of wet AMD.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Oct</span>
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">Diagnostic</span>
+
+
+
+                    <span class="tag">Focal</span>
+
+
+                    <span class="tag tag-subtype">Wet AMD</span>
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Macular neovascularization with intraretinal thickening and subretinal exudation
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-anatomy">
+
+        macula lutea
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000053" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-55">UBERON:0000053</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-55">Uberon multi-species anatomy ontology (UBERON)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-phenotype">
+
+        Choroidal neovascularization
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011506" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0011506</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39222802" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39222802" target="_blank">PMID:39222802</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MNV frequently appears as a grey-green macular lesion with overlying intraretinal thickening and/or subretinal exudation, causing metamorphopsia, reduced central vision, relative central scotoma, decreased reading speed, and problems with color recognition."</div>
+
+
+                <div class="evidence-explanation">The review describes the focal macular lesion and its exudative imaging appearance.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39222802" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39222802" target="_blank">PMID:39222802</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Multimodal imaging with optical coherence tomography (OCT), OCT angiography, dye-based angiographies, fundus autofluorescence, and multiwavelength photography help establish the diagnosis and aid in selecting an appropriate treatment."</div>
+
+
+                <div class="evidence-explanation">The review supports OCT as a diagnostic modality for macular neovascularization.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-early-to-intermediate-extracellular-deposit-stage">
+                <div class="item-name">Early to intermediate extracellular-deposit stage</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Outer-retinal extracellular deposits and macular drusen characterize early disease and predict progression, but drusen are not asserted as a universally causal lesion because advanced AMD can occur without them.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38193957" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38193957" target="_blank">PMID:38193957</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"AMD occurs when extracellular deposits accumulate in the outer retina, ultimately leading to photoreceptor degeneration and loss of central vision."</div>
+
+
+                <div class="evidence-explanation">The review places extracellular-deposit accumulation early in the AMD course.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38731137" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38731137" target="_blank">PMID:38731137</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thus, there is the possibility that drusen might be no more than a biomarker of AMD and not a cause of AMD."</div>
+
+
+                <div class="evidence-explanation">This explicitly limits causal interpretation of drusen despite their prognostic association.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-advanced-geographic-atrophy-stage">
+                <div class="item-name">Advanced geographic-atrophy stage</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-subtype">Dry AMD</span>
+
+
+
+
+                </div>
+
+                <div class="item-notes">Dry AMD progresses gradually to outer-retinal geographic atrophy with loss of photoreceptors and supporting retinal tissue.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38193957" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38193957" target="_blank">PMID:38193957</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The late stages of AMD are characterized by outer retinal atrophy, termed geographic atrophy, or neovascularization associated with subretinal and/or intraretinal exudation, termed exudative neovascular AMD."</div>
+
+
+                <div class="evidence-explanation">The review identifies geographic atrophy as an advanced AMD endpoint.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38928273" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38928273" target="_blank">PMID:38928273</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This disease can occur in two clinical forms, i.e., dry (progression is slowly and gradually) and exudative (wet, progression is acute and severe), which usually started as dry form."</div>
+
+
+                <div class="evidence-explanation">The review characterizes dry AMD progression as slow and gradual.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-exudative-neovascular-stage">
+                <div class="item-name">Exudative neovascular stage</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-subtype">Wet AMD</span>
+
+
+
+
+                </div>
+
+                <div class="item-notes">Wet AMD may present with acute, severe progression as macular neovascularization produces intraretinal or subretinal exudation.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38193957" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38193957" target="_blank">PMID:38193957</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The late stages of AMD are characterized by outer retinal atrophy, termed geographic atrophy, or neovascularization associated with subretinal and/or intraretinal exudation, termed exudative neovascular AMD."</div>
+
+
+                <div class="evidence-explanation">The review defines the exudative neovascular late-stage pathway.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38928273" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38928273" target="_blank">PMID:38928273</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This disease can occur in two clinical forms, i.e., dry (progression is slowly and gradually) and exudative (wet, progression is acute and severe), which usually started as dry form."</div>
+
+
+                <div class="evidence-explanation">The review characterizes wet AMD progression as acute and severe.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-people-aged-55-to-59-years">
+                <div class="item-name">People aged 55 to 59 years</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Annual Incidence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        30.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 10,000 per year</span>
+
+                </div>
+
+                <div class="item-notes">Annual incidence reported as 0.3 per 1,000 people aged 55 to 59 years.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38193957" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38193957" target="_blank">PMID:38193957</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The annual incidence of AMD ranges from 0.3 per 1000 in people who are aged 55 to 59 years to 36.7 per 1000 in people aged 90 years or older."</div>
+
+
+                <div class="evidence-explanation">The lower endpoint converts to 30 incident cases per 100,000 people per year.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-people-aged-90-years-or-older">
+                <div class="item-name">People aged 90 years or older</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Annual Incidence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        3670.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000 per year</span>
+
+                </div>
+
+                <div class="item-notes">Annual incidence reported as 36.7 per 1,000 people aged 90 years or older.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38193957" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38193957" target="_blank">PMID:38193957</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The annual incidence of AMD ranges from 0.3 per 1000 in people who are aged 55 to 59 years to 36.7 per 1000 in people aged 90 years or older."</div>
+
+
+                <div class="evidence-explanation">The upper endpoint converts to 3,670 incident cases per 100,000 people per year.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8054,7 +9174,7 @@ progression:
     explanation: The review places extracellular-deposit accumulation early in the AMD course.
   - reference: PMID:38731137
     reference_title: Drusen in AMD from the Perspective of Cholesterol Metabolism and Hypoxic Response.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Thus, there is the possibility that drusen might be no more than a biomarker of AMD and not a cause of AMD.&#34;
     explanation: This explicitly limits causal interpretation of drusen despite their prognostic association.
@@ -8123,7 +9243,7 @@ pathophysiology:
   evidence:
   - reference: DOI:10.3390/biomedicines12071479
     reference_title: Genetic Insights into Age-Related Macular Degeneration
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;The common genetic variants linked to AMD are found on chromosome 1q32 (in the complement factor H gene) and 10q26 (age-related maculopathy susceptibility 2 and high-temperature requirement A serine peptidase 1 genes) loci, along with several other risk variants.&#34;
     explanation: The review supports CFH as a major common AMD susceptibility locus.
@@ -8151,7 +9271,7 @@ pathophysiology:
     evidence:
     - reference: PMID:38690727
       reference_title: &#34;Complement regulation in the eye: implications for age-related macular degeneration.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Dysregulated complement activation contributes to parainflammation, a low level of inflammation triggered by cellular damage that functions to reestablish homeostasis, or outright inflammation that disrupts the visual axis.&#34;
       explanation: The review supports complement dysregulation as an upstream contributor to ocular para-inflammation, while not resolving variant-specific intermediates.
@@ -8244,7 +9364,7 @@ pathophysiology:
     evidence:
     - reference: DOI:10.3390/ijms26083463
       reference_title: &#34;Role of Oxidative Stress and Inflammation in Age Related Macular Degeneration: Insights into the Retinal Pigment Epithelium (RPE)&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;A key contributor to disease progression is the excessive accumulation of reactive oxygen species (ROS), which damage retinal pigment epithelium (RPE) cells and disrupt cellular homeostasis.&#34;
       explanation: The review supports the RPE injury step, while the compressed edge omits downstream tissue-level intermediates.
@@ -8290,7 +9410,7 @@ pathophysiology:
     evidence:
     - reference: DOI:10.3390/ijms26083463
       reference_title: &#34;Role of Oxidative Stress and Inflammation in Age Related Macular Degeneration: Insights into the Retinal Pigment Epithelium (RPE)&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Additionally, immunosenescence and chronic low-grade inflammation exacerbate AMD pathology, further impairing retinal integrity.&#34;
       explanation: The review supports inflammatory aggravation of retinal injury but does not resolve every step to atrophy.
@@ -8320,7 +9440,7 @@ pathophysiology:
     explanation: The review describes the location and heterogeneous composition of drusen.
   - reference: PMID:38731137
     reference_title: Drusen in AMD from the Perspective of Cholesterol Metabolism and Hypoxic Response.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Thus, there is the possibility that drusen might be no more than a biomarker of AMD and not a cause of AMD.&#34;
     explanation: The review cautions against assuming that drusen are invariably causal.
@@ -8342,7 +9462,7 @@ pathophysiology:
       explanation: The review places deposit accumulation upstream of photoreceptor degeneration.
     - reference: PMID:38731137
       reference_title: Drusen in AMD from the Perspective of Cholesterol Metabolism and Hypoxic Response.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Thus, there is the possibility that drusen might be no more than a biomarker of AMD and not a cause of AMD.&#34;
       explanation: This caveat justifies partial support and unknown intermediates for the causal edge.
@@ -8433,7 +9553,7 @@ pathophysiology:
     evidence:
     - reference: PMID:34412522
       reference_title: Contrast Sensitivity in Early to Intermediate Age-Related Macular Degeneration (AMD).
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Group differences in CS were only found in intermediate AMD patients. The loss in CS increased for the intermediate AMD patients under low light levels.&#34;
       explanation: The human study supports reduced contrast sensitivity in intermediate AMD but not in all stages.
@@ -8620,7 +9740,7 @@ phenotypes:
   evidence:
   - reference: PMID:34412522
     reference_title: Contrast Sensitivity in Early to Intermediate Age-Related Macular Degeneration (AMD).
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Group differences in CS were only found in intermediate AMD patients. The loss in CS increased for the intermediate AMD patients under low light levels.&#34;
     explanation: The study supports the phenotype in intermediate AMD while showing that it does not discriminate early AMD.
@@ -8832,7 +9952,7 @@ environmental:
     evidence:
     - reference: PMID:38193957
       reference_title: &#34;Age-Related Macular Degeneration: A Review.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Long-term prospective cohort studies show a significantly higher AMD incidence in people who smoke more than 20 cigarettes per day compared with people who never smoked.&#34;
       explanation: &gt;-
@@ -8946,7 +10066,7 @@ treatments:
     evidence:
     - reference: DOI:10.3389/fphar.2024.1410172
       reference_title: &#34;Efficacy and safety of complement inhibitors in patients with geographic atrophy associated with age-related macular degeneration: a network meta-analysis of randomized controlled trials&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Clinical trials in recent years have shown significant effectiveness of complement inhibitors for geographic atrophy (GA) treatment.&#34;
       explanation: The clinical-trial synthesis supports pharmacologic inhibition of the complement arm as a treatment strategy for GA.
@@ -8959,7 +10079,7 @@ treatments:
     explanation: The network meta-analysis directly reports reduced geographic-atrophy lesion growth relative to sham.
   - reference: DOI:10.3389/fphar.2024.1410172
     reference_title: &#34;Efficacy and safety of complement inhibitors in patients with geographic atrophy associated with age-related macular degeneration: a network meta-analysis of randomized controlled trials&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;No treatments showed significant changes in BCVA and SAE compared with sham. Pegcetacoplan monthly (OR: 4.30, 95% CrI: 1.48–16.72) increased the risk of MNV.&#34;
     explanation: The meta-analysis limits the benefit claim to anatomy and records the absence of BCVA improvement and an MNV safety signal.
@@ -8984,7 +10104,7 @@ treatments:
   evidence:
   - reference: PMID:39222802
     reference_title: Macular neovascularization.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The standard of care for MNV is usually intravitreal anti-vascular endothelial growth factor injections, though thermal laser photocoagulation, verteporfin photodynamic therapy, and vitreoretinal surgery are occasionally used.&#34;
     explanation: The review supports verteporfin photodynamic therapy as an occasional rather than standard MNV treatment.
@@ -9367,6 +10487,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9625,7 +10747,7 @@ AMD is a multifactorial neurodegenerative disease of the macula characterized by
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Age-Related Macular Degeneration", "mondoId": "MONDO:0005150", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Age-Related_Macular_Degeneration", "yamlRevision": "255fe430a714"};
+        const OS_CONFIG = {"diseaseName": "Age-Related Macular Degeneration", "mondoId": "MONDO:0005150", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Age-Related_Macular_Degeneration", "yamlRevision": "931e6ba1f73c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4078,6 +4185,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4099,6 +4208,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4168,6 +4279,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4252,6 +4365,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4273,6 +4388,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4363,6 +4480,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4424,6 +4543,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4468,6 +4589,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-cenpf-dysfunction" data-dismech-node="Biallelic CENPF dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic CENPF dysfunction</div>
+
 
                 <div class="item-desc">Biallelic truncating, splice-site, or frameshift CENPF variants reduce CENP-F function at the kinetochore, centrosome, and ciliary basal body, initiating Stromme syndrome and the severe fetal CENPF ciliopathy spectrum.</div>
 
@@ -4664,6 +4786,8 @@ This pathophysiological event involves ciliary basal body (GO:0036064). GO:00360
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4685,6 +4809,8 @@ This pathophysiological event involves ciliary basal body (GO:0036064). GO:00360
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4709,6 +4835,7 @@ This pathophysiological event involves ciliary basal body (GO:0036064). GO:00360
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-cenpf-dependent-ift88-ciliary-targeting" data-dismech-node="Defective CENPF-dependent IFT88 ciliary targeting" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective CENPF-dependent IFT88 ciliary targeting</div>
+
 
                 <div class="item-desc">CENP-F localizes to the ciliary basal body and interacts with IFT88/KIF3B; mutant CENPF kidneys show short abnormal renal epithelial cilia and loss of IFT88 localization to ciliary axonemes and centrioles. Zebrafish cenpf knockdown produces ciliary-function phenotypes including abnormal heart looping, hydrocephalus, and pronephric cysts.</div>
 
@@ -5084,6 +5211,8 @@ This pathophysiological event involves ciliary basal body (GO:0036064). GO:00360
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5105,6 +5234,8 @@ This pathophysiological event involves ciliary basal body (GO:0036064). GO:00360
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5129,6 +5260,7 @@ This pathophysiological event involves ciliary basal body (GO:0036064). GO:00360
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-neurogenesis-impairment" data-dismech-node="Cortical neurogenesis impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical neurogenesis impairment</div>
+
 
                 <div class="item-desc">CENP-F has a putative role in cortical neurogenesis and asymmetric division through interactions with spindle-orientation and cortical polarity proteins; impaired function provides a mechanistic basis for microcephaly and neurodevelopmental findings.</div>
 
@@ -5362,6 +5494,8 @@ This pathophysiological event involves abnormal cell division (GO:0051301). GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5383,6 +5517,8 @@ This pathophysiological event involves abnormal cell division (GO:0051301). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5443,6 +5579,8 @@ This pathophysiological event involves abnormal cell division (GO:0051301). GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5464,6 +5602,8 @@ This pathophysiological event involves abnormal cell division (GO:0051301). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5535,15 +5675,15 @@ This pathophysiological event involves abnormal cell division (GO:0051301). GO:0
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Ear<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Eye<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Eye<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Head and Neck<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Head and Neck<span class="pill-count">(8)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Nervous System<span class="pill-count">(5)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5584,6 +5724,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5598,6 +5741,8 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5660,6 +5805,9 @@ This clinical feature is Cardiac abnormality, annotated with Abnormal heart morp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5674,6 +5822,8 @@ This clinical feature is Cardiac abnormality, annotated with Abnormal heart morp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5736,6 +5886,9 @@ This clinical feature is Jejunal atresia (HP:0005235). HP:0005235 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5750,6 +5903,8 @@ This clinical feature is Jejunal atresia (HP:0005235). HP:0005235 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5773,6 +5928,8 @@ This clinical feature is Jejunal atresia (HP:0005235). HP:0005235 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5826,6 +5983,9 @@ This clinical feature is Duodenal atresia (HP:0002247). HP:0002247 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5840,6 +6000,8 @@ This clinical feature is Duodenal atresia (HP:0002247). HP:0002247 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5863,6 +6025,8 @@ This clinical feature is Duodenal atresia (HP:0002247). HP:0002247 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5916,6 +6080,9 @@ This clinical feature is Intestinal malrotation (HP:0002566). HP:0002566 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5930,6 +6097,8 @@ This clinical feature is Intestinal malrotation (HP:0002566). HP:0002566 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5992,6 +6161,9 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6006,6 +6178,8 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6029,6 +6203,8 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6082,6 +6258,9 @@ This clinical feature is Large ears, annotated with Macrotia (HP:0000400). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6096,6 +6275,8 @@ This clinical feature is Large ears, annotated with Macrotia (HP:0000400). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6127,7 +6308,7 @@ This clinical feature is Large ears, annotated with Macrotia (HP:0000400). HP:00
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-microphthalmia" data-dismech-node="Microphthalmia" data-dismech-type="phenotype">
@@ -6158,6 +6339,9 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6172,6 +6356,8 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6197,6 +6383,8 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6205,6 +6393,103 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
                 <div class="evidence-explanation">This case report directly supports microphthalmia in the clinical syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-anterior-chamber-morphology" data-dismech-node="Abnormal anterior chamber morphology" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal anterior chamber morphology
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000593" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000593</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anterior chamber anomalies, annotated with Abnormal anterior chamber morphology (HP:0000593). HP:0000593 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28407396" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28407396" target="_blank">PMID:28407396</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Stromme syndrome is a rare genetic disorder characterized by microcephaly, anterior ocular chamber anomalies, and &#34;apple peel&#34; type jejunal atresia."</div>
+
+
+                <div class="evidence-explanation">The case report directly identifies anterior ocular chamber anomalies.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18203155" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18203155" target="_blank">PMID:18203155</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"microcephaly, microphthalmia, and anterior eye chamber anomalies."</div>
+
+
+                <div class="evidence-explanation">The case report supports anterior chamber anomalies in the classic syndrome.</div>
 
 
 
@@ -6234,15 +6519,18 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0007957</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0007957</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6262,6 +6550,8 @@ This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6301,15 +6591,18 @@ This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000505</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6329,6 +6622,8 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6368,15 +6663,18 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000316</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000316</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6396,6 +6694,8 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6426,8 +6726,114 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-renal-hypoplasia" data-dismech-node="Renal hypoplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Renal hypoplasia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000089</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal hypoplasia (HP:0000089). HP:0000089 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:444069" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:444069" target="_blank">ORPHA:444069</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"bilateral renal hypoplasia"</div>
+
+
+                <div class="evidence-explanation">Orphanet records bilateral renal hypoplasia in the lethal fetal phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25564561" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25564561" target="_blank">PMID:25564561</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Autopsy findings revealed ciliopathy features, such as cerebellar vermis hypoplasia, corpus callosum agenesis, cleft palate, duodenal atresia and bilateral renal hypoplasia."</div>
+
+
+                <div class="evidence-explanation">Human fetal autopsy findings directly support bilateral renal hypoplasia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">7</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-microcephaly" data-dismech-node="Microcephaly" data-dismech-type="phenotype">
@@ -6444,15 +6850,18 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6472,6 +6881,8 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6497,6 +6908,8 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6505,6 +6918,78 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                 <div class="evidence-explanation">A CENPF-confirmed family report supports prenatal microcephaly.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-wide-nasal-bridge" data-dismech-node="Wide nasal bridge" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Wide nasal bridge
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000431" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000431</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Broad nasal root, annotated with Wide nasal bridge (HP:0000431). HP:0000431 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:506307" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"broad nasal root"</div>
+
+
+                <div class="evidence-explanation">Orphanet records broad nasal root among reported facial features.</div>
 
 
 
@@ -6534,15 +7019,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000463" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000463</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000463" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000463</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6562,6 +7050,8 @@ This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6601,15 +7091,18 @@ This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000343</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000343</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6629,6 +7122,8 @@ This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6668,15 +7163,18 @@ This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000347</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000347</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6696,6 +7194,8 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6719,6 +7219,8 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6758,15 +7260,18 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000154" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000154</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000154" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000154</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Wide mouth (HP:0000154). HP:0000154 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6786,6 +7291,8 @@ This clinical feature is Wide mouth (HP:0000154). HP:0000154 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6809,6 +7316,8 @@ This clinical feature is Wide mouth (HP:0000154). HP:0000154 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6848,15 +7357,18 @@ This clinical feature is Wide mouth (HP:0000154). HP:0000154 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000175</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000175</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6876,6 +7388,8 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6899,6 +7413,8 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6938,15 +7454,18 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000448" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000448</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000448" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000448</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Prominent nose (HP:0000448). HP:0000448 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6966,6 +7485,8 @@ This clinical feature is Prominent nose (HP:0000448). HP:0000448 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6993,7 +7514,7 @@ This clinical feature is Prominent nose (HP:0000448). HP:0000448 is a phenotype 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
@@ -7014,15 +7535,18 @@ This clinical feature is Prominent nose (HP:0000448). HP:0000448 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000969</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000969</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lower limb edema, annotated with Edema (HP:0000969). HP:0000969 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7042,6 +7566,8 @@ This clinical feature is Lower limb edema, annotated with Edema (HP:0000969). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7069,7 +7595,7 @@ This clinical feature is Lower limb edema, annotated with Edema (HP:0000969). HP
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-8">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -7090,15 +7616,18 @@ This clinical feature is Lower limb edema, annotated with Edema (HP:0000969). HP
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001270</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001270</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7118,6 +7647,8 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7157,15 +7688,18 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7185,6 +7719,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7224,15 +7760,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000238</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000238</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7252,6 +7791,8 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7275,6 +7816,8 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7314,15 +7857,18 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001320" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001320</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001320" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001320</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebellar vermis hypoplasia (HP:0001320). HP:0001320 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7342,6 +7888,8 @@ This clinical feature is Cerebellar vermis hypoplasia (HP:0001320). HP:0001320 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7365,6 +7913,8 @@ This clinical feature is Cerebellar vermis hypoplasia (HP:0001320). HP:0001320 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7404,15 +7954,18 @@ This clinical feature is Cerebellar vermis hypoplasia (HP:0001320). HP:0001320 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001274</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001274</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7432,6 +7985,8 @@ This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7457,193 +8012,6 @@ This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Autopsy findings revealed ciliopathy features, such as cerebellar vermis hypoplasia, corpus callosum agenesis, cleft palate, duodenal atresia and bilateral renal hypoplasia."</div>
-
-
-                <div class="evidence-explanation">Human fetal autopsy directly supports corpus callosum agenesis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-anterior-chamber-morphology" data-dismech-node="Abnormal anterior chamber morphology" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal anterior chamber morphology
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000593" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000593</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Anterior chamber anomalies, annotated with Abnormal anterior chamber morphology (HP:0000593). HP:0000593 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28407396" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28407396" target="_blank">PMID:28407396</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Stromme syndrome is a rare genetic disorder characterized by microcephaly, anterior ocular chamber anomalies, and &#34;apple peel&#34; type jejunal atresia."</div>
-
-
-                <div class="evidence-explanation">The case report directly identifies anterior ocular chamber anomalies.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18203155" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18203155" target="_blank">PMID:18203155</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"microcephaly, microphthalmia, and anterior eye chamber anomalies."</div>
-
-
-                <div class="evidence-explanation">The case report supports anterior chamber anomalies in the classic syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-renal-hypoplasia" data-dismech-node="Renal hypoplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Renal hypoplasia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000089</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Renal hypoplasia (HP:0000089). HP:0000089 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:444069" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:444069" target="_blank">ORPHA:444069</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"bilateral renal hypoplasia"</div>
-
-
-                <div class="evidence-explanation">Orphanet records bilateral renal hypoplasia in the lethal fetal phenotype.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25564561" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25564561" target="_blank">PMID:25564561</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7653,74 +8021,7 @@ This clinical feature is Renal hypoplasia (HP:0000089). HP:0000089 is a phenotyp
                 <div class="evidence-snippet">"Autopsy findings revealed ciliopathy features, such as cerebellar vermis hypoplasia, corpus callosum agenesis, cleft palate, duodenal atresia and bilateral renal hypoplasia."</div>
 
 
-                <div class="evidence-explanation">Human fetal autopsy findings directly support bilateral renal hypoplasia.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-wide-nasal-bridge" data-dismech-node="Wide nasal bridge" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Wide nasal bridge
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000431" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000431</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Broad nasal root, annotated with Wide nasal bridge (HP:0000431). HP:0000431 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:506307" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"broad nasal root"</div>
-
-
-                <div class="evidence-explanation">Orphanet records broad nasal root among reported facial features.</div>
+                <div class="evidence-explanation">Human fetal autopsy directly supports corpus callosum agenesis.</div>
 
 
 
@@ -7812,6 +8113,9 @@ This disease-associated gene is CENPF (hgnc:1857). hgnc:1857 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7826,6 +8130,8 @@ This disease-associated gene is CENPF (hgnc:1857). hgnc:1857 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7851,6 +8157,8 @@ This disease-associated gene is CENPF (hgnc:1857). hgnc:1857 is a gene from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7872,6 +8180,8 @@ This disease-associated gene is CENPF (hgnc:1857). hgnc:1857 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7955,6 +8265,8 @@ This disease-associated gene is CENPF (hgnc:1857). hgnc:1857 is a gene from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8017,6 +8329,8 @@ This disease-associated gene is CENPF (hgnc:1857). hgnc:1857 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8088,6 +8402,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8172,6 +8500,8 @@ This treatment targets Microcephaly (HP:0000252). HP:0000252 is a phenotype from
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8232,6 +8562,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling addresses autosomal recessive inheritance, carrier testing for parents and relatives, recurrence risk, prenatal diagnostic options, and genotype-informed counseling for the severe fetal spectrum.</div>
 
 
@@ -8255,6 +8599,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8276,6 +8622,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8305,6 +8653,474 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-whole-exome-sequencing">
+                <div class="item-name">
+                    Clinical whole-exome sequencing
+
+                </div>
+
+                <div class="item-desc">Exome sequencing or equivalent molecular genetic testing can identify biallelic pathogenic CENPF variants in patients or fetuses with the Stromme syndrome phenotype.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical whole-exome sequencing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C101295" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-48">NCIT:C101295</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26820108" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26820108" target="_blank">PMID:26820108</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Using family-based whole-exome sequencing, we identified truncating mutations in the centrosome gene CENPF in the two nonconsanguineous Caucasian sibling pairs."</div>
+
+
+                <div class="evidence-explanation">This directly supports exome sequencing as a molecular diagnostic approach.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28407396" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28407396" target="_blank">PMID:28407396</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Exome-sequencing of these two cases showed the homozygous mutation (c.5912_5913insA)/(p.T1974Nfs*9) in CENPF."</div>
+
+
+                <div class="evidence-explanation">Independent cases support exome sequencing for CENPF variant detection.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-assessment-of-the-congenital-triad">
+                <div class="item-name">
+                    Clinical assessment of the congenital triad
+
+                </div>
+
+                <div class="item-desc">Clinical and prenatal assessment should consider the combination of microcephaly, ocular anomalies, and apple-peel intestinal or jejunal atresia, with evaluation for renal, cardiac, neurologic, and craniofacial involvement.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28407396" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28407396" target="_blank">PMID:28407396</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Regarding the clinical features of both affected siblings, a diagnosis of Stromme syndrome was established."</div>
+
+
+                <div class="evidence-explanation">The report supports clinical diagnosis based on the recurrent feature pattern.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:506307" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A rare multiple congenital anomalies syndrome usually characterized by microcephaly, ocular anomalies such as microphthalmia, and apple-peel intestinal atresia."</div>
+
+
+                <div class="evidence-explanation">Orphanet provides the key clinical pattern for assessment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-onset">
+                <div class="item-name">Onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Antenatal</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Core structural malformations are congenital and Orphanet records antenatal onset.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:506307" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Age of onset: Antenatal"</div>
+
+
+                <div class="evidence-explanation">Orphanet records antenatal onset for Stromme syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-severe-fetal-spectrum">
+                <div class="item-name">Severe fetal spectrum</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Mid-gestation</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Severe CENPF loss-of-function presentations can be lethal in utero, with brain, renal, gastrointestinal, and craniofacial malformations recognized at fetal autopsy.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:444069" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:444069" target="_blank">ORPHA:444069</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A rare genetic lethal multiple congenital anomalies/dysmorphic syndrome characterized by mid-gestation lethality and features of a ciliopathy."</div>
+
+
+                <div class="evidence-explanation">Orphanet records the lethal fetal CENPF-associated ciliopathy phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25564561" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25564561" target="_blank">PMID:25564561</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Whole exome sequencing data from a non-consanguineous Caucasian kindred exhibiting mid-gestation lethality and ciliopathic malformations revealed two novel non-synonymous variants in CENPF, a microtubule-regulating gene."</div>
+
+
+                <div class="evidence-explanation">Human fetal data support the severe antenatal/lethal end of the CENPF spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">&le;0.1 per 100,000
+                    </span>
+
+                    <span class="tag">&lt;1 in 1,000,000</span>
+
+                </div>
+
+                <div class="item-notes">Orphanet classifies Stromme syndrome as ultra-rare worldwide.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:506307" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:506307" target="_blank">ORPHA:506307</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"&lt;1 / 1 000 000 | Worldwide | Point prevalence | PMID:28407396"</div>
+
+
+                <div class="evidence-explanation">Orphanet records worldwide point prevalence below one per million.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8377,7 +9193,7 @@ external_assertions:
     MONDO/OMIM cross-references used in this entry.
   evidence:
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;CENPF | centromere protein F | hgnc:1857 | Disease-causing germline mutation(s) in&#34;
@@ -8393,7 +9209,7 @@ external_assertions:
     dysmorphic craniofacial findings.
   evidence:
   - reference: ORPHA:444069
-    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;CENPF | centromere protein F | hgnc:1857 | Disease-causing germline mutation(s) (loss of function) in&#34;
@@ -8408,7 +9224,7 @@ definitions:
     neurologic, and hematologic findings.
   evidence:
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;A rare multiple congenital anomalies syndrome usually characterized by microcephaly, ocular anomalies such as microphthalmia, and apple-peel intestinal atresia.&#34;
@@ -8446,7 +9262,7 @@ inheritance:
     pairs and families.
   evidence:
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Autosomal recessive&#34;
@@ -8466,7 +9282,7 @@ prevalence:
   notes: Orphanet classifies Stromme syndrome as ultra-rare worldwide.
   evidence:
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;&lt;1 / 1 000 000 | Worldwide | Point prevalence | PMID:28407396&#34;
@@ -8479,7 +9295,7 @@ progression:
     antenatal onset.
   evidence:
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Age of onset: Antenatal&#34;
@@ -8492,7 +9308,7 @@ progression:
     at fetal autopsy.
   evidence:
   - reference: ORPHA:444069
-    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;A rare genetic lethal multiple congenital anomalies/dysmorphic syndrome characterized by mid-gestation lethality and features of a ciliopathy.&#34;
@@ -8512,7 +9328,7 @@ has_subtypes:
     craniofacial, renal, cardiac, and hematologic involvement.
   evidence:
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;A rare multiple congenital anomalies syndrome usually characterized by microcephaly, ocular anomalies such as microphthalmia, and apple-peel intestinal atresia.&#34;
@@ -8526,7 +9342,7 @@ has_subtypes:
     and dysmorphic craniofacial features.
   evidence:
   - reference: ORPHA:444069
-    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Clinical manifestations include hydrocephalus, cerebellar vermis hypoplasia, corpus callosum agenesis, duodenal atresia, gastrointestinal malrotation, bilateral renal hypoplasia, and dysmorphic craniofacial features&#34;
@@ -8549,7 +9365,7 @@ genetic:
     phenotypes.
   evidence:
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;CENPF | centromere protein F | hgnc:1857 | Disease-causing germline mutation(s) in&#34;
@@ -8808,7 +9624,7 @@ phenotypes:
       label: Microcephaly
   evidence:
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;A rare multiple congenital anomalies syndrome usually characterized by microcephaly, ocular anomalies such as microphthalmia, and apple-peel intestinal atresia.&#34;
@@ -8850,7 +9666,7 @@ phenotypes:
       label: Microphthalmia
   evidence:
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;ocular anomalies such as microphthalmia&#34;
@@ -8918,7 +9734,7 @@ phenotypes:
       label: Motor delay
   evidence:
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Motor delay and intellectual disability have been reported.&#34;
@@ -8932,7 +9748,7 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Motor delay and intellectual disability have been reported.&#34;
@@ -8946,7 +9762,7 @@ phenotypes:
       label: Abnormal heart morphology
   evidence:
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Heart, brain, craniofacial abnormalities, renal hypoplasia and other anomalies (e.g. lower limb edema, thrombocytopenia) are variably present.&#34;
@@ -8961,7 +9777,7 @@ phenotypes:
       label: Renal hypoplasia
   evidence:
   - reference: ORPHA:444069
-    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;bilateral renal hypoplasia&#34;
@@ -8982,7 +9798,7 @@ phenotypes:
       label: Hydrocephalus
   evidence:
   - reference: ORPHA:444069
-    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Clinical manifestations include hydrocephalus&#34;
@@ -9003,7 +9819,7 @@ phenotypes:
       label: Cerebellar vermis hypoplasia
   evidence:
   - reference: ORPHA:444069
-    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;cerebellar vermis hypoplasia&#34;
@@ -9024,7 +9840,7 @@ phenotypes:
       label: Agenesis of corpus callosum
   evidence:
   - reference: ORPHA:444069
-    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;corpus callosum agenesis&#34;
@@ -9045,7 +9861,7 @@ phenotypes:
       label: Duodenal atresia
   evidence:
   - reference: ORPHA:444069
-    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;duodenal atresia&#34;
@@ -9066,7 +9882,7 @@ phenotypes:
       label: Intestinal malrotation
   evidence:
   - reference: ORPHA:444069
-    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;gastrointestinal malrotation&#34;
@@ -9080,7 +9896,7 @@ phenotypes:
       label: Hypertelorism
   evidence:
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Facial dysmorphism is reported in some cases and may include narrow or sloped forehead, hypertelorism, microphthalmia&#34;
@@ -9094,7 +9910,7 @@ phenotypes:
       label: Low-set ears
   evidence:
   - reference: ORPHA:444069
-    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;low-set ears&#34;
@@ -9114,7 +9930,7 @@ phenotypes:
       label: Wide nasal bridge
   evidence:
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;broad nasal root&#34;
@@ -9128,7 +9944,7 @@ phenotypes:
       label: Anteverted nares
   evidence:
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;anteverted or broad nasal tip&#34;
@@ -9142,7 +9958,7 @@ phenotypes:
       label: Long philtrum
   evidence:
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;long philtrum&#34;
@@ -9156,7 +9972,7 @@ phenotypes:
       label: Micrognathia
   evidence:
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;micrognathia&#34;
@@ -9176,7 +9992,7 @@ phenotypes:
       label: Wide mouth
   evidence:
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;large mouth&#34;
@@ -9197,7 +10013,7 @@ phenotypes:
       label: Cleft palate
   evidence:
   - reference: ORPHA:444069
-    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;cleft palate&#34;
@@ -9218,7 +10034,7 @@ phenotypes:
       label: Prominent nose
   evidence:
   - reference: ORPHA:444069
-    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Lethal fetal brain malformation-duodenal atresia-bilateral renal hypoplasia syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;prominent nose&#34;
@@ -9232,7 +10048,7 @@ phenotypes:
       label: Macrotia
   evidence:
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;large or low set ears&#34;
@@ -9246,7 +10062,7 @@ phenotypes:
       label: Edema
   evidence:
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;lower limb edema&#34;
@@ -9260,7 +10076,7 @@ phenotypes:
       label: Thrombocytopenia
   evidence:
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;thrombocytopenia&#34;
@@ -9312,7 +10128,7 @@ treatments:
       label: Microcephaly
   evidence:
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Heart, brain, craniofacial abnormalities, renal hypoplasia and other anomalies (e.g. lower limb edema, thrombocytopenia) are variably present.&#34;
@@ -9335,7 +10151,7 @@ treatments:
     snippet: &#34;Compound heterozygous inheritance was confirmed in both families.&#34;
     explanation: Confirmed familial biallelic inheritance supports recurrence-risk counseling.
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Autosomal recessive&#34;
@@ -9383,7 +10199,7 @@ diagnosis:
     snippet: &#34;Regarding the clinical features of both affected siblings, a diagnosis of Stromme syndrome was established.&#34;
     explanation: The report supports clinical diagnosis based on the recurrent feature pattern.
   - reference: ORPHA:506307
-    reference_title: &#34;Stromme syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Stromme syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;A rare multiple congenital anomalies syndrome usually characterized by microcephaly, ocular anomalies such as microphthalmia, and apple-peel intestinal atresia.&#34;
@@ -9688,6 +10504,8 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9810,7 +10628,7 @@ evidence to avoid blocking on provider availability.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Stromme Syndrome", "mondoId": "MONDO:0009477", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Stromme_Syndrome", "yamlRevision": "a03681485d91"};
+        const OS_CONFIG = {"diseaseName": "Stromme Syndrome", "mondoId": "MONDO:0009477", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Stromme_Syndrome", "yamlRevision": "fa86c09e8bd8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

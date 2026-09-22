@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -289,6 +290,16 @@
             border: 1px solid var(--teal-light);
         }
 
+        /* Study-area category pills. Colour comes from ModuleCategoryEnum via
+           the renderer, so only the shape is set here. */
+        .badge-study-area {
+            border: 1px solid;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 5px 13px;
+            cursor: help;
+        }
+
         .badge-module {
             background: #e0f2fe;
             color: #0369a1;
@@ -457,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -634,9 +657,7 @@
             font-weight: 600;
         }
         .support-SUPPORT { background: #d1fae5; color: #065f46; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
-        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
@@ -974,6 +995,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -982,7 +1017,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -1022,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1037,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1091,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1104,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1262,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1272,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1313,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1519,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1552,6 +1626,7 @@
         <header class="page-header">
             <h1>Portal Hypertension Module</h1>
             <div class="header-meta">
+                
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">portal_hypertension</span>
                 <span class="badge badge-count">2 disorders</span>
@@ -1828,6 +1903,8 @@ Scope and relationships. The module is deliberately haemodynamic: the fibrogenes
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
@@ -1864,6 +1941,16 @@ Scope and relationships. The module is deliberately haemodynamic: the fibrogenes
                         via
                         
                         
+                        
+                        Increased Intrahepatic Vascular Resistance
+                        
+                        
+                        , 
+                        
+                        Splanchnic Vasodilation and Hyperdynamic Circulation
+                        
+                        
+                        , 
                         
                         Portal Hypertension
                         
@@ -1911,11 +1998,13 @@ Scope and relationships. The module is deliberately haemodynamic: the fibrogenes
             
             <div class="item-box anchor-target" id="module-pathophysiology-increased-intrahepatic-vascular-resistance" data-dismech-node="Increased Intrahepatic Vascular Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Intrahepatic Vascular Resistance</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The initiating lesion is a rise in the resistance the hepatic vasculature offers to portal blood flow. In cirrhosis this has both a structural component - fibrosis and architectural distortion - and a dynamic, potentially reversible component: liver sinusoidal endothelial cells lose their normal vasodilatory phenotype and hepatic stellate cells contract, raising hepatic vascular tone. The profibrogenic phenotype acquired by these sinusoidal cells is the initial event. In non-cirrhotic conformers the same node is reached instead by obstruction of hepatic venous outflow or by presinusoidal portal-tract fibrosis.</div>
                 
@@ -2054,6 +2143,11 @@ This pathophysiological event involves dysregulated extracellular matrix organiz
                             
                         </div>
                         
+                        <div class="crosslink-item">
+                            <a href="../disorders/Liver_Cirrhosis.html">Liver Cirrhosis</a>
+                            
+                        </div>
+                        
                     </div>
                 </div>
                 
@@ -2077,11 +2171,13 @@ This pathophysiological event involves dysregulated extracellular matrix organiz
             
             <div class="item-box anchor-target" id="module-pathophysiology-splanchnic-vasodilation-and-hyperdynamic-circulation" data-dismech-node="Splanchnic Vasodilation and Hyperdynamic Circulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Splanchnic Vasodilation and Hyperdynamic Circulation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Portal hypertension is not simply a resistance problem. Arterial vasodilation in the splanchnic bed, driven by excess local vasodilators, increases the volume of blood delivered into the portal system, while systemic vasodilation triggers compensatory cardiac output rise and sodium-retaining neurohormonal activation. This hyperdynamic circulatory syndrome aggravates the portal pressure produced by the resistance lesion and is the arm on which nonselective beta-blockade acts.</div>
                 
@@ -2153,6 +2249,18 @@ This pathophysiological event involves dysregulated blood vessel diameter mainte
                 
 
                 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Liver_Cirrhosis.html">Liver Cirrhosis</a>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
 
                 
                 <div class="crosslink-block">
@@ -2173,11 +2281,13 @@ This pathophysiological event involves dysregulated blood vessel diameter mainte
             
             <div class="item-box anchor-target" id="module-pathophysiology-portal-hypertension" data-dismech-node="Portal Hypertension" data-dismech-type="pathophysiology">
                 <div class="item-name">Portal Hypertension</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Sustained elevation of pressure in the portal venous system, measured clinically as the hepatic venous pressure gradient. This is the disorder-agnostic, rate-limiting node of the module: every conformer, whatever its route to increased resistance, funnels through it, and every downstream complication in this module is a consequence of it rather than of the underlying liver disease directly. It is the primary non-neoplastic complication of cirrhosis and has few pharmacological treatment options.</div>
                 
@@ -2235,11 +2345,13 @@ This pathophysiological event involves dysregulated blood vessel diameter mainte
             
             <div class="item-box anchor-target" id="module-pathophysiology-portosystemic-collateral-formation-and-gastro-oesophageal-varices" data-dismech-node="Portosystemic Collateral Formation and Gastro-oesophageal Varices" data-dismech-type="pathophysiology">
                 <div class="item-name">Portosystemic Collateral Formation and Gastro-oesophageal Varices</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The portosystemic pressure gradient opens, dilates, and neovascularises collateral channels connecting the portal and systemic venous circulations. Gastro-oesophageal varices are the clinically decisive set: thin-walled, high-pressure submucosal vessels that rupture and bleed. Splenomegaly from passive congestion accompanies the collateral circulation and correlates with the measured portal pressure gradient.</div>
                 
@@ -2303,11 +2415,13 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
             
             <div class="item-box anchor-target" id="module-pathophysiology-hepatic-decompensation" data-dismech-node="Hepatic Decompensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Decompensation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The clinical endpoint of the module: the appearance of ascites, jaundice, hepatic encephalopathy, infection, or portal-hypertensive haemorrhage marks acute decompensation, a watershed in prognosis. Once decompensation occurs, survival is measured in months to a few years, and further complications - spontaneous bacterial peritonitis, hepatorenal syndrome, acute-on-chronic liver failure - become likely. Conforming entries attach their disease-specific decompensating events here.</div>
                 
@@ -2320,6 +2434,147 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
 
                 
 
+                
+            </div>
+            
+        </div>
+        
+
+        
+        
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box" data-dismech-node="Nonselective Beta-Blocker (Carvedilol or Propranolol)" data-dismech-type="treatment">
+                <div class="item-name">Nonselective Beta-Blocker (Carvedilol or Propranolol)</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        Pharmacotherapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-14">NCIT:C15986</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        carvedilol
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3441" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-15">CHEBI:3441</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses carvedilol (CHEBI:3441). CHEBI:3441 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        propranolol
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8499" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-16">CHEBI:8499</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses propranolol (CHEBI:8499). CHEBI:8499 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+                    
+                </div>
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Small molecule</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">Nonselective beta-blockers lower portal pressure by acting on the splanchnic inflow arm rather than on intrahepatic resistance: beta-2 blockade leaves splanchnic alpha-adrenergic vasoconstriction unopposed, reducing portal venous inflow, while beta-1 blockade lowers cardiac output. Carvedilol adds alpha-1 blockade, which also lowers intrahepatic vascular tone. In patients with clinically significant portal hypertension this reduced the risk of decompensation or death against placebo. This is the portal-hypertension drug-target design pattern for conforming disorders - act on the hyperdynamic amplifier, because the resistance trigger has no established pharmacotherapy.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">INHIBITS</span>
+                        
+                        
+                        <a href="#module-pathophysiology-splanchnic-vasodilation-and-hyperdynamic-circulation"><strong>Splanchnic Vasodilation and Hyperdynamic Circulation</strong></a>
+                        
+                        <span> — Nonselective beta-blockade reduces splanchnic arterial inflow and cardiac output, damping the hyperdynamic amplifier and thereby lowering the portal pressure it sustains.</span>
+                        
+                        <span class="tag" style="background:#ecfeff;color:#155e75;font-size:0.75rem;">Evidence: 2</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 3</span>
+                </div>
+                
                 
             </div>
             

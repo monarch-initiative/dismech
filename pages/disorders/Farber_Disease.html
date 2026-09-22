@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4154,6 +4261,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4175,6 +4284,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4259,6 +4370,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4280,6 +4393,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4328,6 +4443,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-asah1-acid-ceramidase-loss-of-function" data-dismech-node="ASAH1 acid ceramidase loss of function" data-dismech-type="pathophysiology">
                 <div class="item-name">ASAH1 acid ceramidase loss of function</div>
+
 
                 <div class="item-desc">Biallelic ASAH1 pathogenic variants reduce or abolish lysosomal acid ceramidase activity, the N-acylsphingosine amidohydrolase that normally hydrolyzes ceramide to sphingosine and fatty acid.
 </div>
@@ -4499,6 +4615,8 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4520,6 +4638,8 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4544,6 +4664,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ceramide-catabolism-blockade" data-dismech-node="Ceramide catabolism blockade" data-dismech-type="pathophysiology">
                 <div class="item-name">Ceramide catabolism blockade</div>
+
 
                 <div class="item-desc">Deficient acid ceramidase decreases lysosomal ceramide catabolism, preventing normal conversion of ceramide to sphingosine and fatty acid.
 </div>
@@ -4635,6 +4756,8 @@ This pathophysiological event involves decreased ceramide catabolic process (GO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4656,6 +4779,8 @@ This pathophysiological event involves decreased ceramide catabolic process (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4680,6 +4805,7 @@ This pathophysiological event involves decreased ceramide catabolic process (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lysosomal-ceramide-storage" data-dismech-node="Lysosomal ceramide storage" data-dismech-type="pathophysiology">
                 <div class="item-name">Lysosomal ceramide storage</div>
+
 
                 <div class="item-desc">Ceramide accumulates in lysosomes and tissues, creating the storage burden thought to drive Farber disease pathology.
 </div>
@@ -4842,6 +4968,8 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4863,6 +4991,8 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4887,6 +5017,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lipid-laden-macrophage-granulomas" data-dismech-node="Lipid-laden macrophage granulomas" data-dismech-type="pathophysiology">
                 <div class="item-name">Lipid-laden macrophage granulomas</div>
+
 
                 <div class="item-desc">Storage disease recruits and activates macrophages, producing granuloma-like lesions composed of lipid-filled macrophages and neutrophils, especially near cartilage and subcutaneous tissues.
 </div>
@@ -5052,6 +5183,8 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5073,6 +5206,8 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5097,6 +5232,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytokine-and-ceramide-plasma-signature" data-dismech-node="Cytokine and ceramide plasma signature" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytokine and ceramide plasma signature</div>
+
 
                 <div class="item-desc">Farber disease plasma shows a distinct inflammatory cytokine and ceramide profile, including elevated MCP-1, IP-10, IL-6, and specific ceramide species, which may help differentiate Farber disease from juvenile idiopathic arthritis.
 </div>
@@ -5196,6 +5332,8 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5217,6 +5355,8 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5241,6 +5381,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-nervous-system-storage-injury" data-dismech-node="Central nervous system storage injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Central nervous system storage injury</div>
+
 
                 <div class="item-desc">In severe acid ceramidase deficiency models, storage compounds accumulate in CNS neurons, endothelial cells, choroid plexus cells, and especially microglia or macrophages, producing motor and neurodegenerative findings that help explain neurologic involvement in Farber disease.
 </div>
@@ -5403,6 +5544,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5424,6 +5567,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5448,6 +5593,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-ceramide-storage-and-macrophage-activation" data-dismech-node="Retinal ceramide storage and macrophage activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinal ceramide storage and macrophage activation</div>
+
 
                 <div class="item-desc">Farber disease models show retinal ceramide accumulation and macrophage activation; ASAH1 over-expression can reduce central retinal thickening and macrophage activation in mice, supporting a storage-driven retinal mechanism.
 </div>
@@ -5556,6 +5702,8 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5617,6 +5765,8 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5638,6 +5788,8 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5682,7 +5834,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AAV-mediated ASAH1 gene therapy for retinopathy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"AAV-mediated ASAH1 over-expression is a preclinical ocular gene-therapy strategy that reduced retinal ceramide accumulation and macrophage activation in a Farber mouse model; it remains experimental.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ASAH1 acid ceramidase loss of function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ASAH1 pathogenic variants reduce or abolish lysosomal acid ceramidase activity, the N-acylsphingosine amidohydrolase that normally hydrolyzes ceramide to sphingosine and fatty acid.\\n\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"N-acylsphingosine amidohydrolase activity\"], \"genes\": [\"ASAH1\"], \"gene_terms\": [{\"label\": \"ASAH1\", \"id\": \"hgnc:735\"}]}}, {\"id\": \"Abnormal acid ceramidase activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0034053\"}}, {\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001369\"}}, {\"id\": \"Biallelic ASAH1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ASAH1\"], \"gene_terms\": [{\"label\": \"ASAH1\", \"id\": \"hgnc:735\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CNS foam cells\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003640\"}}, {\"id\": \"Central nervous system storage injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In severe acid ceramidase deficiency models, storage compounds accumulate in CNS neurons, endothelial cells, choroid plexus cells, and especially microglia or macrophages, producing motor and neurodegenerative findings that help explain neurologic involvement in Farber disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"microglial cell\", \"macrophage\"], \"locations\": [\"brain\"]}}, {\"id\": \"Ceramide catabolism blockade\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient acid ceramidase decreases lysosomal ceramide catabolism, preventing normal conversion of ceramide to sphingosine and fatty acid.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"ceramide catabolic process\"]}}, {\"id\": \"Cherry red spot of the macula\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010729\"}}, {\"id\": \"Cytokine and ceramide plasma signature\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Farber disease plasma shows a distinct inflammatory cytokine and ceramide profile, including elevated MCP-1, IP-10, IL-6, and specific ceramide species, which may help differentiate Farber disease from juvenile idiopathic arthritis.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Flexion contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001371\"}}, {\"id\": \"Floppy infant\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008947\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic hematopoietic stem cell transplantation can improve non-neurologic manifestations, including subcutaneous nodules, joint mobility, acid ceramidase leukocyte activity, and inflammatory cytokine abnormalities, but it carries serious risks and is unsuitable for severe pulmonary or neurologic disease.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hoarse voice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001609\"}}, {\"id\": \"Increased ceramide species\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:17761\", \"term_label\": \"ceramide\", \"readouts\": [{\"target\": \"Lysosomal ceramide storage\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased plasma or tissue ceramide species report the ceramide-storage branch caused by acid ceramidase deficiency.\"}]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Joint swelling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001386\"}}, {\"id\": \"Lipid-laden macrophage granulomas\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Storage disease recruits and activates macrophages, producing granuloma-like lesions composed of lipid-filled macrophages and neutrophils, especially near cartilage and subcutaneous tissues.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Lysosomal ceramide storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ceramide accumulates in lysosomes and tissues, creating the storage burden thought to drive Farber disease pathology.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"sphingolipid catabolic process\"]}}, {\"id\": \"Periarticular subcutaneous nodules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007470\"}}, {\"id\": \"Recombinant acid ceramidase enzyme replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recombinant human acid ceramidase enzyme replacement is an investigational disease-modifying strategy supported by Farber cell and mouse proof-of- concept studies, with clinical natural-history data collected to support potential future RVT-801 trials.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Reduced acid ceramidase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"ASAH1 acid ceramidase loss of function\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced leukocyte or fibroblast acid ceramidase activity directly reports ASAH1 acid ceramidase loss of function.\"}]}}, {\"id\": \"Respiratory system involvement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002086\"}}, {\"id\": \"Retinal ceramide storage and macrophage activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Farber disease models show retinal ceramide accumulation and macrophage activation; ASAH1 over-expression can reduce central retinal thickening and macrophage activation in mice, supporting a storage-driven retinal mechanism.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\"], \"locations\": [\"retina\"]}}], \"edges\": [{\"source\": \"ASAH1 acid ceramidase loss of function\", \"target\": \"Ceramide catabolism blockade\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficient acid ceramidase directly blocks ceramide hydrolysis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ASAH1 acid ceramidase loss of function\", \"target\": \"Reduced acid ceramidase activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ASAH1 loss of function is measured biochemically as reduced acid ceramidase activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ASAH1 acid ceramidase loss of function\", \"target\": \"Abnormal acid ceramidase activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proximal enzyme defect also appears as the laboratory phenotype of decreased acid ceramidase activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ceramide catabolism blockade\", \"target\": \"Lysosomal ceramide storage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blocked ceramide catabolism causes lysosomal ceramide accumulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal ceramide storage\", \"target\": \"Lipid-laden macrophage granulomas\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ceramide storage is associated with granulomas containing lipid-filled macrophages.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal ceramide storage\", \"target\": \"Cytokine and ceramide plasma signature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ceramide storage and storage-associated inflammation are reflected in the patient plasma cytokine and ceramide profile.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Storage-associated macrophage infiltration and abnormal hematopoietic activation elevate inflammatory mediators.\\n\", \"Disease-associated ceramide species accumulate systemically and are detectable in plasma.\\n\"]}, {\"source\": \"Lysosomal ceramide storage\", \"target\": \"Increased ceramide species\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lysosomal ceramide storage is reflected by increased disease-associated ceramide species.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal ceramide storage\", \"target\": \"Central nervous system storage injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ceramide storage can involve CNS cell types and contribute to neurologic disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lysosomal ceramide storage\", \"target\": \"Respiratory system involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multisystem ceramide storage can involve the respiratory system.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lysosomal ceramide storage\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe multisystem storage disease can manifest as failure to thrive.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lysosomal ceramide storage\", \"target\": \"Retinal ceramide storage and macrophage activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tissue ceramide storage extends to the retina, where acid ceramidase restoration reduces ceramide accumulation and macrophage activation in a Farber disease mouse model.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lipid-laden macrophage granulomas\", \"target\": \"Periarticular subcutaneous nodules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Granulomatous macrophage infiltration produces subcutaneous and periarticular nodules.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lipid-laden macrophage granulomas\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cartilage and periarticular inflammation contributes to arthritis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Lipid-laden macrophage granulomas\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cartilage and periarticular inflammation contributes to painful joints.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Lipid-laden macrophage granulomas\", \"target\": \"Flexion contracture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Periarticular storage and inflammation contribute to joint contractures.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Lipid-laden macrophage granulomas\", \"target\": \"Joint swelling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Periarticular inflammation contributes to swollen joints.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Lipid-laden macrophage granulomas\", \"target\": \"Hoarse voice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Macrophage-filled laryngeal nodules contribute to progressive hoarseness.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cytokine and ceramide plasma signature\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory mediator activation contributes to rheumatologic presentation and JIA-like misdiagnosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cytokine and ceramide plasma signature\", \"target\": \"Joint swelling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory mediator activation contributes to swollen inflammatory joints.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Central nervous system storage injury\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CNS involvement contributes to developmental delay in affected children.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central nervous system storage injury\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CNS involvement contributes to cognitive impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central nervous system storage injury\", \"target\": \"CNS foam cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CNS storage includes foam-cell and microglial/macrophage pathology.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Central nervous system storage injury\", \"target\": \"Floppy infant\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early neurologic involvement contributes to infantile hypotonia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Retinal ceramide storage and macrophage activation\", \"target\": \"Cherry red spot of the macula\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retinal storage disease is consistent with macular cherry-red spot annotation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Lipid-laden macrophage granulomas\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Cytokine and ceramide plasma signature\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Recombinant acid ceramidase enzyme replacement therapy\", \"target\": \"ASAH1 acid ceramidase loss of function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Recombinant acid ceramidase enzyme replacement therapy\", \"target\": \"Lysosomal ceramide storage\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AAV-mediated ASAH1 gene therapy for retinopathy\", \"target\": \"Retinal ceramide storage and macrophage activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ASAH1 acid ceramidase loss of function\", \"target\": \"Reduced acid ceramidase activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced leukocyte or fibroblast acid ceramidase activity directly reports ASAH1 acid ceramidase loss of function.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Lysosomal ceramide storage\", \"target\": \"Increased ceramide species\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased plasma or tissue ceramide species report the ceramide-storage branch caused by acid ceramidase deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Biallelic ASAH1 pathogenic variants\", \"target\": \"ASAH1 acid ceramidase loss of function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AAV-mediated ASAH1 gene therapy for retinopathy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"AAV-mediated ASAH1 over-expression is a preclinical ocular gene-therapy strategy that reduced retinal ceramide accumulation and macrophage activation in a Farber mouse model; it remains experimental.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ASAH1 acid ceramidase loss of function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ASAH1 pathogenic variants reduce or abolish lysosomal acid ceramidase activity, the N-acylsphingosine amidohydrolase that normally hydrolyzes ceramide to sphingosine and fatty acid.\\n\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"N-acylsphingosine amidohydrolase activity\"], \"genes\": [\"ASAH1\"], \"gene_terms\": [{\"label\": \"ASAH1\", \"id\": \"hgnc:735\"}]}}, {\"id\": \"Abnormal acid ceramidase activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0034053\"}}, {\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001369\"}}, {\"id\": \"Biallelic ASAH1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ASAH1\"], \"gene_terms\": [{\"label\": \"ASAH1\", \"id\": \"hgnc:735\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CNS foam cells\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003640\"}}, {\"id\": \"Central nervous system storage injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In severe acid ceramidase deficiency models, storage compounds accumulate in CNS neurons, endothelial cells, choroid plexus cells, and especially microglia or macrophages, producing motor and neurodegenerative findings that help explain neurologic involvement in Farber disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"microglial cell\", \"macrophage\"], \"locations\": [\"brain\"]}}, {\"id\": \"Ceramide catabolism blockade\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient acid ceramidase decreases lysosomal ceramide catabolism, preventing normal conversion of ceramide to sphingosine and fatty acid.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"ceramide catabolic process\"]}}, {\"id\": \"Cherry red spot of the macula\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010729\"}}, {\"id\": \"Cytokine and ceramide plasma signature\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Farber disease plasma shows a distinct inflammatory cytokine and ceramide profile, including elevated MCP-1, IP-10, IL-6, and specific ceramide species, which may help differentiate Farber disease from juvenile idiopathic arthritis.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Flexion contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001371\"}}, {\"id\": \"Floppy infant\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008947\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic hematopoietic stem cell transplantation can improve non-neurologic manifestations, including subcutaneous nodules, joint mobility, acid ceramidase leukocyte activity, and inflammatory cytokine abnormalities, but it carries serious risks and is unsuitable for severe pulmonary or neurologic disease.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hoarse voice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001609\"}}, {\"id\": \"Increased ceramide species\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:17761\", \"term_label\": \"ceramide\", \"readouts\": [{\"target\": \"Lysosomal ceramide storage\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased plasma or tissue ceramide species report the ceramide-storage branch caused by acid ceramidase deficiency.\"}]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Joint swelling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001386\"}}, {\"id\": \"Lipid-laden macrophage granulomas\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Storage disease recruits and activates macrophages, producing granuloma-like lesions composed of lipid-filled macrophages and neutrophils, especially near cartilage and subcutaneous tissues.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Lysosomal ceramide storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ceramide accumulates in lysosomes and tissues, creating the storage burden thought to drive Farber disease pathology.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"sphingolipid catabolic process\"]}}, {\"id\": \"Periarticular subcutaneous nodules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007470\"}}, {\"id\": \"Recombinant acid ceramidase enzyme replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recombinant human acid ceramidase enzyme replacement is an investigational disease-modifying strategy supported by Farber cell and mouse proof-of-concept studies, with clinical natural-history data collected to support potential future RVT-801 trials.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Reduced acid ceramidase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"ASAH1 acid ceramidase loss of function\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced leukocyte or fibroblast acid ceramidase activity directly reports ASAH1 acid ceramidase loss of function.\"}]}}, {\"id\": \"Respiratory system involvement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002086\"}}, {\"id\": \"Retinal ceramide storage and macrophage activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Farber disease models show retinal ceramide accumulation and macrophage activation; ASAH1 over-expression can reduce central retinal thickening and macrophage activation in mice, supporting a storage-driven retinal mechanism.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\"], \"locations\": [\"retina\"]}}], \"edges\": [{\"source\": \"ASAH1 acid ceramidase loss of function\", \"target\": \"Ceramide catabolism blockade\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficient acid ceramidase directly blocks ceramide hydrolysis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ASAH1 acid ceramidase loss of function\", \"target\": \"Reduced acid ceramidase activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ASAH1 loss of function is measured biochemically as reduced acid ceramidase activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ASAH1 acid ceramidase loss of function\", \"target\": \"Abnormal acid ceramidase activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proximal enzyme defect also appears as the laboratory phenotype of decreased acid ceramidase activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ceramide catabolism blockade\", \"target\": \"Lysosomal ceramide storage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blocked ceramide catabolism causes lysosomal ceramide accumulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal ceramide storage\", \"target\": \"Lipid-laden macrophage granulomas\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ceramide storage is associated with granulomas containing lipid-filled macrophages.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal ceramide storage\", \"target\": \"Cytokine and ceramide plasma signature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ceramide storage and storage-associated inflammation are reflected in the patient plasma cytokine and ceramide profile.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Storage-associated macrophage infiltration and abnormal hematopoietic activation elevate inflammatory mediators.\\n\", \"Disease-associated ceramide species accumulate systemically and are detectable in plasma.\\n\"]}, {\"source\": \"Lysosomal ceramide storage\", \"target\": \"Increased ceramide species\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lysosomal ceramide storage is reflected by increased disease-associated ceramide species.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal ceramide storage\", \"target\": \"Central nervous system storage injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ceramide storage can involve CNS cell types and contribute to neurologic disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lysosomal ceramide storage\", \"target\": \"Respiratory system involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multisystem ceramide storage can involve the respiratory system.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lysosomal ceramide storage\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe multisystem storage disease can manifest as failure to thrive.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lysosomal ceramide storage\", \"target\": \"Retinal ceramide storage and macrophage activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tissue ceramide storage extends to the retina, where acid ceramidase restoration reduces ceramide accumulation and macrophage activation in a Farber disease mouse model.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lipid-laden macrophage granulomas\", \"target\": \"Periarticular subcutaneous nodules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Granulomatous macrophage infiltration produces subcutaneous and periarticular nodules.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lipid-laden macrophage granulomas\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cartilage and periarticular inflammation contributes to arthritis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Lipid-laden macrophage granulomas\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cartilage and periarticular inflammation contributes to painful joints.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Lipid-laden macrophage granulomas\", \"target\": \"Flexion contracture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Periarticular storage and inflammation contribute to joint contractures.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Lipid-laden macrophage granulomas\", \"target\": \"Joint swelling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Periarticular inflammation contributes to swollen joints.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Lipid-laden macrophage granulomas\", \"target\": \"Hoarse voice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Macrophage-filled laryngeal nodules contribute to progressive hoarseness.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cytokine and ceramide plasma signature\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory mediator activation contributes to rheumatologic presentation and JIA-like misdiagnosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cytokine and ceramide plasma signature\", \"target\": \"Joint swelling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory mediator activation contributes to swollen inflammatory joints.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Central nervous system storage injury\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CNS involvement contributes to developmental delay in affected children.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central nervous system storage injury\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CNS involvement contributes to cognitive impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central nervous system storage injury\", \"target\": \"CNS foam cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CNS storage includes foam-cell and microglial/macrophage pathology.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Central nervous system storage injury\", \"target\": \"Floppy infant\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early neurologic involvement contributes to infantile hypotonia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Retinal ceramide storage and macrophage activation\", \"target\": \"Cherry red spot of the macula\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retinal storage disease is consistent with macular cherry-red spot annotation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Lipid-laden macrophage granulomas\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Cytokine and ceramide plasma signature\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Recombinant acid ceramidase enzyme replacement therapy\", \"target\": \"ASAH1 acid ceramidase loss of function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Recombinant acid ceramidase enzyme replacement therapy\", \"target\": \"Lysosomal ceramide storage\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AAV-mediated ASAH1 gene therapy for retinopathy\", \"target\": \"Retinal ceramide storage and macrophage activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ASAH1 acid ceramidase loss of function\", \"target\": \"Reduced acid ceramidase activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced leukocyte or fibroblast acid ceramidase activity directly reports ASAH1 acid ceramidase loss of function.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Lysosomal ceramide storage\", \"target\": \"Increased ceramide species\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased plasma or tissue ceramide species report the ceramide-storage branch caused by acid ceramidase deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Biallelic ASAH1 pathogenic variants\", \"target\": \"ASAH1 acid ceramidase loss of function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5701,21 +5853,23 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Voice<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Respiratory<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Voice<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Constitutional<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5725,8 +5879,107 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cns-foam-cells" data-dismech-node="CNS foam cells" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        CNS foam cells
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003640" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0003640</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is CNS foam cells (HP:0003640). HP:0003640 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:333" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0003640 | Foam cells in visceral organs and CNS | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records foam cells in visceral organs and CNS as frequent.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28342444" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28342444" target="_blank">PMID:28342444</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"storage-laden CD68+ microglia and/or macrophages were seen as early as 3 weeks of age"</div>
+
+
+                <div class="evidence-explanation">Mouse model supports CNS storage-laden macrophage or microglial pathology.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cherry-red-spot-of-the-macula" data-dismech-node="Cherry red spot of the macula" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5744,15 +5997,18 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0010729</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0010729</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cherry red spot of the macula (HP:0010729). HP:0010729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5772,6 +6028,8 @@ This clinical feature is Cherry red spot of the macula (HP:0010729). HP:0010729 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5802,13 +6060,13 @@ This clinical feature is Cherry red spot of the macula (HP:0010729). HP:0010729 
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Metabolism
+                    Integument
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-swelling" data-dismech-node="Joint swelling" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-periarticular-subcutaneous-nodules" data-dismech-node="Periarticular subcutaneous nodules" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Joint swelling
+                        Periarticular subcutaneous nodules
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
@@ -5822,15 +6080,18 @@ This clinical feature is Cherry red spot of the macula (HP:0010729). HP:0010729 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001386" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001386</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007470" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0007470</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Periarticular subcutaneous nodules (HP:0007470). HP:0007470 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5850,6 +6111,116 @@ This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0007470 | Periarticular subcutaneous nodules | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records periarticular subcutaneous nodules as very frequent.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27915031" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27915031" target="_blank">PMID:27915031</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Subcutaneous nodules, common to all reported FD patients, are composed of lipid-filled macrophages"</div>
+
+
+                <div class="evidence-explanation">Human biomarker study supports the nodular phenotype and its macrophage composition.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-swelling" data-dismech-node="Joint swelling" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Joint swelling
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001386" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001386</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:333" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5875,6 +6246,8 @@ This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5898,9 +6271,110 @@ This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype 
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-acid-ceramidase-activity" data-dismech-node="Abnormal acid ceramidase activity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal acid ceramidase activity
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Decreased acid ceramidase activity</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034053" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0034053</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased acid ceramidase activity (HP:0034053). HP:0034053 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:333" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0012379 | Abnormal enzyme/coenzyme activity | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records very frequent abnormal enzyme/coenzyme activity; the disease-specific abnormality is decreased acid ceramidase activity.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23707712" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23707712" target="_blank">PMID:23707712</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"any functionally active acid ceramidase is absent in patient cells"</div>
+
+
+                <div class="evidence-explanation">Patient-cell molecular evidence supports decreased or absent acid ceramidase activity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -5923,15 +6397,18 @@ This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001369</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001369</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5951,6 +6428,8 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5992,15 +6471,18 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001371</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001371</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6020,6 +6502,8 @@ This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6043,6 +6527,8 @@ This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6084,15 +6570,18 @@ This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008947" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0008947</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008947" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0008947</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Floppy infant (HP:0008947). HP:0008947 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6112,6 +6601,8 @@ This clinical feature is Floppy infant (HP:0008947). HP:0008947 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6139,7 +6630,7 @@ This clinical feature is Floppy infant (HP:0008947). HP:0008947 is a phenotype f
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -6162,15 +6653,18 @@ This clinical feature is Floppy infant (HP:0008947). HP:0008947 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6190,6 +6684,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6231,15 +6727,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6259,6 +6758,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6286,7 +6787,92 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-system-involvement" data-dismech-node="Respiratory system involvement" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Respiratory system involvement
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the respiratory system</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002086" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002086</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the respiratory system (HP:0002086). HP:0002086 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:333" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002086 | Abnormality of the respiratory system | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records respiratory system abnormality as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Voice
@@ -6309,15 +6895,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001609" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001609</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001609" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001609</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6337,6 +6926,8 @@ This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6360,6 +6951,8 @@ This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6387,7 +6980,7 @@ This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype fr
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
@@ -6410,15 +7003,18 @@ This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002829</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002829</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6438,6 +7034,8 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6465,7 +7063,7 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -6488,10 +7086,10 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6502,6 +7100,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6516,6 +7117,8 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6526,364 +7129,6 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                 <div class="evidence-explanation">Orphanet records failure to thrive as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-periarticular-subcutaneous-nodules" data-dismech-node="Periarticular subcutaneous nodules" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Periarticular subcutaneous nodules
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007470" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0007470</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Periarticular subcutaneous nodules (HP:0007470). HP:0007470 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:333" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0007470 | Periarticular subcutaneous nodules | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records periarticular subcutaneous nodules as very frequent.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27915031" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27915031" target="_blank">PMID:27915031</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Subcutaneous nodules, common to all reported FD patients, are composed of lipid-filled macrophages"</div>
-
-
-                <div class="evidence-explanation">Human biomarker study supports the nodular phenotype and its macrophage composition.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-system-involvement" data-dismech-node="Respiratory system involvement" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Respiratory system involvement
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormality of the respiratory system</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002086" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002086</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of the respiratory system (HP:0002086). HP:0002086 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:333" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002086 | Abnormality of the respiratory system | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records respiratory system abnormality as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cns-foam-cells" data-dismech-node="CNS foam cells" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        CNS foam cells
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003640" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0003640</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is CNS foam cells (HP:0003640). HP:0003640 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:333" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0003640 | Foam cells in visceral organs and CNS | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records foam cells in visceral organs and CNS as frequent.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28342444" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28342444" target="_blank">PMID:28342444</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-
-                </div>
-
-                <div class="evidence-snippet">"storage-laden CD68+ microglia and/or macrophages were seen as early as 3 weeks of age"</div>
-
-
-                <div class="evidence-explanation">Mouse model supports CNS storage-laden macrophage or microglial pathology.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-acid-ceramidase-activity" data-dismech-node="Abnormal acid ceramidase activity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal acid ceramidase activity
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Decreased acid ceramidase activity</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034053" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0034053</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Decreased acid ceramidase activity (HP:0034053). HP:0034053 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:333" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0012379 | Abnormal enzyme/coenzyme activity | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records very frequent abnormal enzyme/coenzyme activity; the disease-specific abnormality is decreased acid ceramidase activity.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23707712" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23707712" target="_blank">PMID:23707712</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"any functionally active acid ceramidase is absent in patient cells"</div>
-
-
-                <div class="evidence-explanation">Patient-cell molecular evidence supports decreased or absent acid ceramidase activity.</div>
 
 
 
@@ -6973,6 +7218,9 @@ This disease-associated gene is ASAH1 (hgnc:735). hgnc:735 is a gene from the HU
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
@@ -6995,6 +7243,8 @@ This disease-associated gene is ASAH1 (hgnc:735). hgnc:735 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7020,6 +7270,8 @@ This disease-associated gene is ASAH1 (hgnc:735). hgnc:735 is a gene from the HU
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7041,6 +7293,8 @@ This disease-associated gene is ASAH1 (hgnc:735). hgnc:735 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7123,6 +7377,8 @@ This disease-associated gene is ASAH1 (hgnc:735). hgnc:735 is a gene from the HU
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7144,6 +7400,8 @@ This disease-associated gene is ASAH1 (hgnc:735). hgnc:735 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7188,6 +7446,20 @@ This disease-associated gene is ASAH1 (hgnc:735). hgnc:735 is a gene from the HU
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">There is no established cure for Farber disease. Current care is primarily symptom management, including pain, mobility, respiratory, and surgical management as needed.
 </div>
 
@@ -7210,6 +7482,8 @@ This disease-associated gene is ASAH1 (hgnc:735). hgnc:735 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7273,6 +7547,31 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Cell therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Allogeneic hematopoietic stem cell transplantation can improve non-neurologic manifestations, including subcutaneous nodules, joint mobility, acid ceramidase leukocyte activity, and inflammatory cytokine abnormalities, but it carries serious risks and is unsuitable for severe pulmonary or neurologic disease.
 </div>
 
@@ -7304,6 +7603,8 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7352,6 +7653,8 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7394,6 +7697,8 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7415,6 +7720,8 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7477,7 +7784,21 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-                <div class="item-desc">Recombinant human acid ceramidase enzyme replacement is an investigational disease-modifying strategy supported by Farber cell and mouse proof-of- concept studies, with clinical natural-history data collected to support potential future RVT-801 trials.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Recombinant human acid ceramidase enzyme replacement is an investigational disease-modifying strategy supported by Farber cell and mouse proof-of-concept studies, with clinical natural-history data collected to support potential future RVT-801 trials.
 </div>
 
 
@@ -7508,6 +7829,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7556,6 +7879,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7598,6 +7923,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7619,6 +7946,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7681,6 +8010,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">AAV-mediated ASAH1 over-expression is a preclinical ocular gene-therapy strategy that reduced retinal ceramide accumulation and macrophage activation in a Farber mouse model; it remains experimental.
 </div>
 
@@ -7712,6 +8055,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7754,6 +8099,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7844,6 +8191,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7885,6 +8234,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7906,6 +8257,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7981,6 +8334,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8022,6 +8377,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8045,6 +8402,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8066,6 +8425,536 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-acid-ceramidase-enzyme-activity-assay">
+                <div class="item-name">
+                    Acid ceramidase enzyme activity assay
+
+                </div>
+
+                <div class="item-desc">Diagnosis can be established biochemically by measuring deficient acid ceramidase activity in leukocytes or skin fibroblasts.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27915031" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27915031" target="_blank">PMID:27915031</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ACDase activity is determined in leukocytes collected from peripheral blood or from skin fibroblasts obtained by a biopsy."</div>
+
+
+                <div class="evidence-explanation">Human biomarker study supports leukocyte or fibroblast enzyme activity testing.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31835809" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31835809" target="_blank">PMID:31835809</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"FD is diagnosed by demonstration of reduced AC activity and abnormally high ceramide levels"</div>
+
+
+                <div class="evidence-explanation">Review supports reduced acid ceramidase activity and elevated ceramide as diagnostic evidence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-asah1-molecular-genetic-testing">
+                <div class="item-name">
+                    ASAH1 molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Molecular genetic testing confirms biallelic ASAH1 pathogenic variants and supports family-based diagnosis and recurrence-risk assessment.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27915031" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27915031" target="_blank">PMID:27915031</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Definite diagnosis of FD patients can be established by measuring ACDase enzymatic activity and/or sequencing the ASAH1 gene."</div>
+
+
+                <div class="evidence-explanation">Human biomarker study supports ASAH1 sequencing as diagnostic confirmation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-blood-biomarker-development-study">
+                <div class="item-name">
+                    Blood biomarker development study
+
+                </div>
+
+                <div class="item-desc">A multicenter epidemiologic ClinicalTrials.gov protocol evaluated mass spectrometry-based blood biomarkers for earlier and sensitive Farber disease diagnosis.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT02298634" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT02298634" target="_blank">clinicaltrials:NCT02298634</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Development of a new mass spectrometry-based biomarker for the early and sensitive diagnosis of Farber disease from the blood"</div>
+
+
+                <div class="evidence-explanation">ClinicalTrials.gov record supports a Farber disease blood biomarker study.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-early-onset-progressive-multisystem-disease">
+                <div class="item-name">Early-onset progressive multisystem disease</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Antenatal to childhood, most often infancy</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Onset can be antenatal, neonatal, infantile, or childhood. Classical disease begins in infancy with progressive joint, subcutaneous, laryngeal, and systemic involvement; severe forms may lead to death in infancy, whereas attenuated forms may be diagnosed later.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:333" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Age of onset: Infancy"</div>
+
+
+                <div class="evidence-explanation">Orphanet records infancy among Farber disease onset bands.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29048419" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29048419" target="_blank">PMID:29048419</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Farber disease onset is in infancy."</div>
+
+
+                <div class="evidence-explanation">Natural-history analysis supports infancy as typical onset.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30029679" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30029679" target="_blank">PMID:30029679</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients may develop severe pathologies leading to death in infancy or may develop attenuated forms"</div>
+
+
+                <div class="evidence-explanation">Review supports the broad severity continuum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">Unknown</span>
+
+                    <span class="tag">Unknown</span>
+
+                </div>
+
+                <div class="item-notes">Orphanet records Farber disease as ultra-rare with worldwide point prevalence below 1 per 1,000,000.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:333" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"&lt;1 / 1 000 000 | Worldwide | Point prevalence | PMID:29048419"</div>
+
+
+                <div class="evidence-explanation">Orphanet records a worldwide point-prevalence band below 1 per 1,000,000.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29048419" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29048419" target="_blank">PMID:29048419</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"PurposeFarber disease (OMIM 22800) is an ultrarare progressive multisystemic"</div>
+
+
+                <div class="evidence-explanation">Natural-history study supports the ultra-rare multisystem framing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8113,6 +9002,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8183,6 +9074,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8204,6 +9097,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8295,13 +9190,13 @@ external_assertions:
     phenotype annotations used in this entry.
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;MONDO:0009218 | Exact&#34;
     explanation: Orphanet maps ORPHA:333 to the same MONDO identifier used by this entry.
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;OMIM:228000 | Exact&#34;
@@ -8316,7 +9211,7 @@ definitions:
     neurologic involvement.
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;classical triad of painful and progressively deformed joints, subcutaneous nodules, and progressive hoarseness&#34;
@@ -8337,7 +9232,7 @@ inheritance:
       label: Autosomal recessive inheritance
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Autosomal recessive&#34;
@@ -8357,7 +9252,7 @@ prevalence:
     prevalence below 1 per 1,000,000.
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;&lt;1 / 1 000 000 | Worldwide | Point prevalence | PMID:29048419&#34;
@@ -8378,7 +9273,7 @@ progression:
     attenuated forms may be diagnosed later.
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Age of onset: Infancy&#34;
@@ -8413,7 +9308,7 @@ genetic:
   - name: Autosomal recessive inheritance
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;ASAH1 | N-acylsphingosine amidohydrolase 1 | hgnc:735 | Disease-causing germline mutation(s) in&#34;
@@ -8641,7 +9536,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:333
-      reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Farber disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;respiratory and neurologic involvement&#34;
@@ -8651,7 +9546,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:333
-      reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Farber disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001508 | Failure to thrive | Frequent (79-30%)&#34;
@@ -8720,7 +9615,7 @@ pathophysiology:
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:333
-      reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Farber disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001369 | Arthritis | Very frequent (99-80%)&#34;
@@ -8862,7 +9757,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:333
-      reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Farber disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001263 | Global developmental delay | Frequent (79-30%)&#34;
@@ -8872,7 +9767,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:333
-      reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Farber disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001249 | Intellectual disability | Frequent (79-30%)&#34;
@@ -8892,7 +9787,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:333
-      reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Farber disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0008947 | Floppy infant | Frequent (79-30%)&#34;
@@ -8931,7 +9826,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:333
-      reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Farber disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0010729 | Cherry red spot of the macula | Frequent (79-30%)&#34;
@@ -8947,7 +9842,7 @@ phenotypes:
       label: Periarticular subcutaneous nodules
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0007470 | Periarticular subcutaneous nodules | Very frequent (99-80%)&#34;
@@ -8968,7 +9863,7 @@ phenotypes:
       label: Arthritis
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001369 | Arthritis | Very frequent (99-80%)&#34;
@@ -8983,7 +9878,7 @@ phenotypes:
       label: Arthralgia
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002829 | Arthralgia | Frequent (79-30%)&#34;
@@ -8998,7 +9893,7 @@ phenotypes:
       label: Flexion contracture
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001371 | Flexion contracture | Very frequent (99-80%)&#34;
@@ -9019,7 +9914,7 @@ phenotypes:
       label: Joint swelling
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001386 | Joint swelling | Very frequent (99-80%)&#34;
@@ -9040,7 +9935,7 @@ phenotypes:
       label: Hoarse voice
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001609 | Hoarse voice | Very frequent (99-80%)&#34;
@@ -9061,7 +9956,7 @@ phenotypes:
       label: Abnormality of the respiratory system
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002086 | Abnormality of the respiratory system | Frequent (79-30%)&#34;
@@ -9076,7 +9971,7 @@ phenotypes:
       label: Failure to thrive
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001508 | Failure to thrive | Frequent (79-30%)&#34;
@@ -9091,7 +9986,7 @@ phenotypes:
       label: Floppy infant
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0008947 | Floppy infant | Frequent (79-30%)&#34;
@@ -9106,7 +10001,7 @@ phenotypes:
       label: Global developmental delay
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001263 | Global developmental delay | Frequent (79-30%)&#34;
@@ -9121,7 +10016,7 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001249 | Intellectual disability | Frequent (79-30%)&#34;
@@ -9136,7 +10031,7 @@ phenotypes:
       label: CNS foam cells
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003640 | Foam cells in visceral organs and CNS | Frequent (79-30%)&#34;
@@ -9157,7 +10052,7 @@ phenotypes:
       label: Cherry red spot of the macula
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0010729 | Cherry red spot of the macula | Frequent (79-30%)&#34;
@@ -9172,7 +10067,7 @@ phenotypes:
       label: Decreased acid ceramidase activity
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0012379 | Abnormal enzyme/coenzyme activity | Very frequent (99-80%)&#34;
@@ -9390,8 +10285,8 @@ treatments:
 - name: Recombinant acid ceramidase enzyme replacement therapy
   description: &gt;
     Recombinant human acid ceramidase enzyme replacement is an investigational
-    disease-modifying strategy supported by Farber cell and mouse proof-of-
-    concept studies, with clinical natural-history data collected to support
+    disease-modifying strategy supported by Farber cell and mouse proof-of-concept
+    studies, with clinical natural-history data collected to support
     potential future RVT-801 trials.
   treatment_term:
     preferred_term: Pharmacotherapy
@@ -9857,6 +10752,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9983,7 +10880,7 @@ retinal gene therapy remain investigational/preclinical in the cited evidence.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Farber Disease", "mondoId": "MONDO:0009218", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Farber_Disease", "yamlRevision": "c0cb43b793e9"};
+        const OS_CONFIG = {"diseaseName": "Farber Disease", "mondoId": "MONDO:0009218", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Farber_Disease", "yamlRevision": "b92d5227663f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

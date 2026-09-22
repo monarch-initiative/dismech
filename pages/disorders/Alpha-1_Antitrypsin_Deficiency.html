@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4226,6 +4333,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4247,6 +4356,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4343,6 +4454,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4421,6 +4534,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4503,6 +4618,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4537,6 +4654,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-neutrophil-recruitment" data-dismech-node="Pulmonary Neutrophil Recruitment" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary Neutrophil Recruitment</div>
+
 
                 <div class="item-desc">Pulmonary inflammatory stimuli recruit neutrophils from the circulation to affected tissue.</div>
 
@@ -4657,6 +4775,8 @@ This pathophysiological event involves leukocyte migration (GO:0050900). GO:0050
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4679,6 +4799,7 @@ This pathophysiological event involves leukocyte migration (GO:0050900). GO:0050
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-neutrophil-degranulation" data-dismech-node="Pulmonary Neutrophil Degranulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary Neutrophil Degranulation</div>
+
 
                 <div class="item-desc">Activated neutrophils degranulate and release inflammatory proteases, including neutrophil elastase.</div>
 
@@ -4799,6 +4920,8 @@ This pathophysiological event involves neutrophil degranulation (GO:0043312). GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4821,6 +4944,7 @@ This pathophysiological event involves neutrophil degranulation (GO:0043312). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neutrophil-elastase-activity" data-dismech-node="Neutrophil Elastase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Neutrophil Elastase Activity</div>
+
 
                 <div class="item-desc">Neutrophil elastase is the effector protease left insufficiently inhibited when functional AAT is deficient.</div>
 
@@ -4911,6 +5035,8 @@ This pathophysiological event involves increased serine-type endopeptidase activ
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4933,6 +5059,7 @@ This pathophysiological event involves increased serine-type endopeptidase activ
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-protease-antiprotease-imbalance-in-lung" data-dismech-node="Protease-Antiprotease Imbalance in Lung" data-dismech-type="pathophysiology">
                 <div class="item-name">Protease-Antiprotease Imbalance in Lung</div>
+
 
                 <div class="item-desc">Reduced functional AAT disrupts protease-antiprotease homeostasis and decreases neutrophil-elastase inhibition.
 </div>
@@ -5077,6 +5204,8 @@ This pathophysiological event involves decreased serine-type endopeptidase inhib
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5099,6 +5228,7 @@ This pathophysiological event involves decreased serine-type endopeptidase inhib
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-protein-aggregation" data-dismech-node="Hepatic Protein Aggregation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Protein Aggregation</div>
+
 
                 <div class="item-desc">In PiZZ individuals, mutant Z-AAT misfolds during biogenesis and approximately 85% is retained within hepatocytes rather than secreted, producing hepatic accumulation and limiting access to the circulation.
 </div>
@@ -5272,6 +5402,8 @@ This pathophysiological event involves SERPINA1 (hgnc:8941). hgnc:8941 is a gene
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5293,6 +5425,8 @@ This pathophysiological event involves SERPINA1 (hgnc:8941). hgnc:8941 is a gene
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5317,6 +5451,7 @@ This pathophysiological event involves SERPINA1 (hgnc:8941). hgnc:8941 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-er-stress-and-unfolded-protein-response" data-dismech-node="ER Stress and Unfolded Protein Response" data-dismech-type="pathophysiology">
                 <div class="item-name">ER Stress and Unfolded Protein Response</div>
+
 
                 <div class="item-desc">Intracellular mutant Z-AAT initiates an ER-stress-associated hepatocyte injury cascade involving unfolded-protein-response signaling.</div>
 
@@ -5484,6 +5619,8 @@ This pathophysiological event involves endoplasmic reticulum unfolded protein re
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5506,6 +5643,7 @@ This pathophysiological event involves endoplasmic reticulum unfolded protein re
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocyte-injury" data-dismech-node="Hepatocyte Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocyte Injury</div>
+
 
                 <div class="item-desc">Chronic intracellular Z-AAT polymer burden drives ER stress, mitochondrial depolarization, caspase activation, and hepatocyte death.
 </div>
@@ -5660,6 +5798,8 @@ This pathophysiological event involves autophagy (GO:0006914). GO:0006914 is a b
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5682,6 +5822,7 @@ This pathophysiological event involves autophagy (GO:0006914). GO:0006914 is a b
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-stellate-cell-activation" data-dismech-node="Hepatic Stellate Cell Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Stellate Cell Activation</div>
+
 
                 <div class="item-desc">Recurrent hepatocyte death and compensatory regeneration activate hepatic stellate cells, initiating the fibrotic response.</div>
 
@@ -5814,6 +5955,8 @@ This pathophysiological event involves increased collagen fibril organization (G
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5836,6 +5979,7 @@ This pathophysiological event involves increased collagen fibril organization (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alveolar-tissue-destruction" data-dismech-node="Alveolar Tissue Destruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Alveolar Tissue Destruction</div>
+
 
                 <div class="item-desc">Progressive degradation of alveolar walls and elastin fibers leads to loss of structural integrity, air trapping, and emphysema development.
 </div>
@@ -5920,6 +6064,7 @@ This pathophysiological event involves extracellular matrix disassembly (GO:0022
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neutrophilic-subcutaneous-inflammation" data-dismech-node="Neutrophilic Subcutaneous Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neutrophilic Subcutaneous Inflammation</div>
+
 
                 <div class="item-desc">AATD-associated panniculitis can show extensive subcutaneous inflammation with neutrophils, foamy macrophages, and fat necrosis.
 </div>
@@ -6007,6 +6152,8 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6065,6 +6212,8 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6086,6 +6235,8 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6198,6 +6349,9 @@ This clinical feature is granulomatosis with polyangiitis, annotated with Vascul
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6212,6 +6366,8 @@ This clinical feature is granulomatosis with polyangiitis, annotated with Vascul
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6292,6 +6448,9 @@ This clinical feature is cirrhosis (HP:0001394), qualified as course progressive
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6306,6 +6465,8 @@ This clinical feature is cirrhosis (HP:0001394), qualified as course progressive
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6329,6 +6490,8 @@ This clinical feature is cirrhosis (HP:0001394), qualified as course progressive
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6400,6 +6563,9 @@ This clinical feature is hepatic fibrosis (HP:0001395), qualified as course prog
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6414,6 +6580,8 @@ This clinical feature is hepatic fibrosis (HP:0001395), qualified as course prog
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6467,6 +6635,9 @@ This clinical feature is hepatocellular carcinoma (HP:0001402). HP:0001402 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6481,6 +6652,8 @@ This clinical feature is hepatocellular carcinoma (HP:0001402). HP:0001402 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6534,6 +6707,9 @@ This clinical feature is neonatal cholestasis, annotated with Cholestasis (HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6548,6 +6724,8 @@ This clinical feature is neonatal cholestasis, annotated with Cholestasis (HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6610,6 +6788,9 @@ This clinical feature is panniculitis (HP:0012490). HP:0012490 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6624,6 +6805,8 @@ This clinical feature is panniculitis (HP:0012490). HP:0012490 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6688,6 +6871,9 @@ This clinical feature is panacinar emphysema (HP:0032967). HP:0032967 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6702,6 +6888,8 @@ This clinical feature is panacinar emphysema (HP:0032967). HP:0032967 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6725,6 +6913,8 @@ This clinical feature is panacinar emphysema (HP:0032967). HP:0032967 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6780,6 +6970,9 @@ This clinical feature is chronic obstructive pulmonary disease, annotated with C
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6794,6 +6987,8 @@ This clinical feature is chronic obstructive pulmonary disease, annotated with C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6847,6 +7042,9 @@ This clinical feature is bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6861,6 +7059,8 @@ This clinical feature is bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6884,6 +7084,8 @@ This clinical feature is bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6981,6 +7183,9 @@ This disease-associated gene is SERPINA1 (hgnc:8941). hgnc:8941 is a gene from t
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal codominant inheritance</span>
@@ -7003,6 +7208,8 @@ This disease-associated gene is SERPINA1 (hgnc:8941). hgnc:8941 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7028,6 +7235,8 @@ This disease-associated gene is SERPINA1 (hgnc:8941). hgnc:8941 is a gene from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7049,6 +7258,8 @@ This disease-associated gene is SERPINA1 (hgnc:8941). hgnc:8941 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7109,6 +7320,9 @@ This disease-associated gene is SERPINA1 (hgnc:8941). hgnc:8941 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7123,6 +7337,8 @@ This disease-associated gene is SERPINA1 (hgnc:8941). hgnc:8941 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7148,6 +7364,8 @@ This disease-associated gene is SERPINA1 (hgnc:8941). hgnc:8941 is a gene from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7169,6 +7387,8 @@ This disease-associated gene is SERPINA1 (hgnc:8941). hgnc:8941 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7245,6 +7465,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7331,6 +7565,8 @@ This treatment targets panniculitis (HP:0012490). HP:0012490 is a phenotype from
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7352,6 +7588,8 @@ This treatment targets panniculitis (HP:0012490). HP:0012490 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7454,6 +7692,20 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">GeneReviews identifies dapsone or doxycycline as therapy for panniculitis, with high-dose intravenous AAT augmentation for refractory disease.</div>
 
 
@@ -7497,6 +7749,8 @@ This treatment targets panniculitis (HP:0012490). HP:0012490 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7555,6 +7809,20 @@ This treatment is pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7623,6 +7891,8 @@ This treatment targets panacinar emphysema (HP:0032967). HP:0032967 is a phenoty
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7646,6 +7916,8 @@ This treatment targets panacinar emphysema (HP:0032967). HP:0032967 is a phenoty
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7667,6 +7939,8 @@ This treatment targets panacinar emphysema (HP:0032967). HP:0032967 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7730,6 +8004,20 @@ This treatment is pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">SAR447537 (INBRX-101) was compared with plasma-derived A1PI therapy in a Phase 2 study of adults with AATD emphysema.</div>
 
 
@@ -7775,6 +8063,8 @@ This treatment targets emphysema (HP:0002097). HP:0002097 is a phenotype from th
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7804,6 +8094,20 @@ This treatment targets emphysema (HP:0002097). HP:0002097 is a phenotype from th
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Smoking avoidance is a central modifiable measure because tobacco exposure increases emphysema risk in AATD.
 </div>
 
@@ -7826,6 +8130,8 @@ This treatment targets emphysema (HP:0002097). HP:0002097 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7857,6 +8163,20 @@ This treatment targets emphysema (HP:0002097). HP:0002097 is a phenotype from th
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">GeneReviews recommends avoiding active and passive smoking, relevant occupational pollutants, and excessive alcohol use.</div>
 
 
@@ -7878,6 +8198,8 @@ This treatment targets emphysema (HP:0002097). HP:0002097 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7963,6 +8285,20 @@ This treatment uses bronchodilator (NCIT:C319). NCIT:C319 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Inhaled medication is used as part of guideline-based management of AATD-associated obstructive lung disease.
 </div>
 
@@ -8007,6 +8343,8 @@ This treatment targets chronic obstructive pulmonary disease, annotated with Chr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8064,6 +8402,20 @@ This treatment is Lung Transplantation (NCIT:C15274). NCIT:C15274 is a clinical 
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8131,6 +8483,8 @@ This treatment targets panacinar emphysema (HP:0032967). HP:0032967 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8215,6 +8569,20 @@ This treatment uses fazirsiran (NCIT:C188640). NCIT:C188640 is a therapeutic age
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The RNA-interference therapeutic fazirsiran degrades Z-AAT mRNA. In the Phase 2 SEQUOIA trial, it produced dose-dependent serum and liver Z-AAT reduction and reduced hepatic globule burden.
 </div>
 
@@ -8257,6 +8625,8 @@ This treatment uses fazirsiran (NCIT:C188640). NCIT:C188640 is a therapeutic age
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8280,6 +8650,8 @@ This treatment uses fazirsiran (NCIT:C188640). NCIT:C188640 is a therapeutic age
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8301,6 +8673,8 @@ This treatment uses fazirsiran (NCIT:C188640). NCIT:C188640 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8364,6 +8738,20 @@ This treatment is transplantation procedure, annotated with Transplantation (NCI
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Liver transplantation is the definitive treatment for severe AATD liver disease and restores circulating AAT levels.
 </div>
 
@@ -8406,6 +8794,8 @@ This treatment is transplantation procedure, annotated with Transplantation (NCI
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8429,6 +8819,8 @@ This treatment is transplantation procedure, annotated with Transplantation (NCI
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8450,6 +8842,8 @@ This treatment is transplantation procedure, annotated with Transplantation (NCI
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8538,6 +8932,8 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8559,6 +8955,8 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8611,6 +9009,8 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8624,14 +9024,16 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40943425" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40943425" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40943425" target="_blank">PMID:40943425</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8677,14 +9079,16 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32376409" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32376409" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32376409" target="_blank">PMID:32376409</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8727,14 +9131,16 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32376409" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32376409" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32376409" target="_blank">PMID:32376409</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8803,6 +9209,8 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8853,6 +9261,8 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8874,6 +9284,8 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8899,6 +9311,8 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8920,6 +9334,581 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-serum-alpha-1-antitrypsin-measurement">
+                <div class="item-name">
+                    Serum alpha-1 antitrypsin measurement
+
+                </div>
+
+                <div class="item-desc">Demonstration of a low serum AAT concentration is the biochemical component of AATD diagnosis.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        alpha-1 antitrypsin measurement
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C25294" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-50">NCIT:C25294</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301692" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301692" target="_blank">PMID:20301692</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of AATD relies on demonstration of low serum concentration of alpha-1 antitrypsin (AAT) and either identification of biallelic pathogenic variants in SERPINA1 or detection of a functionally deficient AAT protein variant by protease inhibitor (PI) typing."</div>
+
+
+                <div class="evidence-explanation">GeneReviews identifies low serum AAT as the biochemical component of diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-confirmatory-pi-typing-or-serpina1-genetic-testing">
+                <div class="item-name">
+                    Confirmatory PI typing or SERPINA1 genetic testing
+
+                </div>
+
+                <div class="item-desc">A low serum AAT result is confirmed by either biallelic pathogenic SERPINA1 variants or a functionally deficient protein variant identified by protease-inhibitor typing.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-51">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301692" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301692" target="_blank">PMID:20301692</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of AATD relies on demonstration of low serum concentration of alpha-1 antitrypsin (AAT) and either identification of biallelic pathogenic variants in SERPINA1 or detection of a functionally deficient AAT protein variant by protease inhibitor (PI) typing."</div>
+
+
+                <div class="evidence-explanation">GeneReviews directly states the biochemical-plus-genetic/protein diagnostic criteria.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-longitudinal-pulmonary-and-hepatic-surveillance">
+                <div class="item-name">
+                    Longitudinal pulmonary and hepatic surveillance
+
+                </div>
+
+                <div class="item-desc">Surveillance includes pulmonary function testing and liver laboratory and imaging assessment every six to twelve months.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301692" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301692" target="_blank">PMID:20301692</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Every six to 12 months: pulmonary function tests including spirometry with bronchodilators and diffusing capacity measurements; liver function tests, platelet count and liver ultrasound, elastography (e.g., FibroScan), magnetic resonance imaging."</div>
+
+
+                <div class="evidence-explanation">GeneReviews states the pulmonary and hepatic surveillance modalities and interval.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-evaluation-and-counseling-of-relatives-at-risk">
+                <div class="item-name">
+                    Evaluation and counseling of relatives at risk
+
+                </div>
+
+                <div class="item-desc">Parents, siblings, and offspring of an individual with severe AATD should be evaluated so treatment and preventive measures can begin early when needed.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic counseling
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-52">NCIT:C15240</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301692" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301692" target="_blank">PMID:20301692</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Evaluation of parents, older and younger sibs, and offspring of an individual with severe AATD in order to identify as early as possible those relatives who would benefit from institution of treatment and preventive measures."</div>
+
+
+                <div class="evidence-explanation">GeneReviews directly supports cascade evaluation of first-degree relatives.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301692" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301692" target="_blank">PMID:20301692</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Heterozygote testing for at-risk family members and prenatal and preimplantation genetic testing are possible once the pathogenic SERPINA1 variants have been identified in the family."</div>
+
+
+                <div class="evidence-explanation">GeneReviews states the available reproductive and heterozygote-testing options.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-western-europe-and-the-united-states">
+                <div class="item-name">Western Europe and the United States</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">20.0&ndash;40.0 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 10,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Severe alpha-1 antitrypsin deficiency is most prevalent in populations of European ancestry. Genotype-based estimates in Western Europe and the United States are around 1 in 2,500 to 1 in 5,000 newborns, while diagnosed prevalence in a large German claims database was lower at 23.73 per 100,000 overall, consistent with underrecognition.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18565211" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18565211" target="_blank">PMID:18565211</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The prevalence in Western Europe and in the USA is estimated at approximately 1 in 2,500 and 1 : 5,000 newborns, and is highly dependent on the Scandinavian descent within the population."</div>
+
+
+                <div class="evidence-explanation">Review-level epidemiology gives the standard severe-disease prevalence range for alpha-1 antitrypsin deficiency in high-prevalence populations.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27824593" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27824593" target="_blank">PMID:27824593</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"corresponding to a prevalence of 23.73 per 100 000 in all age groups and 29.36 per 100 000 in those ≥30 years."</div>
+
+
+                <div class="evidence-explanation">Population-based claims data show that diagnosed prevalence is substantially lower than genotype-based estimates, supporting under-ascertainment in routine care.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide-diagnosed-aatd-population">
+                <div class="item-name">Worldwide diagnosed AATD population</div>
+                <div class="item-meta">
+
+
+
+
+
+                </div>
+
+                <div class="item-notes">AATD remains substantially underdiagnosed worldwide. A 2024 international guideline emphasizes that diagnosis is often delayed and that targeted/cascade testing in high-risk groups is the main case-finding strategy outside the few jurisdictions with newborn screening.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39661838" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39661838" target="_blank">PMID:39661838</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Unfortunately, underdiagnosis is quite common; it is possible that only 10% of cases are diagnosed."</div>
+
+
+                <div class="evidence-explanation">2024 Brazilian Thoracic Society guideline quantifies AATD underdiagnosis at ~90% (only ~10% diagnosed), supporting prevalence underestimation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-aatd-contribution-to-copd-bronchiectasis">
+                <div class="item-name">AATD contribution to COPD/bronchiectasis</div>
+                <div class="item-meta">
+
+
+
+
+
+                </div>
+
+                <div class="item-notes">Among adults with COPD/emphysema or bronchiectasis, AATD genotypes (Pi*SZ and Pi*ZZ) are detected substantially more frequently than in asthma populations, supporting recommendations to test all adults with COPD or bronchiectasis.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33192056" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33192056" target="_blank">PMID:33192056</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"COPD/emphysema and bronchiectasis, but not asthma patients, exhibit higher frequency of AATD genotypes."</div>
+
+
+                <div class="evidence-explanation">Large German testing-laboratory cohort (29,465 kits) shows AATD genotype prevalence is enriched in both COPD and bronchiectasis populations, supporting case-finding policy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8989,6 +9978,8 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9012,6 +10003,8 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9033,6 +10026,8 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9190,11 +10185,11 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001395" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0001395</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001395" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0001395</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets hepatic fibrosis (HP:0001395). HP:0001395 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9207,11 +10202,11 @@ This clinical trial targets hepatic fibrosis (HP:0001395). HP:0001395 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0001394</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0001394</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets cirrhosis (HP:0001394). HP:0001394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9236,6 +10231,8 @@ This clinical trial targets cirrhosis (HP:0001394). HP:0001394 is a phenotype fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9257,6 +10254,8 @@ This clinical trial targets cirrhosis (HP:0001394). HP:0001394 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9304,11 +10303,11 @@ This clinical trial targets cirrhosis (HP:0001394). HP:0001394 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0002097</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets emphysema (HP:0002097). HP:0002097 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9331,6 +10330,8 @@ This clinical trial targets emphysema (HP:0002097). HP:0002097 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9378,11 +10379,11 @@ This clinical trial targets emphysema (HP:0002097). HP:0002097 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0002097</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets emphysema (HP:0002097). HP:0002097 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9405,6 +10406,8 @@ This clinical trial targets emphysema (HP:0002097). HP:0002097 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9471,11 +10474,11 @@ This clinical trial targets emphysema (HP:0002097). HP:0002097 is a phenotype fr
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-54">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-57">NCBITaxon:9606</a>
 
 
 
-                            <span class="pill-tip" role="tooltip" id="pill-tip-54">NCBI Taxonomy (NCBITaxon)
+                            <span class="pill-tip" role="tooltip" id="pill-tip-57">NCBI Taxonomy (NCBITaxon)
 Relation: this experimental model is built in this organism
 This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
@@ -9583,6 +10586,8 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9669,11 +10674,11 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
         SERPINA1
 
 
-    <a href="https://bioregistry.io/hgnc:8941" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:8941</a>
+    <a href="https://bioregistry.io/hgnc:8941" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:8941</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this experimental model concerns this gene
 This experimental model concerns SERPINA1 (hgnc:8941). hgnc:8941 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -9722,6 +10727,8 @@ This experimental model concerns SERPINA1 (hgnc:8941). hgnc:8941 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10944,7 +11951,7 @@ environmental:
         the alveolar destruction at this node.
     - reference: PMID:40943425
       reference_title: &#34;Next-Generation Regenerative Therapies for Alpha-1 Antitrypsin Deficiency: Molecular Pathogenesis to Clinical Translation.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;AATD and smoking represent major risk factors for COPD, the third leading cause of death worldwide at present.&#34;
       explanation: &gt;-
@@ -10983,7 +11990,7 @@ environmental:
     evidence:
     - reference: PMID:32376409
       reference_title: &#34;Liver Phenotypes of European Adults Heterozygous or Homozygous for Pi∗Z Variant of AAT (Pi∗MZ vs Pi∗ZZ genotype) and Noncarriers.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Obesity and diabetes were the most important factors associated with LSMs ≥7.1 kPa in subjects with the Pi∗MZ genotype.&#34;
       explanation: &gt;-
@@ -10997,7 +12004,7 @@ environmental:
   evidence:
   - reference: PMID:32376409
     reference_title: Liver Phenotypes of European Adults Heterozygous or Homozygous for Pi∗Z Variant of AAT (Pi∗MZ vs Pi∗ZZ genotype) and Noncarriers.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Obesity and diabetes were the most important factors associated with LSMs ≥7.1 kPa in subjects with the Pi∗MZ genotype.&#34;
     explanation: European Alpha-1 Liver Cohort identifies obesity and diabetes as the strongest measured correlates of elevated liver stiffness in Pi*MZ adults.
@@ -13822,6 +14829,24 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Cross-provider assessment</strong> · <a href="../research/Alpha_1_Antitrypsin_Deficiency-synthesis.html">Read assessment</a></p>
+
+                    </div>
+
+                    <div>
+                        <p><strong>Publication-readiness review: Alpha-1 Antitrypsin Deficiency</strong> · 2026-08-05T04:30:39Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Alpha_1_Antitrypsin_Deficiency/2026-08-05T043039Z-codex-0766ae.yaml">View source</a></p>
+                        <p class="research-review-text">Independent publication-readiness review against deep-research synthesis and GeneReviews. Corrected evidence polarity and study-type classifications, removed unsupported frequency and mechanism claims, made causal nodes more atomic, completed clinical and genetic baseline coverage, added model and limitation records, updated trial lifecycle data, and verified full phenotype/gene connectivity.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -16031,7 +17056,7 @@ The Z mutation (Glu342Lys) disrupts the critical interaction between the reactiv
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Alpha-1 Antitrypsin Deficiency", "mondoId": "MONDO:0013282", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alpha-1_Antitrypsin_Deficiency", "yamlRevision": "8c669f7b3153"};
+        const OS_CONFIG = {"diseaseName": "Alpha-1 Antitrypsin Deficiency", "mondoId": "MONDO:0013282", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alpha-1_Antitrypsin_Deficiency", "yamlRevision": "1bb9e4d35ba2"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

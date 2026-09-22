@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4277,6 +4384,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4300,6 +4409,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4321,6 +4432,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4407,6 +4520,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4428,6 +4543,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4771,6 +4888,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kcnj2-loss-of-function-variant" data-dismech-node="KCNJ2 Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">KCNJ2 Loss-of-Function Variant</div>
 
+
                 <div class="item-desc">A germline, usually heterozygous loss-of-function variant in KCNJ2 alters the Kir2.1 strong inward-rectifier potassium channel. Reported mechanisms include defective trafficking of the channel to the surface membrane, altered gating, misfolding, and weakened coupling to PIP2. This is the upstream trigger of the entire ATS phenotype, and it is the ATS-specific substitution into the generic channelopathy module trigger node.</div>
 
 
@@ -4903,6 +5021,8 @@ This pathophysiological event involves decreased inward rectifier potassium chan
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4924,6 +5044,8 @@ This pathophysiological event involves decreased inward rectifier potassium chan
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4948,6 +5070,7 @@ This pathophysiological event involves decreased inward rectifier potassium chan
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dominant-negative-kir2-1-tetramer-dysfunction" data-dismech-node="Dominant-Negative Kir2.1 Tetramer Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Dominant-Negative Kir2.1 Tetramer Dysfunction</div>
+
 
                 <div class="item-desc">Kir2.1 functions as a homotetramer, so mutant and wild-type subunits coassemble into mixed channels. A single mutant subunit can poison the tetramer, so current falls far below the 50% predicted by haploinsufficiency. This dominant-negative amplification explains both the autosomal dominant inheritance and the severity of the current deficit, and it is the single molecular lesion from which the three tissue-specific arms of the disease diverge.</div>
 
@@ -5100,6 +5223,8 @@ This pathophysiological event involves decreased inward rectifier potassium chan
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5121,6 +5246,8 @@ This pathophysiological event involves decreased inward rectifier potassium chan
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5146,6 +5273,8 @@ This pathophysiological event involves decreased inward rectifier potassium chan
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5168,6 +5297,7 @@ This pathophysiological event involves decreased inward rectifier potassium chan
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-cardiac-inward-rectifier-current" data-dismech-node="Reduced Cardiac Inward Rectifier Current" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Cardiac Inward Rectifier Current</div>
+
 
                 <div class="item-desc">Loss of Kir2.1 lowers the cardiac inward-rectifier current IK1. IK1 has two jobs in the ventricular myocyte: it clamps the phase-4 resting membrane potential near the potassium equilibrium potential, and its strong inward rectification means it supplies most of the repolarizing current in the terminal (phase 3) portion of the action potential while contributing almost nothing during the plateau. Reducing it therefore destabilizes the resting potential and prolongs terminal repolarization, which is registered on the surface electrocardiogram as a prolonged QU interval with prominent U waves rather than as marked QTc prolongation.</div>
 
@@ -5356,6 +5486,8 @@ This pathophysiological event involves dysregulated regulation of membrane poten
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5377,6 +5509,8 @@ This pathophysiological event involves dysregulated regulation of membrane poten
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5401,6 +5535,7 @@ This pathophysiological event involves dysregulated regulation of membrane poten
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-delayed-terminal-repolarization-and-triggered-activity" data-dismech-node="Delayed Terminal Repolarization and Triggered Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Delayed Terminal Repolarization and Triggered Activity</div>
+
 
                 <div class="item-desc">With IK1 reduced, the late phase-3 repolarizing brake is weakened and the resting potential is less firmly clamped, so residual depolarizing drive (including sodium-calcium exchanger current responding to cytosolic calcium) more readily reaches threshold. The result is delayed afterdepolarizations and triggered beats arising at rest, which is why ATS produces heavy resting ventricular ectopy rather than the exercise-restricted arrhythmia of catecholaminergic polymorphic ventricular tachycardia. This is the ATS-specific instance of the arrhythmogenic substrate node of the cardiac channelopathy module, and it is the pharmacological target of the variant-specific flecainide debate.</div>
 
@@ -5525,6 +5660,8 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5546,6 +5683,8 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5570,6 +5709,7 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bidirectional-and-polymorphic-ventricular-tachycardia" data-dismech-node="Bidirectional and Polymorphic Ventricular Tachycardia" data-dismech-type="pathophysiology">
                 <div class="item-name">Bidirectional and Polymorphic Ventricular Tachycardia</div>
+
 
                 <div class="item-desc">The characteristic sustained rhythm of ATS is bidirectional ventricular tachycardia, a form of polymorphic ventricular tachycardia in which the QRS axis alternates beat to beat. Frequent premature ventricular contractions, couplets, and bigeminy are the far more common everyday manifestation. Torsade de pointes is comparatively rare in ATS despite the LQT7 label.</div>
 
@@ -5704,6 +5844,8 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5725,6 +5867,8 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5749,6 +5893,7 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arrhythmic-loss-of-cardiac-output" data-dismech-node="Arrhythmic Loss of Cardiac Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Arrhythmic Loss of Cardiac Output</div>
+
 
                 <div class="item-desc">When a ventricular tachyarrhythmia is sustained or degenerates, cardiac output falls and cerebral perfusion is lost, producing syncope and, if the rhythm does not terminate, sudden cardiac death. Life-threatening events are far less common in ATS than the ectopic burden would suggest, but they do occur and are the reason for rhythm surveillance and, in selected patients, defibrillator implantation.</div>
 
@@ -5809,6 +5954,8 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5830,6 +5977,8 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5854,6 +6003,7 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-skeletal-muscle-inward-rectifier-current" data-dismech-node="Reduced Skeletal Muscle Inward Rectifier Current" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Skeletal Muscle Inward Rectifier Current</div>
+
 
                 <div class="item-desc">The second arm of the divergence. Kir2.1 is also the dominant inward-rectifier channel of the skeletal myofiber sarcolemma and transverse tubules, where it holds the resting membrane potential near the potassium equilibrium potential. Myotubes cultured from ATS patients lack the inwardly rectifying barium-sensitive current entirely, and their resting potential shifts in the depolarizing direction. Importantly, ATS myoblasts show no morphological, proliferative, or fusion defect, so the muscle phenotype is electrical rather than dystrophic.</div>
 
@@ -6012,6 +6162,8 @@ This pathophysiological event involves decreased potassium ion transmembrane tra
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6033,6 +6185,8 @@ This pathophysiological event involves decreased potassium ion transmembrane tra
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6057,6 +6211,7 @@ This pathophysiological event involves decreased potassium ion transmembrane tra
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-paradoxical-sarcolemmal-depolarization-and-inexcitability" data-dismech-node="Paradoxical Sarcolemmal Depolarization and Inexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Paradoxical Sarcolemmal Depolarization and Inexcitability</div>
+
 
                 <div class="item-desc">Normally, a fall or rise in extracellular potassium is buffered by the strong inward rectifier, which holds resting potential near the potassium equilibrium potential. With Kir2.1 lost, that buffering fails and the fiber depolarizes paradoxically during potassium shifts. Sustained depolarization inactivates the voltage-gated sodium channels and the fiber becomes electrically inexcitable despite being structurally intact, producing flaccid weakness that resolves as the potassium disturbance corrects. This is why attacks in ATS may be hypokalaemic, hyperkalaemic, or normokalaemic: the defect is the loss of buffering, not a fixed direction of potassium sensitivity.</div>
 
@@ -6197,6 +6352,8 @@ This pathophysiological event involves decreased skeletal muscle contraction (GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6218,6 +6375,8 @@ This pathophysiological event involves decreased skeletal muscle contraction (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6243,6 +6402,8 @@ This pathophysiological event involves decreased skeletal muscle contraction (GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6265,6 +6426,7 @@ This pathophysiological event involves decreased skeletal muscle contraction (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-bioelectric-craniofacial-patterning" data-dismech-node="Disrupted Bioelectric Craniofacial Patterning" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Bioelectric Craniofacial Patterning</div>
+
 
                 <div class="item-desc">The third arm of the divergence, and the least understood. Beyond its role in excitable tissue, Kir2.1-dependent potassium flux establishes a regionalized pattern of resting membrane potential across the anterior ectoderm during early neurulation. This voltage pattern acts as a morphogenetic instruction: in Xenopus, misexpressing human ATS-associated KCNJ2 variants disrupts the voltage map, derails ten craniofacial patterning genes including cranial neural crest and placode markers, and produces craniofacial anomalies in the same structures affected in humans. Critically, the effect is voltage-specific rather than channel-specific: unrelated ion translocators that change membrane voltage reproduce the anomalies, whereas electroneutral or inactive channels do not. The resulting malformations are developmental and fixed, unlike the episodic cardiac and muscular manifestations.</div>
 
@@ -6479,6 +6641,8 @@ This pathophysiological event involves abnormal embryonic cranial skeleton morph
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6502,6 +6666,8 @@ This pathophysiological event involves abnormal embryonic cranial skeleton morph
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6515,14 +6681,16 @@ This pathophysiological event involves abnormal embryonic cranial skeleton morph
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24383070" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:24383070" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24383070" target="_blank">PMID:24383070</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6589,23 +6757,23 @@ This pathophysiological event involves abnormal embryonic cranial skeleton morph
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(8)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Limbs<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Metabolism<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(8)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6615,7 +6783,7 @@ This pathophysiological event involves abnormal embryonic cranial skeleton morph
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-ventricular-arrhythmia" data-dismech-node="Ventricular Arrhythmia" data-dismech-type="phenotype">
@@ -6648,6 +6816,9 @@ This clinical feature is Ventricular arrhythmia (HP:0004308). HP:0004308 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6664,6 +6835,8 @@ This clinical feature is Ventricular arrhythmia (HP:0004308). HP:0004308 is a ph
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6672,6 +6845,247 @@ This clinical feature is Ventricular arrhythmia (HP:0004308). HP:0004308 is a ph
 
 
                 <div class="evidence-explanation">Supports FREQUENT (30-79%) for the triad components: about 60% of affected individuals manifest all three, so each component is at least that common.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bidirectional-ventricular-tachycardia" data-dismech-node="Bidirectional Ventricular Tachycardia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bidirectional Ventricular Tachycardia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034040" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0034040</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bidirectional ventricular tachycardia (HP:0034040). HP:0034040 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32947483" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32947483" target="_blank">PMID:32947483</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Bidirectional ventricular tachycardia is the hallmark ventricular arrhythmia, but also premature ventricular contractions, and rarely, polymorphic ventricular tachycardia of torsade de pointes type may be present."</div>
+
+
+                <div class="evidence-explanation">Identifies bidirectional ventricular tachycardia as the hallmark ATS arrhythmia.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24827800" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24827800" target="_blank">PMID:24827800</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cardiac manifestations of ATS include frequent premature ventricular contractions (PVC), Q-U interval prolongation, prominent U-waves, and a special type of polymorphic ventricular tachycardia (PMVT) called bidirectional ventricular tachycardia (BiVT)."</div>
+
+
+                <div class="evidence-explanation">Independent confirmation of bidirectional ventricular tachycardia as a core cardiac manifestation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-premature-ventricular-contractions" data-dismech-node="Premature Ventricular Contractions" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Premature Ventricular Contractions
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006682" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0006682</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Premature ventricular contraction (HP:0006682). HP:0006682 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24827800" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24827800" target="_blank">PMID:24827800</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"PVCs at rest are quite frequent in ATS1 patients, however, in LQTS patients, PVCs and asymptomatic VT are uncommon which also contributes to differentiating them."</div>
+
+
+                <div class="evidence-explanation">Documents frequent resting premature ventricular contractions as a characteristic and discriminating ATS finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-prominent-u-wave" data-dismech-node="Prominent U Wave" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Prominent U Wave
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0025072</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prominent U wave (HP:0025072). HP:0025072 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32947483" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32947483" target="_blank">PMID:32947483</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Prolongation of the QU/QUc intervals and normal or minimally prolonged QT/QTc intervals with a tendency to ventricular arrhythmias are typical repolarization changes."</div>
+
+
+                <div class="evidence-explanation">Establishes prolonged QU with a normal or minimally prolonged QT as the typical ATS repolarization signature.</div>
 
 
 
@@ -6701,15 +7115,18 @@ This clinical feature is Ventricular arrhythmia (HP:0004308). HP:0004308 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001657" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001657</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001657" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001657</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Prolonged QT interval (HP:0001657). HP:0001657 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6729,6 +7146,8 @@ This clinical feature is Prolonged QT interval (HP:0001657). HP:0001657 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6752,6 +7171,8 @@ This clinical feature is Prolonged QT interval (HP:0001657). HP:0001657 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6791,15 +7212,18 @@ This clinical feature is Prolonged QT interval (HP:0001657). HP:0001657 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001962</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001962</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6819,6 +7243,8 @@ This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6858,15 +7284,18 @@ This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001279</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001279</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6886,6 +7315,8 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6925,15 +7356,18 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001645</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001645</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6953,6 +7387,8 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7001,15 +7437,18 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000369</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000369</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7029,6 +7468,8 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7077,15 +7518,18 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000316</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000316</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7105,6 +7549,8 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7136,7 +7582,7 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-micrognathia" data-dismech-node="Micrognathia" data-dismech-type="phenotype">
@@ -7153,15 +7599,18 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000347</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000347</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">An earlier draft of this entry additionally asserted that micrognathia is a risk marker for life-threatening arrhythmic events in ATS. That claim was removed because no cited source supports it: the largest ATS1 outcome cohort (PMID:32299589, 118 patients from 57 families) identifies a history of syncope, documented sustained ventricular tachycardia, and amiodarone administration as the predictors of life-threatening arrhythmic events, and does not report any dysmorphic feature among them. Those evidenced predictors are recorded in the progression section instead.</div>
@@ -7183,6 +7632,8 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7208,6 +7659,8 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7231,18 +7684,9 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Limbs
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-syndactyly" data-dismech-node="Syndactyly" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-broad-forehead" data-dismech-node="Broad Forehead" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Syndactyly
+                        Broad Forehead
 
 
 
@@ -7254,15 +7698,99 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001159" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001159</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000337</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Syndactyly (HP:0001159). HP:0001159 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Broad forehead (HP:0000337). HP:0000337 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32947483" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32947483" target="_blank">PMID:32947483</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients with ATS have characteristic physical developmental dysmorphisms that affect the face, skull, limbs, thorax, and stature."</div>
+
+
+                <div class="evidence-explanation">Supports the presence of characteristic facial and skull dysmorphism. Marked PARTIAL because the abstract does not enumerate broad forehead specifically; the specific feature is drawn from the wider ATS literature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-clinodactyly-of-the-5th-finger" data-dismech-node="Clinodactyly of the 5th Finger" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Clinodactyly of the 5th Finger
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004209" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0004209</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Clinodactyly of the 5th finger (HP:0004209). HP:0004209 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
 
 
 
@@ -7282,6 +7810,80 @@ This clinical feature is Syndactyly (HP:0001159). HP:0001159 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"anomalies including low-set ears, widely spaced eyes, small mandible, fifth-digit clinodactyly, syndactyly, short stature, and scoliosis"</div>
+
+
+                <div class="evidence-explanation">GeneReviews lists fifth-digit clinodactyly among the defining ATS anomalies.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-syndactyly" data-dismech-node="Syndactyly" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Syndactyly
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001159" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001159</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Syndactyly (HP:0001159). HP:0001159 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301441" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301441" target="_blank">PMID:20301441</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7330,15 +7932,18 @@ This clinical feature is Syndactyly (HP:0001159). HP:0001159 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002900" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002900</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002900" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002900</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7358,6 +7963,8 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7397,15 +8004,18 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002153" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002153</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002153" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002153</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperkalemia (HP:0002153). HP:0002153 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7425,6 +8035,8 @@ This clinical feature is Hyperkalemia (HP:0002153). HP:0002153 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7456,8 +8068,80 @@ This clinical feature is Hyperkalemia (HP:0002153). HP:0002153 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-episodic-flaccid-weakness" data-dismech-node="Episodic Flaccid Weakness" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Episodic Flaccid Weakness
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003752" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0003752</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Episodic flaccid weakness (HP:0003752). HP:0003752 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32947483" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32947483" target="_blank">PMID:32947483</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The typical muscular change is episodic flaccid muscle weakness."</div>
+
+
+                <div class="evidence-explanation">Directly states the flaccid, episodic character of the weakness.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-muscle-weakness" data-dismech-node="Muscle Weakness" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7473,15 +8157,18 @@ This clinical feature is Hyperkalemia (HP:0002153). HP:0002153 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001324</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001324</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7501,6 +8188,8 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7524,6 +8213,8 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7563,15 +8254,18 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002650</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7591,6 +8285,8 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7621,309 +8317,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
             <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
+                    Nervous System
+                    <span class="cat-count">2</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short Stature" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Short Stature
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0004322</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301441" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301441" target="_blank">PMID:20301441</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"anomalies including low-set ears, widely spaced eyes, small mandible, fifth-digit clinodactyly, syndactyly, short stature, and scoliosis"</div>
-
-
-                <div class="evidence-explanation">GeneReviews lists short stature among the defining ATS anomalies.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">8</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bidirectional-ventricular-tachycardia" data-dismech-node="Bidirectional Ventricular Tachycardia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bidirectional Ventricular Tachycardia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034040" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0034040</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bidirectional ventricular tachycardia (HP:0034040). HP:0034040 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32947483" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32947483" target="_blank">PMID:32947483</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Bidirectional ventricular tachycardia is the hallmark ventricular arrhythmia, but also premature ventricular contractions, and rarely, polymorphic ventricular tachycardia of torsade de pointes type may be present."</div>
-
-
-                <div class="evidence-explanation">Identifies bidirectional ventricular tachycardia as the hallmark ATS arrhythmia.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24827800" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24827800" target="_blank">PMID:24827800</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Cardiac manifestations of ATS include frequent premature ventricular contractions (PVC), Q-U interval prolongation, prominent U-waves, and a special type of polymorphic ventricular tachycardia (PMVT) called bidirectional ventricular tachycardia (BiVT)."</div>
-
-
-                <div class="evidence-explanation">Independent confirmation of bidirectional ventricular tachycardia as a core cardiac manifestation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-premature-ventricular-contractions" data-dismech-node="Premature Ventricular Contractions" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Premature Ventricular Contractions
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006682" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0006682</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Premature ventricular contraction (HP:0006682). HP:0006682 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24827800" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24827800" target="_blank">PMID:24827800</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"PVCs at rest are quite frequent in ATS1 patients, however, in LQTS patients, PVCs and asymptomatic VT are uncommon which also contributes to differentiating them."</div>
-
-
-                <div class="evidence-explanation">Documents frequent resting premature ventricular contractions as a characteristic and discriminating ATS finding.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-prominent-u-wave" data-dismech-node="Prominent U Wave" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Prominent U Wave
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0025072</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Prominent U wave (HP:0025072). HP:0025072 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32947483" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32947483" target="_blank">PMID:32947483</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Prolongation of the QU/QUc intervals and normal or minimally prolonged QT/QTc intervals with a tendency to ventricular arrhythmias are typical repolarization changes."</div>
-
-
-                <div class="evidence-explanation">Establishes prolonged QU with a normal or minimally prolonged QT as the typical ATS repolarization signature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-periodic-paralysis" data-dismech-node="Periodic Paralysis" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7941,15 +8337,18 @@ This clinical feature is Prominent U wave (HP:0025072). HP:0025072 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003768" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0003768</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003768" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0003768</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Periodic paralysis (HP:0003768). HP:0003768 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7969,6 +8368,8 @@ This clinical feature is Periodic paralysis (HP:0003768). HP:0003768 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7994,6 +8395,8 @@ This clinical feature is Periodic paralysis (HP:0003768). HP:0003768 is a phenot
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8002,207 +8405,6 @@ This clinical feature is Periodic paralysis (HP:0003768). HP:0003768 is a phenot
 
 
                 <div class="evidence-explanation">Supports FREQUENT (30-79%) for the triad components: about 60% of affected individuals manifest all three.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-episodic-flaccid-weakness" data-dismech-node="Episodic Flaccid Weakness" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Episodic Flaccid Weakness
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003752" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0003752</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Episodic flaccid weakness (HP:0003752). HP:0003752 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32947483" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32947483" target="_blank">PMID:32947483</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The typical muscular change is episodic flaccid muscle weakness."</div>
-
-
-                <div class="evidence-explanation">Directly states the flaccid, episodic character of the weakness.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-broad-forehead" data-dismech-node="Broad Forehead" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Broad Forehead
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000337</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Broad forehead (HP:0000337). HP:0000337 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32947483" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32947483" target="_blank">PMID:32947483</a>
-                    </span>
-
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Patients with ATS have characteristic physical developmental dysmorphisms that affect the face, skull, limbs, thorax, and stature."</div>
-
-
-                <div class="evidence-explanation">Supports the presence of characteristic facial and skull dysmorphism. Marked PARTIAL because the abstract does not enumerate broad forehead specifically; the specific feature is drawn from the wider ATS literature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-clinodactyly-of-the-5th-finger" data-dismech-node="Clinodactyly of the 5th Finger" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Clinodactyly of the 5th Finger
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004209" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0004209</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Clinodactyly of the 5th finger (HP:0004209). HP:0004209 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301441" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301441" target="_blank">PMID:20301441</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"anomalies including low-set ears, widely spaced eyes, small mandible, fifth-digit clinodactyly, syndactyly, short stature, and scoliosis"</div>
-
-
-                <div class="evidence-explanation">GeneReviews lists fifth-digit clinodactyly among the defining ATS anomalies.</div>
 
 
 
@@ -8234,15 +8436,18 @@ This clinical feature is Clinodactyly of the 5th finger (HP:0004209). HP:0004209
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001328</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001328</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Specific learning disability (HP:0001328). HP:0001328 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8264,6 +8469,8 @@ This clinical feature is Specific learning disability (HP:0001328). HP:0001328 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8272,6 +8479,87 @@ This clinical feature is Specific learning disability (HP:0001328). HP:0001328 i
 
 
                 <div class="evidence-explanation">GeneReviews documents the neurocognitive phenotype of ATS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-9">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short Stature" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Short Stature
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301441" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301441" target="_blank">PMID:20301441</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"anomalies including low-set ears, widely spaced eyes, small mandible, fifth-digit clinodactyly, syndactyly, short stature, and scoliosis"</div>
+
+
+                <div class="evidence-explanation">GeneReviews lists short stature among the defining ATS anomalies.</div>
 
 
 
@@ -8359,6 +8647,9 @@ This disease-associated gene is KCNJ2 (hgnc:6263). hgnc:6263 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8373,6 +8664,8 @@ This disease-associated gene is KCNJ2 (hgnc:6263). hgnc:6263 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8398,6 +8691,8 @@ This disease-associated gene is KCNJ2 (hgnc:6263). hgnc:6263 is a gene from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8419,6 +8714,8 @@ This disease-associated gene is KCNJ2 (hgnc:6263). hgnc:6263 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8475,20 +8772,25 @@ This disease-associated gene is KCNJ5 (hgnc:6266). hgnc:6266 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32947483" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32947483" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32947483" target="_blank">PMID:32947483</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8529,6 +8831,9 @@ This disease-associated gene is KCNJ5 (hgnc:6266). hgnc:6266 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8543,6 +8848,8 @@ This disease-associated gene is KCNJ5 (hgnc:6266). hgnc:6266 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8566,6 +8873,8 @@ This disease-associated gene is KCNJ5 (hgnc:6266). hgnc:6266 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8670,6 +8979,31 @@ This treatment uses potassium chloride (CHEBI:32588). CHEBI:32588 is a therapeut
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">For a paralytic attack occurring with documented hypokalaemia, oral potassium is given until the serum concentration normalizes. Potassium must be measured before repletion and cardiac monitoring obtained where possible, because ATS attacks may also be normokalaemic or hyperkalaemic and blanket supplementation would then be unsafe. If serum potassium is high, ingesting carbohydrates instead lowers it.</div>
 
 
@@ -8709,6 +9043,8 @@ This treatment uses potassium chloride (CHEBI:32588). CHEBI:32588 is a therapeut
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8794,6 +9130,31 @@ This treatment uses acetazolamide (CHEBI:27690). CHEBI:27690 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Carbonic anhydrase inhibitors such as acetazolamide, together with daily slow-release potassium supplementation and trigger avoidance, are used to reduce the frequency and severity of paralytic attacks. The evidence in ATS specifically is limited and largely extrapolated from the other periodic paralyses, and electrolyte and renal effects require monitoring.</div>
 
 
@@ -8833,6 +9194,8 @@ This treatment uses acetazolamide (CHEBI:27690). CHEBI:27690 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8918,6 +9281,31 @@ This treatment uses flecainide (CHEBI:75984). CHEBI:75984 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Flecainide is used empirically for significant, frequent ventricular arrhythmia in ATS and has suppressed bidirectional ventricular tachycardia where beta-blockade failed. Its safety is now under active reassessment: a 2024 preprint reviewing 53 ATS1 patients found genuine arrhythmia reduction in only 23%, non-fatal cardiac arrest in 13.5%, and variant-dependent proarrhythmia in mouse and patient-derived iPSC models, concluding that class-Ic drugs may be proarrhythmic in some ATS1 patients. Separately, GeneReviews cautions that class I antiarrhythmics may paradoxically worsen the neuromuscular symptoms, so flecainide is a drug whose benefit must be weighed against two distinct hazards.</div>
 
 
@@ -8959,6 +9347,8 @@ This treatment uses flecainide (CHEBI:75984). CHEBI:75984 is a therapeutic agent
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8982,6 +9372,8 @@ This treatment uses flecainide (CHEBI:75984). CHEBI:75984 is a therapeutic agent
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8995,14 +9387,16 @@ This treatment uses flecainide (CHEBI:75984). CHEBI:75984 is a therapeutic agent
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39711719" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39711719" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39711719" target="_blank">PMID:39711719</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9089,6 +9483,31 @@ This treatment uses beta-adrenergic antagonist (NCIT:C29576). NCIT:C29576 is a t
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Beta-adrenergic blockade is widely used in inherited arrhythmia syndromes and is frequently prescribed in ATS on the rationale that suppressing adrenergic drive limits triggered activity. In the largest ATS1 outcome cohort, however, beta-blockers alone did not reduce the rate of life-threatening arrhythmic events relative to no therapy, nor did they in combination with class Ic antiarrhythmic drugs. Beta-blockade is therefore recorded here as a commonly used but unproven strategy in ATS rather than as an established disease-modifying therapy, and it is the comparator arm under formal test in the ongoing N-of-1 trial series NCT06205550.</div>
 
 
@@ -9130,6 +9549,8 @@ This treatment uses beta-adrenergic antagonist (NCIT:C29576). NCIT:C29576 is a t
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9143,14 +9564,16 @@ This treatment uses beta-adrenergic antagonist (NCIT:C29576). NCIT:C29576 is a t
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT06205550" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT06205550" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT06205550" target="_blank">clinicaltrials:NCT06205550</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9214,6 +9637,31 @@ This treatment is implantable cardioverter-defibrillator implantation, annotated
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">An implantable cardioverter-defibrillator is used for survivors of cardiac arrest, for tachycardia-induced syncope, and for selected patients with recurrent haemodynamically significant sustained ventricular tachycardia despite medical therapy. Frequent but tolerated ectopy alone does not warrant implantation.</div>
 
 
@@ -9255,6 +9703,8 @@ This treatment is implantable cardioverter-defibrillator implantation, annotated
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9276,6 +9726,8 @@ This treatment is implantable cardioverter-defibrillator implantation, annotated
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9339,6 +9791,31 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">ATS carries specific drug-safety warnings. Medications known to prolong the QT interval should be avoided; salbutamol inhalers may exacerbate cardiac arrhythmias; and thiazide and other potassium-wasting diuretics may provoke drug-induced hypokalaemia, precipitating paralytic attacks and aggravating QT prolongation. Amiodarone deserves separate emphasis: in the largest ATS1 outcome cohort its administration carried by far the strongest association with life-threatening arrhythmic events, and the authors conclude it is proarrhythmic and should be avoided. Because cardiac and skeletal muscle respond differently, a drug that helps one tissue may harm the other, which is the central management difficulty of the disorder.</div>
 
 
@@ -9380,6 +9857,8 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9403,6 +9882,8 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9424,6 +9905,8 @@ This treatment is avoidance of contraindicated medications, annotated with Suppo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9487,6 +9970,31 @@ This treatment is rhythm surveillance and cascade genetic testing, annotated wit
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Asymptomatic individuals with a KCNJ2 pathogenic variant undergo annual 12-lead electrocardiography and 24-hour Holter monitoring. Relatives at risk are offered molecular testing if the familial variant is known, or detailed neurologic and cardiologic evaluation with electrocardiography and Holter monitoring if it is not.</div>
 
 
@@ -9510,6 +10018,8 @@ This treatment is rhythm surveillance and cascade genetic testing, annotated wit
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9531,6 +10041,8 @@ This treatment is rhythm surveillance and cascade genetic testing, annotated wit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9560,6 +10072,700 @@ This treatment is rhythm surveillance and cascade genetic testing, annotated wit
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-and-electrocardiographic-diagnostic-criteria">
+                <div class="item-name">
+                    Clinical and electrocardiographic diagnostic criteria
+
+                </div>
+
+                <div class="item-desc">ATS is diagnosed by recognizing the characteristic triad of periodic paralysis, ventricular arrhythmia with repolarization abnormality, and dysmorphic features, combined with the electrocardiographic signature. The diagnosis can be established on clinical and EKG grounds alone, so a negative molecular result does not exclude it. Because only about 60% of affected individuals express all three components, incomplete presentations still qualify when the electrocardiographic phenotype is characteristic.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical evaluation for the ATS triad
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-55">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Characteristic clinical and EKG findings, with or without an identified KCNJ2 pathogenic variant, establish the diagnosis of ATS.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301441" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301441" target="_blank">PMID:20301441</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of ATS is established in an individual with characteristic clinical and EKG findings and/or identification of a pathogenic variant in KCNJ2."</div>
+
+
+                <div class="evidence-explanation">The GeneReviews DIAGNOSIS/TESTING statement, which is the authoritative diagnostic rule for ATS.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32947483" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32947483" target="_blank">PMID:32947483</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A triad of periodic muscle paralysis, repolarization changes in the electrocardiogram, and structural body changes characterize ATS."</div>
+
+
+                <div class="evidence-explanation">Names the three clinical components that constitute the diagnostic triad.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32947483" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32947483" target="_blank">PMID:32947483</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"About 60% of affected individuals have all features of the major triad."</div>
+
+
+                <div class="evidence-explanation">Supports the caveat that a complete triad is not required: roughly 40% of affected individuals present incompletely, so triad-based criteria must tolerate partial expression.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-resting-and-ambulatory-electrocardiography">
+                <div class="item-name">
+                    Resting and ambulatory electrocardiography
+
+                </div>
+
+                <div class="item-desc">Twelve-lead electrocardiography is the core cardiac diagnostic test in suspected ATS. The type-1 ATS electrocardiographic phenotype comprises frequent premature ventricular contractions, Q-U interval prolongation, prominent U waves, and bidirectional ventricular tachycardia, with QT/QTc typically normal or only minimally prolonged. Dedicated electrocardiographic criteria for type-1 ATS have been proposed on this basis.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        electrocardiography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38053" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-56">NCIT:C38053</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Frequent resting premature ventricular contractions, QU/QUc prolongation, prominent U waves, and bidirectional ventricular tachycardia with a normal or minimally prolonged QT support type-1 ATS.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24827800" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24827800" target="_blank">PMID:24827800</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cardiac manifestations of ATS include frequent premature ventricular contractions (PVC), Q-U interval prolongation, prominent U-waves, and a special type of polymorphic ventricular tachycardia (PMVT) called bidirectional ventricular tachycardia (BiVT)."</div>
+
+
+                <div class="evidence-explanation">Enumerates the electrocardiographic findings that constitute the diagnostic cardiac phenotype of ATS.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24827800" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24827800" target="_blank">PMID:24827800</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The article describes the new electrocardiographic criteria proposed for diagnosis of type-1 Andersen-Tawil syndrome."</div>
+
+
+                <div class="evidence-explanation">Establishes that formal electrocardiographic diagnostic criteria exist specifically for type-1 ATS.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32947483" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32947483" target="_blank">PMID:32947483</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Prolongation of the QU/QUc intervals and normal or minimally prolonged QT/QTc intervals with a tendency to ventricular arrhythmias are typical repolarization changes."</div>
+
+
+                <div class="evidence-explanation">Specifies that the diagnostic repolarization abnormality is QU rather than QT prolongation, which is why measuring QU is required and why a normal QTc does not exclude ATS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-ambulatory-holter-rhythm-monitoring">
+                <div class="item-name">
+                    Ambulatory Holter rhythm monitoring
+
+                </div>
+
+                <div class="item-desc">Twenty-four-hour Holter monitoring complements the resting electrocardiogram by capturing the intermittent ectopy and bidirectional ventricular tachycardia that define the ATS rhythm phenotype. It is also the test used to evaluate at-risk relatives when the familial KCNJ2 variant is not known, and for annual surveillance of asymptomatic carriers.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Holter monitoring
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38064" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-57">NCIT:C38064</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Detection of a high burden of multifocal premature ventricular contractions or bidirectional ventricular tachycardia on ambulatory monitoring supports the diagnosis and identifies affected relatives.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301441" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301441" target="_blank">PMID:20301441</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Evaluation of relatives at risk: Molecular genetic testing if the pathogenic variant is known; if not, detailed neurologic and cardiologic evaluation, 12-lead EKG, and 24-hour Holter monitoring to reduce morbidity and mortality through early diagnosis and treatment of at-risk relatives."</div>
+
+
+                <div class="evidence-explanation">GeneReviews specifies EKG plus 24-hour Holter monitoring as the diagnostic evaluation of at-risk relatives without a known variant.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-kcnj2-molecular-genetic-testing">
+                <div class="item-name">
+                    KCNJ2 molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Molecular testing of KCNJ2 (sequence analysis, with deletion/duplication analysis when sequencing is uninformative) confirms type-1 ATS and enables cascade testing of relatives. Detection rate is limited: KCNJ2 pathogenic variants are found in up to about 60% of clinically diagnosed patients, so a negative result does not exclude ATS and the clinical/EKG route to diagnosis remains available.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-58">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Identification of a pathogenic KCNJ2 variant establishes type-1 ATS and permits predictive testing of relatives; a negative result leaves the clinical diagnosis intact.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301441" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301441" target="_blank">PMID:20301441</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of ATS is established in an individual with characteristic clinical and EKG findings and/or identification of a pathogenic variant in KCNJ2."</div>
+
+
+                <div class="evidence-explanation">GeneReviews makes identification of a pathogenic KCNJ2 variant an alternative sufficient route to diagnosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24827800" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24827800" target="_blank">PMID:24827800</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"KCNJ2 mutations are detectable in up to 60 % of patients with ATS."</div>
+
+
+                <div class="evidence-explanation">Quantifies the molecular detection rate, establishing the sensitivity limit of genetic testing in ATS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-established-disease-course-and-long-term-arrhythmic-risk">
+                <div class="item-name">Established disease course and long-term arrhythmic risk</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Quantitative natural-history data come from the largest reported ATS1 cohort (118 patients from 57 families, 23 centres). The cumulative probability of a first life-threatening arrhythmic event was 7.9% at five years over a median 6.2-year follow-up. Evidenced predictors of such events are a history of unexplained syncope, documented sustained ventricular tachycardia, and administration of amiodarone; dysmorphic features are not among the reported predictors.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32299589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32299589" target="_blank">PMID:32299589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Over a median follow-up of 6.2 years (interquartile range: 2.7 to 16.5 years), 17 patients experienced a first LAE, with a cumulative probability of 7.9% at 5 years."</div>
+
+
+                <div class="evidence-explanation">Quantifies the five-year cumulative risk of a first life-threatening arrhythmic event in molecularly defined ATS1.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32299589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32299589" target="_blank">PMID:32299589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A history of unexplained syncope or of documented sustained ventricular tachycardia is associated with a higher risk of LAE."</div>
+
+
+                <div class="evidence-explanation">Identifies the two clinical predictors of life-threatening arrhythmic events, and is the source that excludes dysmorphic features from the risk model.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32299589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32299589" target="_blank">PMID:32299589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Amiodarone is proarrhythmic and should be avoided in patients with ATS1."</div>
+
+
+                <div class="evidence-explanation">Identifies the third and strongest evidenced risk association, which is iatrogenic rather than constitutional.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">ATS is consistently described as a very rare orphan channelopathy. Deep research summaries commonly quote an order-of-magnitude estimate near 1 per 1,000,000, but no abstract-level source with a citable numeric interval was available, so only the qualitative band is asserted here.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32947483" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32947483" target="_blank">PMID:32947483</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Andersen-Tawil syndrome (ATS) is a very rare orphan genetic multisystem channelopathy without structural heart disease (with rare exceptions)."</div>
+
+
+                <div class="evidence-explanation">Review characterizes ATS as a very rare orphan disorder, supporting the ULTRA_RARE qualitative band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -9629,6 +10835,8 @@ This treatment is rhythm surveillance and cascade genetic testing, annotated wit
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9650,6 +10858,8 @@ This treatment is rhythm surveillance and cascade genetic testing, annotated wit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9727,6 +10937,8 @@ This treatment is rhythm surveillance and cascade genetic testing, annotated wit
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9748,6 +10960,8 @@ This treatment is rhythm surveillance and cascade genetic testing, annotated wit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9810,11 +11024,11 @@ This treatment is rhythm surveillance and cascade genetic testing, annotated wit
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003768" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0003768</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003768" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0003768</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Periodic paralysis (HP:0003768). HP:0003768 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9827,11 +11041,11 @@ This clinical trial targets Periodic paralysis (HP:0003768). HP:0003768 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004308" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0004308</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004308" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0004308</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Ventricular arrhythmia (HP:0004308). HP:0004308 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9854,6 +11068,8 @@ This clinical trial targets Ventricular arrhythmia (HP:0004308). HP:0004308 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9901,11 +11117,11 @@ This clinical trial targets Ventricular arrhythmia (HP:0004308). HP:0004308 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003752" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0003752</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003752" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0003752</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Episodic flaccid weakness (HP:0003752). HP:0003752 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9918,11 +11134,11 @@ This clinical trial targets Episodic flaccid weakness (HP:0003752). HP:0003752 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004308" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0004308</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004308" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0004308</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Ventricular arrhythmia (HP:0004308). HP:0004308 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9947,6 +11163,8 @@ This clinical trial targets Ventricular arrhythmia (HP:0004308). HP:0004308 is a
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9960,14 +11178,16 @@ This clinical trial targets Ventricular arrhythmia (HP:0004308). HP:0004308 is a
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT00839501" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT00839501" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT00839501" target="_blank">clinicaltrials:NCT00839501</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10015,11 +11235,11 @@ This clinical trial targets Ventricular arrhythmia (HP:0004308). HP:0004308 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006682" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0006682</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006682" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0006682</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Premature ventricular contractions, annotated with Premature ventricular contraction (HP:0006682). HP:0006682 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10032,11 +11252,11 @@ This clinical trial targets Premature ventricular contractions, annotated with P
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034040" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0034040</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034040" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0034040</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Bidirectional ventricular tachycardia (HP:0034040). HP:0034040 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10061,6 +11281,8 @@ This clinical trial targets Bidirectional ventricular tachycardia (HP:0034040). 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10082,6 +11304,8 @@ This clinical trial targets Bidirectional ventricular tachycardia (HP:0034040). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10211,7 +11435,7 @@ classifications:
     evidence:
     - reference: PMID:24861851
       reference_title: &#34;Andersen-Tawil syndrome: report of 3 novel mutations and high risk of symptomatic cardiac involvement.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Andersen-Tawil syndrome (ATS) is a potassium channelopathy affecting cardiac and skeletal muscle.&#34;
       explanation: &gt;-
@@ -10370,7 +11594,7 @@ genetic:
   evidence:
   - reference: PMID:32947483
     reference_title: &#34;Andersen-Tawil Syndrome: A Comprehensive Review.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;ATS type 2 is in turn linked to a rare mutation in the KCNJ5-GIRK4 gene that encodes the G protein-sensitive-activated inwardly rectifying K+ channel Kir3.4 (15%), which carries the acetylcholine-induced potassium current.&#34;
     explanation: &gt;-
@@ -10965,7 +12189,7 @@ pathophysiology:
     explanation: Identifies the neurula-stage critical window and the cranial neural crest and placode lineages.
   - reference: PMID:24383070
     reference_title: &#34;Andersen-Tawil syndrome: clinical and molecular aspects.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Thus far, the molecular mechanism of the dysmorphic features is only poorly understood.&#34;
     explanation: &gt;-
@@ -11348,7 +12572,7 @@ phenotypes:
   evidence:
   - reference: PMID:32947483
     reference_title: &#34;Andersen-Tawil Syndrome: A Comprehensive Review.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Patients with ATS have characteristic physical developmental dysmorphisms that affect the face, skull, limbs, thorax, and stature.&#34;
     explanation: &gt;-
@@ -11544,7 +12768,7 @@ treatments:
     explanation: Case-level evidence of flecainide efficacy where beta-blockade failed.
   - reference: PMID:39711719
     reference_title: &#34;Kir2.1 mutations differentially increase the risk of flecainide proarrhythmia in Andersen Tawil Syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Of 53 ATS1 patients reviewed from the literature, 54% responded partially to flecainide, with ventricular arrhythmia (VA) reduction in only 23%.&#34;
     explanation: &gt;-
@@ -11610,7 +12834,7 @@ treatments:
       class Ic therapy, in the largest reported ATS1 outcome cohort.
   - reference: clinicaltrials:NCT06205550
     reference_title: &#34;Optimal Drug Therapy for the Suppression of Ventricular Arrhythmias in Andersen-Tawil Syndrome and Multifocal Ectopic Purkinje-related Premature Contractions: a Series of N-of-1 Trials&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;For ATS, flecainide monotherapy will be compared with combination therapy of flecainide and a β-blocker or calcium channel blocker.&#34;
     explanation: &gt;-
@@ -11779,7 +13003,7 @@ diagnosis:
     explanation: Names the three clinical components that constitute the diagnostic triad.
   - reference: PMID:32947483
     reference_title: &#34;Andersen-Tawil Syndrome: A Comprehensive Review.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;About 60% of affected individuals have all features of the major triad.&#34;
     explanation: &gt;-
@@ -12000,7 +13224,7 @@ clinical_trials:
     explanation: Documents the intended interventions and endpoints of the only registered therapeutic trial of the two mainstay ATS treatments.
   - reference: clinicaltrials:NCT00839501
     reference_title: Therapeutic Trial of Potassium and Acetazolamide in Andersen-Tawil Syndrome
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The cause of some ATS cases remains unknown, and no specific treatments have been established.&#34;
     explanation: &gt;-
@@ -12089,6 +13313,19 @@ clinical_trials:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Andersen-Tawil_Syndrome</strong> · 2026-08-01T00:53:58Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Andersen-Tawil_Syndrome/2026-08-01T005358Z-claude-code-0f6d9c.yaml">View source</a></p>
+                        <p class="research-review-text">Created a new dismech Disease entry for Andersen-Tawil syndrome (MONDO:0008222), an autosomal dominant KCNJ2/Kir2.1 channelopathy. NEC preflight was run first (runoak MONDO:0008222 -O obo) and confirmed the causal gene KCNJ2 (HGNC:6263), OMIM:170390, and the LQT7 synonym before any deep-research content was used. Deep research was performed with falcon (Edison Scientific) via &#39;just research-disorder falcon&#39;; the report was treated as leads only. Every PMID was independently fetched with &#39;just fetch-reference&#39; and every one of the 73 evidence snippets was verified twice: once by &#39;just validate-references&#39; against the committed cache, and once by an independent script re-fetching each abstract live from the PubMed efetch API, to guard against false-green validation from transiently full-text-enriched cache files. The GeneReviews chapter (PMID:20301441) was fetched, tagged in the top-level references block, and its Clinical Characteristics and Agents/Circumstances to Avoid sections were cross-referenced into the phenotypes and treatments. The pathograph models the entry&#39;s distinguishing feature, the divergence of a single Kir2.1 lesion into three tissue compartments: reduced cardiac IK1 leading to delayed terminal repolarization, triggered activity and bidirectional ventricular tachycardia; reduced skeletal-muscle IK1 leading to paradoxical sarcolemmal depolarization, fiber inexcitability and periodic paralysis; and disrupted Kir2.1-dependent bioelectric patterning of the anterior ectoderm leading to the craniofacial and skeletal dysmorphism. Five pathophysiology nodes declare conforms_to against the cardiac_ion_channel_repolarization module across its whole chain, including the key target &#39;Arrhythmogenic Substrate and Triggered Activity&#39;. Two discussions were added: a HUMAN_MODEL_MISMATCH covering the Xenopus-only bioelectric craniofacial mechanism, and a KNOWLEDGE_GAP covering variant-specific flecainide proarrhythmia. Andersen-Tawil Syndrome was also added as a member of the Inherited_Arrhythmia_Syndromes grouping, which its own NECESSARY_AND_SUFFICIENT classifier had already flagged as a candidate. Validation: just validate, just validate-references (73/73), just validate-terms, scripts/check_folded_hyphens.py, just validate-grouping and just check-groupings all pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -12993,7 +14230,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Andersen-Tawil Syndrome", "mondoId": "MONDO:0008222", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Andersen-Tawil_Syndrome", "yamlRevision": "df6379cbce86"};
+        const OS_CONFIG = {"diseaseName": "Andersen-Tawil Syndrome", "mondoId": "MONDO:0008222", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Andersen-Tawil_Syndrome", "yamlRevision": "2902e4e652c3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

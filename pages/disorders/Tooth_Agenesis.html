@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3726,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3768,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Tooth%20Agenesis"
@@ -3797,7 +3904,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                Tooth agenesis is the congenital absence of one or more teeth resulting from disrupted odontogenesis, and is the most common developmental anomaly of human dentition. Severity is graded by the number of teeth that fail to develop (conventionally excluding third molars): hypodontia denotes absence of one to five teeth, oligodontia denotes absence of six or more teeth, and anodontia denotes complete absence of teeth. Nonsyndromic tooth agenesis is genetically heterogeneous; the great majority of identified mutations cluster in seven genes that converge on the signaling networks governing tooth-germ initiation and patterning: the WNT/beta-catenin pathway (WNT10A, WNT10B, the co-receptor LRP6, and the negative regulator AXIN2), the transcription factors PAX9 and MSX1 acting in the dental mesenchyme, and the ectodysplasin (EDA-EDAR-EDARADD- NF-kappaB) pathway. Tooth agenesis arises from arrest of the reciprocal epithelial-mesenchymal signaling that drives the dental lamina through the initiation, bud, cap, and bell stages, so the number and pattern of missing teeth are fixed during embryonic development and do not progress thereafter. AXIN2-associated oligodontia additionally confers increased colorectal cancer risk.
+                Tooth agenesis is the congenital absence of one or more teeth resulting from disrupted odontogenesis, and is the most common developmental anomaly of human dentition. Severity is graded by the number of teeth that fail to develop (conventionally excluding third molars): hypodontia denotes absence of one to five teeth, oligodontia denotes absence of six or more teeth, and anodontia denotes complete absence of teeth. Nonsyndromic tooth agenesis is genetically heterogeneous; the great majority of identified mutations cluster in seven genes that converge on the signaling networks governing tooth-germ initiation and patterning: the WNT/beta-catenin pathway (WNT10A, WNT10B, the co-receptor LRP6, and the negative regulator AXIN2), the transcription factors PAX9 and MSX1 acting in the dental mesenchyme, and the ectodysplasin (EDA-EDAR-EDARADD-NF-kappaB) pathway. Tooth agenesis arises from arrest of the reciprocal epithelial-mesenchymal signaling that drives the dental lamina through the initiation, bud, cap, and bell stages, so the number and pattern of missing teeth are fixed during embryonic development and do not progress thereafter. AXIN2-associated oligodontia additionally confers increased colorectal cancer risk.
             </p>
 
         </header>
@@ -3926,7 +4033,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">14</div>
+                <div class="stat-value">19</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4087,7 +4194,7 @@ This subtype is caused by variation in WNT10A (hgnc:13829). hgnc:13829 is a gene
 
                     </div>
 
-                    <div class="item-desc">The single most common molecular cause of isolated (nonsyndromic) hypodontia and oligodontia. WNT10A is a WNT ligand acting in the canonical WNT/beta- catenin pathway during epithelial-mesenchymal signaling. Inheritance is both autosomal dominant and autosomal recessive; biallelic variants tend to produce more severe (oligodontia) phenotypes.</div>
+                    <div class="item-desc">The single most common molecular cause of isolated (nonsyndromic) hypodontia and oligodontia. WNT10A is a WNT ligand acting in the canonical WNT/beta-catenin pathway during epithelial-mesenchymal signaling. Inheritance is both autosomal dominant and autosomal recessive; biallelic variants tend to produce more severe (oligodontia) phenotypes.</div>
 
 
 
@@ -4181,7 +4288,7 @@ This subtype is caused by variation in LRP6 (hgnc:6698). hgnc:6698 is a gene fro
 
                     </div>
 
-                    <div class="item-desc">LRP6 encodes a transmembrane co-receptor required for canonical WNT/beta- catenin signal transduction. Loss-of-function variants compromise WNT pathway activation in odontogenesis and cause autosomal dominant selective tooth agenesis/oligodontia.</div>
+                    <div class="item-desc">LRP6 encodes a transmembrane co-receptor required for canonical WNT/beta-catenin signal transduction. Loss-of-function variants compromise WNT pathway activation in odontogenesis and cause autosomal dominant selective tooth agenesis/oligodontia.</div>
 
 
 
@@ -4403,7 +4510,8 @@ This subtype is caused by variation in EDA (hgnc:3157). hgnc:3157 is a gene from
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wnt-beta-catenin-signaling-deficiency" data-dismech-node="WNT/beta-catenin Signaling Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">WNT/beta-catenin Signaling Deficiency</div>
 
-                <div class="item-desc">Canonical WNT/beta-catenin signaling is central to the reciprocal epithelial- mesenchymal interactions that initiate and pattern the tooth germ. Loss-of- function variants in the WNT ligands WNT10A and WNT10B and the co-receptor LRP6 reduce pathway activation, while truncating AXIN2 variants dysregulate the pathway; either inhibition or aberrant stimulation of WNT signaling can prevent normal tooth development.</div>
+
+                <div class="item-desc">Canonical WNT/beta-catenin signaling is central to the reciprocal epithelial-mesenchymal interactions that initiate and pattern the tooth germ. Loss-of-function variants in the WNT ligands WNT10A and WNT10B and the co-receptor LRP6 reduce pathway activation, while truncating AXIN2 variants dysregulate the pathway; either inhibition or aberrant stimulation of WNT signaling can prevent normal tooth development.</div>
 
 
 
@@ -4443,6 +4551,166 @@ This pathophysiological event involves Dental papilla (mesenchyme) cell, annotat
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        WNT10A
+
+
+    <a href="https://bioregistry.io/hgnc:13829" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:13829</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves WNT10A (hgnc:13829). hgnc:13829 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        WNT10B
+
+
+    <a href="https://bioregistry.io/hgnc:12775" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:12775</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves WNT10B (hgnc:12775). hgnc:12775 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        LRP6
+
+
+    <a href="https://bioregistry.io/hgnc:6698" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:6698</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LRP6 (hgnc:6698). hgnc:6698 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        AXIN2
+
+
+    <a href="https://bioregistry.io/hgnc:904" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:904</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves AXIN2 (hgnc:904). hgnc:904 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4458,11 +4726,11 @@ This pathophysiological event involves Dental papilla (mesenchyme) cell, annotat
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0060070</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0060070</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Canonical Wnt signaling pathway (GO:0060070). GO:0060070 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4526,6 +4794,8 @@ This pathophysiological event involves decreased Canonical Wnt signaling pathway
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4547,6 +4817,8 @@ This pathophysiological event involves decreased Canonical Wnt signaling pathway
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4572,7 +4844,8 @@ This pathophysiological event involves decreased Canonical Wnt signaling pathway
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-eda-edar-nf-kappab-signaling-deficiency" data-dismech-node="EDA-EDAR-NF-kappaB Signaling Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">EDA-EDAR-NF-kappaB Signaling Deficiency</div>
 
-                <div class="item-desc">The ectodysplasin pathway transduces EDA ligand binding to EDAR through the EDARADD adaptor to activate NF-kappaB, a signal required for ectodermal- appendage and tooth-germ development. X-linked EDA loss of function abrogates this signal and impairs odontogenesis, ranging from selective tooth agenesis to the dental component of hypohidrotic ectodermal dysplasia.</div>
+
+                <div class="item-desc">The ectodysplasin pathway transduces EDA ligand binding to EDAR through the EDARADD adaptor to activate NF-kappaB, a signal required for ectodermal-appendage and tooth-germ development. X-linked EDA loss of function abrogates this signal and impairs odontogenesis, ranging from selective tooth agenesis to the dental component of hypohidrotic ectodermal dysplasia.</div>
 
 
 
@@ -4586,11 +4859,11 @@ This pathophysiological event involves decreased Canonical Wnt signaling pathway
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000066</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000066</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Dental epithelial cell, annotated with epithelial cell (CL:0000066). CL:0000066 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4612,6 +4885,49 @@ This pathophysiological event involves Dental epithelial cell, annotated with ep
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        EDA
+
+
+    <a href="https://bioregistry.io/hgnc:3157" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:3157</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves EDA (hgnc:3157). hgnc:3157 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4627,11 +4943,11 @@ This pathophysiological event involves Dental epithelial cell, annotated with ep
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0007249</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0007249</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Canonical NF-kappaB signal transduction (GO:0007249). GO:0007249 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4695,6 +5011,8 @@ This pathophysiological event involves decreased Canonical NF-kappaB signal tran
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4718,6 +5036,7 @@ This pathophysiological event involves decreased Canonical NF-kappaB signal tran
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dental-mesenchyme-transcription-factor-deficiency" data-dismech-node="Dental Mesenchyme Transcription Factor Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Dental Mesenchyme Transcription Factor Deficiency</div>
 
+
                 <div class="item-desc">The transcription factors PAX9 (paired-box) and MSX1 (homeodomain) act in the dental mesenchyme to drive the bud-to-cap transition and integrate BMP/WNT signaling. Heterozygous loss-of-function variants arrest tooth development at the bud stage and disrupt patterning, producing selective agenesis with characteristic class-specific (e.g., molar, premolar) patterns.</div>
 
 
@@ -4732,11 +5051,11 @@ This pathophysiological event involves decreased Canonical NF-kappaB signal tran
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000345" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000345</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000345" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000345</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Dental papilla (mesenchyme) cell, annotated with dental papilla cell (CL:0000345). CL:0000345 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4758,6 +5077,88 @@ This pathophysiological event involves Dental papilla (mesenchyme) cell, annotat
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PAX9
+
+
+    <a href="https://bioregistry.io/hgnc:8623" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:8623</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PAX9 (hgnc:8623). hgnc:8623 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        MSX1
+
+
+    <a href="https://bioregistry.io/hgnc:7391" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:7391</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MSX1 (hgnc:7391). hgnc:7391 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4773,11 +5174,11 @@ This pathophysiological event involves Dental papilla (mesenchyme) cell, annotat
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042487" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0042487</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042487" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0042487</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Regulation of odontogenesis, annotated with regulation of odontogenesis of dentin-containing tooth (GO:0042487). GO:0042487 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4841,6 +5242,8 @@ This pathophysiological event involves decreased Regulation of odontogenesis, an
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4862,6 +5265,8 @@ This pathophysiological event involves decreased Regulation of odontogenesis, an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4887,7 +5292,8 @@ This pathophysiological event involves decreased Regulation of odontogenesis, an
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-odontogenesis" data-dismech-node="Impaired Odontogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Odontogenesis</div>
 
-                <div class="item-desc">Convergent consequence of WNT, EDA-NF-kappaB, and mesenchymal transcription- factor deficiencies: the reciprocal epithelial-mesenchymal signaling that drives the dental lamina through the initiation, bud, cap, and bell stages fails, arresting tooth-germ development. Because tooth number is fixed during embryogenesis, the resulting absence of teeth is non-progressive.</div>
+
+                <div class="item-desc">Convergent consequence of WNT, EDA-NF-kappaB, and mesenchymal transcription-factor deficiencies: the reciprocal epithelial-mesenchymal signaling that drives the dental lamina through the initiation, bud, cap, and bell stages fails, arresting tooth-germ development. Because tooth number is fixed during embryogenesis, the resulting absence of teeth is non-progressive.</div>
 
 
 
@@ -4901,11 +5307,11 @@ This pathophysiological event involves decreased Regulation of odontogenesis, an
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000060" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000060</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000060" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000060</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Odontoblast (CL:0000060). CL:0000060 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4931,11 +5337,11 @@ This pathophysiological event involves Odontoblast (CL:0000060). CL:0000060 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000059" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000059</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000059" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000059</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Ameloblast (CL:0000059). CL:0000059 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4972,11 +5378,11 @@ This pathophysiological event involves Ameloblast (CL:0000059). CL:0000059 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042476" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0042476</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042476" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0042476</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Odontogenesis (GO:0042476). GO:0042476 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5072,6 +5478,8 @@ This pathophysiological event involves decreased Odontogenesis (GO:0042476). GO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5117,7 +5525,7 @@ This pathophysiological event involves decreased Odontogenesis (GO:0042476). GO:
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AXIN2 Truncating Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"AXIN2\"], \"gene_terms\": [{\"label\": \"AXIN2\", \"id\": \"hgnc:904\"}], \"subtypes\": [\"AXIN2-related\"], \"association\": \"Pathogenic Variants\", \"variant_count\": 2}}, {\"id\": \"Anodontia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Complete congenital absence of all teeth; the most severe and rarest form of tooth agenesis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000674\"}}, {\"id\": \"Dental Mesenchyme Transcription Factor Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The transcription factors PAX9 (paired-box) and MSX1 (homeodomain) act in the dental mesenchyme to drive the bud-to-cap transition and integrate BMP/WNT signaling. Heterozygous loss-of-function variants arrest tooth development at the bud stage and disrupt patterning, producing selective agenesis with characteristic class-specific (e.g., molar, premolar) patterns.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Dental papilla (mesenchyme) cell\"], \"biological_processes\": [\"Regulation of odontogenesis\"]}}, {\"id\": \"EDA-EDAR-NF-kappaB Signaling Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ectodysplasin pathway transduces EDA ligand binding to EDAR through the EDARADD adaptor to activate NF-kappaB, a signal required for ectodermal- appendage and tooth-germ development. X-linked EDA loss of function abrogates this signal and impairs odontogenesis, ranging from selective tooth agenesis to the dental component of hypohidrotic ectodermal dysplasia.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dental epithelial cell\"], \"biological_processes\": [\"Canonical NF-kappaB signal transduction\"]}}, {\"id\": \"Hypodontia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild form: congenital absence of one to five teeth (excluding third molars). This is the most common presentation of tooth agenesis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000668\"}}, {\"id\": \"Impaired Odontogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convergent consequence of WNT, EDA-NF-kappaB, and mesenchymal transcription- factor deficiencies: the reciprocal epithelial-mesenchymal signaling that drives the dental lamina through the initiation, bud, cap, and bell stages fails, arresting tooth-germ development. Because tooth number is fixed during embryogenesis, the resulting absence of teeth is non-progressive.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Odontoblast\", \"Ameloblast\"], \"biological_processes\": [\"Odontogenesis\"]}}, {\"id\": \"MSX1 Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MSX1\"], \"gene_terms\": [{\"label\": \"MSX1\", \"id\": \"hgnc:7391\"}], \"subtypes\": [\"MSX1-related\"], \"association\": \"Pathogenic Variants\", \"variant_count\": 1}}, {\"id\": \"Oligodontia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe form: congenital absence of six or more teeth (excluding third molars). Often associated with WNT10A, PAX9, MSX1, LRP6, and AXIN2 variants.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000677\"}}, {\"id\": \"Selective tooth agenesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Agenesis restricted to particular tooth classes (commonly second premolars, maxillary lateral incisors, and molars), reflecting genotype-specific patterning defects.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001592\"}}, {\"id\": \"Tooth agenesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital absence of one or more teeth, the defining manifestation, detected when expected teeth fail to develop and erupt.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009804\"}}, {\"id\": \"WNT/beta-catenin Signaling Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Canonical WNT/beta-catenin signaling is central to the reciprocal epithelial- mesenchymal interactions that initiate and pattern the tooth germ. Loss-of- function variants in the WNT ligands WNT10A and WNT10B and the co-receptor LRP6 reduce pathway activation, while truncating AXIN2 variants dysregulate the pathway; either inhibition or aberrant stimulation of WNT signaling can prevent normal tooth development.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Dental papilla (mesenchyme) cell\"], \"biological_processes\": [\"Canonical Wnt signaling pathway\"]}}, {\"id\": \"c.1994_1995insG\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo frameshift insertion in AXIN2 identified in an unrelated young patient with severe tooth agenesis.\"}, {\"id\": \"p.Arg31Pro (Arg31Pro)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense mutation in the MSX1 homeodomain at a highly conserved residue that contacts target DNA; segregates with familial tooth agenesis of second premolars and third molars.\"}, {\"id\": \"p.Arg656Ter (Arg656Stop)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense mutation in AXIN2 segregating with oligodontia and colorectal neoplasia in a Finnish family; expected to activate WNT signaling.\"}], \"edges\": [{\"source\": \"WNT/beta-catenin Signaling Deficiency\", \"target\": \"Impaired Odontogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced canonical WNT signaling fails to sustain the epithelial-mesenchymal signaling required to advance the tooth germ through initiation and bud stages, arresting odontogenesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"EDA-EDAR-NF-kappaB Signaling Deficiency\", \"target\": \"Impaired Odontogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of EDA-EDAR-NF-kappaB signaling deprives the developing tooth germ of a required ectodermal-appendage signal, contributing to odontogenic arrest.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dental Mesenchyme Transcription Factor Deficiency\", \"target\": \"Impaired Odontogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of PAX9/MSX1 transcription-factor activity arrests the tooth germ at the bud stage and disrupts patterning, preventing progression of odontogenesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Odontogenesis\", \"target\": \"Tooth agenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arrest of tooth-germ development at the affected stage results in the congenital absence of the corresponding teeth.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Odontogenesis\", \"target\": \"Hypodontia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When one to five tooth germs fail to develop, the clinical result is hypodontia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Odontogenesis\", \"target\": \"Oligodontia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When six or more tooth germs fail to develop, the clinical result is oligodontia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Odontogenesis\", \"target\": \"Anodontia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complete failure of tooth-germ development across the dentition produces anodontia, the most severe point on the tooth-agenesis spectrum.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Odontogenesis\", \"target\": \"Selective tooth agenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genotype-specific patterning defects arrest development of particular tooth classes, producing selective tooth agenesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"p.Arg656Ter (Arg656Stop)\", \"target\": \"AXIN2 Truncating Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1994_1995insG\", \"target\": \"AXIN2 Truncating Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Arg31Pro (Arg31Pro)\", \"target\": \"MSX1 Pathogenic Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AXIN2 Truncating Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"AXIN2\"], \"gene_terms\": [{\"label\": \"AXIN2\", \"id\": \"hgnc:904\"}], \"subtypes\": [\"AXIN2-related\"], \"association\": \"Pathogenic Variants\", \"variant_count\": 2}}, {\"id\": \"Anodontia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Complete congenital absence of all teeth; the most severe and rarest form of tooth agenesis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000674\"}}, {\"id\": \"Dental Mesenchyme Transcription Factor Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The transcription factors PAX9 (paired-box) and MSX1 (homeodomain) act in the dental mesenchyme to drive the bud-to-cap transition and integrate BMP/WNT signaling. Heterozygous loss-of-function variants arrest tooth development at the bud stage and disrupt patterning, producing selective agenesis with characteristic class-specific (e.g., molar, premolar) patterns.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Dental papilla (mesenchyme) cell\"], \"biological_processes\": [\"Regulation of odontogenesis\"], \"genes\": [\"PAX9\", \"MSX1\"], \"gene_terms\": [{\"label\": \"PAX9\", \"id\": \"hgnc:8623\"}, {\"label\": \"MSX1\", \"id\": \"hgnc:7391\"}]}}, {\"id\": \"EDA Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"EDA\"], \"gene_terms\": [{\"label\": \"EDA\", \"id\": \"hgnc:3157\"}], \"subtypes\": [\"EDA-related\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"EDA-EDAR-NF-kappaB Signaling Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ectodysplasin pathway transduces EDA ligand binding to EDAR through the EDARADD adaptor to activate NF-kappaB, a signal required for ectodermal-appendage and tooth-germ development. X-linked EDA loss of function abrogates this signal and impairs odontogenesis, ranging from selective tooth agenesis to the dental component of hypohidrotic ectodermal dysplasia.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dental epithelial cell\"], \"biological_processes\": [\"Canonical NF-kappaB signal transduction\"], \"genes\": [\"EDA\"], \"gene_terms\": [{\"label\": \"EDA\", \"id\": \"hgnc:3157\"}]}}, {\"id\": \"Hypodontia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild form: congenital absence of one to five teeth (excluding third molars). This is the most common presentation of tooth agenesis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000668\"}}, {\"id\": \"Impaired Odontogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convergent consequence of WNT, EDA-NF-kappaB, and mesenchymal transcription-factor deficiencies: the reciprocal epithelial-mesenchymal signaling that drives the dental lamina through the initiation, bud, cap, and bell stages fails, arresting tooth-germ development. Because tooth number is fixed during embryogenesis, the resulting absence of teeth is non-progressive.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Odontoblast\", \"Ameloblast\"], \"biological_processes\": [\"Odontogenesis\"]}}, {\"id\": \"LRP6 Loss-of-Function Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LRP6\"], \"gene_terms\": [{\"label\": \"LRP6\", \"id\": \"hgnc:6698\"}], \"subtypes\": [\"LRP6-related\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MSX1 Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MSX1\"], \"gene_terms\": [{\"label\": \"MSX1\", \"id\": \"hgnc:7391\"}], \"subtypes\": [\"MSX1-related\"], \"association\": \"Pathogenic Variants\", \"variant_count\": 1}}, {\"id\": \"Oligodontia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe form: congenital absence of six or more teeth (excluding third molars). Often associated with WNT10A, PAX9, MSX1, LRP6, and AXIN2 variants.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000677\"}}, {\"id\": \"PAX9 Loss-of-Function Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PAX9\"], \"gene_terms\": [{\"label\": \"PAX9\", \"id\": \"hgnc:8623\"}], \"subtypes\": [\"PAX9-related\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Selective tooth agenesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Agenesis restricted to particular tooth classes (commonly second premolars, maxillary lateral incisors, and molars), reflecting genotype-specific patterning defects.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001592\"}}, {\"id\": \"Tooth agenesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital absence of one or more teeth, the defining manifestation, detected when expected teeth fail to develop and erupt.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009804\"}}, {\"id\": \"WNT/beta-catenin Signaling Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Canonical WNT/beta-catenin signaling is central to the reciprocal epithelial-mesenchymal interactions that initiate and pattern the tooth germ. Loss-of-function variants in the WNT ligands WNT10A and WNT10B and the co-receptor LRP6 reduce pathway activation, while truncating AXIN2 variants dysregulate the pathway; either inhibition or aberrant stimulation of WNT signaling can prevent normal tooth development.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Dental papilla (mesenchyme) cell\"], \"biological_processes\": [\"Canonical Wnt signaling pathway\"], \"genes\": [\"WNT10A\", \"WNT10B\", \"LRP6\", \"AXIN2\"], \"gene_terms\": [{\"label\": \"WNT10A\", \"id\": \"hgnc:13829\"}, {\"label\": \"WNT10B\", \"id\": \"hgnc:12775\"}, {\"label\": \"LRP6\", \"id\": \"hgnc:6698\"}, {\"label\": \"AXIN2\", \"id\": \"hgnc:904\"}]}}, {\"id\": \"WNT10A Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"WNT10A\"], \"gene_terms\": [{\"label\": \"WNT10A\", \"id\": \"hgnc:13829\"}], \"subtypes\": [\"WNT10A-related\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"WNT10B Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"WNT10B\"], \"gene_terms\": [{\"label\": \"WNT10B\", \"id\": \"hgnc:12775\"}], \"subtypes\": [\"WNT10B-related\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"c.1994_1995insG\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo frameshift insertion in AXIN2 identified in an unrelated young patient with severe tooth agenesis.\"}, {\"id\": \"p.Arg31Pro (Arg31Pro)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense mutation in the MSX1 homeodomain at a highly conserved residue that contacts target DNA; segregates with familial tooth agenesis of second premolars and third molars.\"}, {\"id\": \"p.Arg656Ter (Arg656Stop)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense mutation in AXIN2 segregating with oligodontia and colorectal neoplasia in a Finnish family; expected to activate WNT signaling.\"}], \"edges\": [{\"source\": \"WNT/beta-catenin Signaling Deficiency\", \"target\": \"Impaired Odontogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced canonical WNT signaling fails to sustain the epithelial-mesenchymal signaling required to advance the tooth germ through initiation and bud stages, arresting odontogenesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"EDA-EDAR-NF-kappaB Signaling Deficiency\", \"target\": \"Impaired Odontogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of EDA-EDAR-NF-kappaB signaling deprives the developing tooth germ of a required ectodermal-appendage signal, contributing to odontogenic arrest.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dental Mesenchyme Transcription Factor Deficiency\", \"target\": \"Impaired Odontogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of PAX9/MSX1 transcription-factor activity arrests the tooth germ at the bud stage and disrupts patterning, preventing progression of odontogenesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Odontogenesis\", \"target\": \"Tooth agenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arrest of tooth-germ development at the affected stage results in the congenital absence of the corresponding teeth.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Odontogenesis\", \"target\": \"Hypodontia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When one to five tooth germs fail to develop, the clinical result is hypodontia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Odontogenesis\", \"target\": \"Oligodontia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When six or more tooth germs fail to develop, the clinical result is oligodontia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Odontogenesis\", \"target\": \"Anodontia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complete failure of tooth-germ development across the dentition produces anodontia, the most severe point on the tooth-agenesis spectrum.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Odontogenesis\", \"target\": \"Selective tooth agenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genotype-specific patterning defects arrest development of particular tooth classes, producing selective tooth agenesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"WNT10A Pathogenic Variants\", \"target\": \"WNT/beta-catenin Signaling Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"AXIN2 Truncating Variants\", \"target\": \"WNT/beta-catenin Signaling Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PAX9 Loss-of-Function Variants\", \"target\": \"Dental Mesenchyme Transcription Factor Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MSX1 Pathogenic Variants\", \"target\": \"Dental Mesenchyme Transcription Factor Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LRP6 Loss-of-Function Variants\", \"target\": \"WNT/beta-catenin Signaling Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"WNT10B Variants\", \"target\": \"WNT/beta-catenin Signaling Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"EDA Variants\", \"target\": \"EDA-EDAR-NF-kappaB Signaling Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"p.Arg656Ter (Arg656Stop)\", \"target\": \"AXIN2 Truncating Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1994_1995insG\", \"target\": \"AXIN2 Truncating Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Arg31Pro (Arg31Pro)\", \"target\": \"MSX1 Pathogenic Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5136,9 +5544,9 @@ This pathophysiological event involves decreased Odontogenesis (GO:0042476). GO:
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(5)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5147,8 +5555,89 @@ This pathophysiological event involves decreased Odontogenesis (GO:0042476). GO:
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Digestive
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neoplasm-of-the-large-intestine" data-dismech-node="Neoplasm of the large intestine" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Neoplasm of the large intestine
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100834" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0100834</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Colorectal neoplasia, annotated with Neoplasm of the large intestine (HP:0100834). HP:0100834 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15042511" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15042511" target="_blank">PMID:15042511</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Colorectal cancer or precancerous lesions of variable types were found in eight of the patients with oligodontia."</div>
+
+
+                <div class="evidence-explanation">Documents colorectal neoplasia co-segregating with AXIN2-related oligodontia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-tooth-agenesis" data-dismech-node="Tooth agenesis" data-dismech-type="phenotype">
@@ -5165,15 +5654,18 @@ This pathophysiological event involves decreased Odontogenesis (GO:0042476). GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009804" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0009804</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009804" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0009804</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tooth agenesis (HP:0009804). HP:0009804 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5193,6 +5685,8 @@ This clinical feature is Tooth agenesis (HP:0009804). HP:0009804 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5232,15 +5726,18 @@ This clinical feature is Tooth agenesis (HP:0009804). HP:0009804 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000668" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000668</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000668" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000668</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5260,6 +5757,8 @@ This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5299,15 +5798,18 @@ This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000677</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000677</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Oligodontia (HP:0000677). HP:0000677 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5327,6 +5829,8 @@ This clinical feature is Oligodontia (HP:0000677). HP:0000677 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5352,15 +5856,6 @@ This clinical feature is Oligodontia (HP:0000677). HP:0000677 is a phenotype fro
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-anodontia" data-dismech-node="Anodontia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Anodontia
@@ -5375,15 +5870,18 @@ This clinical feature is Oligodontia (HP:0000677). HP:0000677 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000674" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000674</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000674" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000674</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anodontia (HP:0000674). HP:0000674 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5403,6 +5901,8 @@ This clinical feature is Anodontia (HP:0000674). HP:0000674 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5442,15 +5942,18 @@ This clinical feature is Anodontia (HP:0000674). HP:0000674 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001592" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001592</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001592" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001592</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Selective tooth agenesis (HP:0001592). HP:0001592 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5472,6 +5975,8 @@ This clinical feature is Selective tooth agenesis (HP:0001592). HP:0001592 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5480,73 +5985,6 @@ This clinical feature is Selective tooth agenesis (HP:0001592). HP:0001592 is a 
 
 
                 <div class="evidence-explanation">Demonstrates selective (class-specific) tooth agenesis of second premolars and third molars in MSX1-related disease.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-neoplasm-of-the-large-intestine" data-dismech-node="Neoplasm of the large intestine" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Neoplasm of the large intestine
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100834" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0100834</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Colorectal neoplasia, annotated with Neoplasm of the large intestine (HP:0100834). HP:0100834 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:15042511" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15042511" target="_blank">PMID:15042511</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Colorectal cancer or precancerous lesions of variable types were found in eight of the patients with oligodontia."</div>
-
-
-                <div class="evidence-explanation">Documents colorectal neoplasia co-segregating with AXIN2-related oligodontia.</div>
 
 
 
@@ -5619,10 +6057,10 @@ This clinical feature is Colorectal neoplasia, annotated with Neoplasm of the la
                         Gene: WNT10A
 
 
-    <a href="https://bioregistry.io/hgnc:13829" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:13829</a>
+    <a href="https://bioregistry.io/hgnc:13829" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:13829</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is WNT10A (hgnc:13829). hgnc:13829 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5630,6 +6068,9 @@ This disease-associated gene is WNT10A (hgnc:13829). hgnc:13829 is a gene from t
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -5658,6 +6099,8 @@ This disease-associated gene is WNT10A (hgnc:13829). hgnc:13829 is a gene from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5679,6 +6122,8 @@ This disease-associated gene is WNT10A (hgnc:13829). hgnc:13829 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5720,10 +6165,10 @@ This disease-associated gene is WNT10A (hgnc:13829). hgnc:13829 is a gene from t
                         Gene: AXIN2
 
 
-    <a href="https://bioregistry.io/hgnc:904" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:904</a>
+    <a href="https://bioregistry.io/hgnc:904" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:904</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is AXIN2 (hgnc:904). hgnc:904 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5731,6 +6176,9 @@ This disease-associated gene is AXIN2 (hgnc:904). hgnc:904 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -5757,6 +6205,8 @@ This disease-associated gene is AXIN2 (hgnc:904). hgnc:904 is a gene from the HU
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5778,6 +6228,8 @@ This disease-associated gene is AXIN2 (hgnc:904). hgnc:904 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5811,6 +6263,12 @@ This disease-associated gene is AXIN2 (hgnc:904). hgnc:904 is a gene from the HU
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Nonsense mutation in AXIN2 segregating with oligodontia and colorectal neoplasia in a Finnish family; expected to activate WNT signaling.</div>
 
 
@@ -5833,6 +6291,12 @@ This disease-associated gene is AXIN2 (hgnc:904). hgnc:904 is a gene from the HU
         c.1994_1995insG
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">De novo frameshift insertion in AXIN2 identified in an unrelated young patient with severe tooth agenesis.</div>
@@ -5872,10 +6336,10 @@ This disease-associated gene is AXIN2 (hgnc:904). hgnc:904 is a gene from the HU
                         Gene: PAX9
 
 
-    <a href="https://bioregistry.io/hgnc:8623" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:8623</a>
+    <a href="https://bioregistry.io/hgnc:8623" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:8623</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PAX9 (hgnc:8623). hgnc:8623 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5883,6 +6347,9 @@ This disease-associated gene is PAX9 (hgnc:8623). hgnc:8623 is a gene from the H
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -5909,6 +6376,8 @@ This disease-associated gene is PAX9 (hgnc:8623). hgnc:8623 is a gene from the H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5930,6 +6399,8 @@ This disease-associated gene is PAX9 (hgnc:8623). hgnc:8623 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5971,10 +6442,10 @@ This disease-associated gene is PAX9 (hgnc:8623). hgnc:8623 is a gene from the H
                         Gene: MSX1
 
 
-    <a href="https://bioregistry.io/hgnc:7391" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:7391</a>
+    <a href="https://bioregistry.io/hgnc:7391" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:7391</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is MSX1 (hgnc:7391). hgnc:7391 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5982,6 +6453,9 @@ This disease-associated gene is MSX1 (hgnc:7391). hgnc:7391 is a gene from the H
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6008,6 +6482,8 @@ This disease-associated gene is MSX1 (hgnc:7391). hgnc:7391 is a gene from the H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6029,6 +6505,8 @@ This disease-associated gene is MSX1 (hgnc:7391). hgnc:7391 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6060,6 +6538,12 @@ This disease-associated gene is MSX1 (hgnc:7391). hgnc:7391 is a gene from the H
         p.Arg31Pro (Arg31Pro)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Missense mutation in the MSX1 homeodomain at a highly conserved residue that contacts target DNA; segregates with familial tooth agenesis of second premolars and third molars.</div>
@@ -6099,10 +6583,10 @@ This disease-associated gene is MSX1 (hgnc:7391). hgnc:7391 is a gene from the H
                         Gene: LRP6
 
 
-    <a href="https://bioregistry.io/hgnc:6698" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:6698</a>
+    <a href="https://bioregistry.io/hgnc:6698" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:6698</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is LRP6 (hgnc:6698). hgnc:6698 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6110,6 +6594,9 @@ This disease-associated gene is LRP6 (hgnc:6698). hgnc:6698 is a gene from the H
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6134,6 +6621,8 @@ This disease-associated gene is LRP6 (hgnc:6698). hgnc:6698 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6175,10 +6664,10 @@ This disease-associated gene is LRP6 (hgnc:6698). hgnc:6698 is a gene from the H
                         Gene: WNT10B
 
 
-    <a href="https://bioregistry.io/hgnc:12775" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:12775</a>
+    <a href="https://bioregistry.io/hgnc:12775" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:12775</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is WNT10B (hgnc:12775). hgnc:12775 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6186,6 +6675,9 @@ This disease-associated gene is WNT10B (hgnc:12775). hgnc:12775 is a gene from t
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6202,14 +6694,16 @@ This disease-associated gene is WNT10B (hgnc:12775). hgnc:12775 is a gene from t
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33369218" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33369218" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33369218" target="_blank">PMID:33369218</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6251,10 +6745,10 @@ This disease-associated gene is WNT10B (hgnc:12775). hgnc:12775 is a gene from t
                         Gene: EDA
 
 
-    <a href="https://bioregistry.io/hgnc:3157" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:3157</a>
+    <a href="https://bioregistry.io/hgnc:3157" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:3157</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is EDA (hgnc:3157). hgnc:3157 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6262,6 +6756,9 @@ This disease-associated gene is EDA (hgnc:3157). hgnc:3157 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6286,6 +6783,8 @@ This disease-associated gene is EDA (hgnc:3157). hgnc:3157 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6335,7 +6834,7 @@ This disease-associated gene is EDA (hgnc:3157). hgnc:3157 is a gene from the HU
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">dental bridge implantation<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">dental bridge implantation<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is dental bridge implantation, annotated with Dental Procedure (NCIT:C38052). NCIT:C38052 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6368,6 +6867,20 @@ This treatment is dental bridge implantation, annotated with Dental Procedure (N
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Replacement of missing teeth with removable or fixed prostheses (partial dentures, fixed bridges) to restore function and aesthetics. A mainstay of multidisciplinary management, often combined with orthodontics.</div>
 
 
@@ -6389,6 +6902,8 @@ This treatment is dental bridge implantation, annotated with Dental Procedure (N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6419,7 +6934,7 @@ This treatment is dental bridge implantation, annotated with Dental Procedure (N
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">dental implantation<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">dental implantation<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is dental implantation, annotated with Dental Procedure (NCIT:C38052). NCIT:C38052 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6452,6 +6967,20 @@ This treatment is dental implantation, annotated with Dental Procedure (NCIT:C38
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgical placement of osseointegrated dental implants to replace congenitally missing teeth, typically deferred until completion of craniofacial growth.</div>
 
 
@@ -6473,6 +7002,8 @@ This treatment is dental implantation, annotated with Dental Procedure (NCIT:C38
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6503,7 +7034,7 @@ This treatment is dental implantation, annotated with Dental Procedure (NCIT:C38
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Orthodontic Treatment<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Orthodontic Treatment<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Orthodontic Treatment (NCIT:C64248). NCIT:C64248 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6535,6 +7066,20 @@ This treatment is Orthodontic Treatment (NCIT:C64248). NCIT:C64248 is a clinical
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Orthodontic treatment to optimize spacing, manage malocclusion, redistribute or close spaces of missing teeth, and coordinate timing of definitive prosthodontic or implant rehabilitation.</div>
 
 
@@ -6556,6 +7101,8 @@ This treatment is Orthodontic Treatment (NCIT:C64248). NCIT:C64248 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6585,6 +7132,33 @@ This treatment is Orthodontic Treatment (NCIT:C64248). NCIT:C64248 is a clinical
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6629,8 +7203,8 @@ description: &gt;-
   genes that converge on the signaling networks governing tooth-germ initiation
   and patterning: the WNT/beta-catenin pathway (WNT10A, WNT10B, the co-receptor
   LRP6, and the negative regulator AXIN2), the transcription factors PAX9 and
-  MSX1 acting in the dental mesenchyme, and the ectodysplasin (EDA-EDAR-EDARADD-
-  NF-kappaB) pathway. Tooth agenesis arises from arrest of the reciprocal
+  MSX1 acting in the dental mesenchyme, and the ectodysplasin (EDA-EDAR-EDARADD-NF-kappaB)
+  pathway. Tooth agenesis arises from arrest of the reciprocal
   epithelial-mesenchymal signaling that drives the dental lamina through the
   initiation, bud, cap, and bell stages, so the number and pattern of missing
   teeth are fixed during embryonic development and do not progress thereafter.
@@ -6653,8 +7227,8 @@ has_subtypes:
   display_name: WNT10A-related tooth agenesis
   description: &gt;-
     The single most common molecular cause of isolated (nonsyndromic) hypodontia
-    and oligodontia. WNT10A is a WNT ligand acting in the canonical WNT/beta-
-    catenin pathway during epithelial-mesenchymal signaling. Inheritance is both
+    and oligodontia. WNT10A is a WNT ligand acting in the canonical WNT/beta-catenin
+    pathway during epithelial-mesenchymal signaling. Inheritance is both
     autosomal dominant and autosomal recessive; biallelic variants tend to
     produce more severe (oligodontia) phenotypes.
   genes:
@@ -6676,8 +7250,8 @@ has_subtypes:
 - name: LRP6-related
   display_name: LRP6-related tooth agenesis
   description: &gt;-
-    LRP6 encodes a transmembrane co-receptor required for canonical WNT/beta-
-    catenin signal transduction. Loss-of-function variants compromise WNT
+    LRP6 encodes a transmembrane co-receptor required for canonical WNT/beta-catenin
+    signal transduction. Loss-of-function variants compromise WNT
     pathway activation in odontogenesis and cause autosomal dominant selective
     tooth agenesis/oligodontia.
   genes:
@@ -6937,8 +7511,8 @@ genetic:
         id: HP:0000006
         label: Autosomal dominant inheritance
   features: &gt;-
-    LRP6 encodes a cell-surface co-receptor required for canonical WNT/beta-
-    catenin signaling. Loss-of-function variants reduce WNT pathway activation in
+    LRP6 encodes a cell-surface co-receptor required for canonical WNT/beta-catenin
+    signaling. Loss-of-function variants reduce WNT pathway activation in
     the developing tooth germ and contribute to genetic oligodontia.
   evidence:
   - reference: PMID:30950205
@@ -6973,7 +7547,7 @@ genetic:
   evidence:
   - reference: PMID:33369218
     reference_title: &#34;Functional characterization of ATF1, GREM2 AND WNT10B variants associated with tooth agenesis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
       To determine the functional effects of ATF1, WNT10B and GREM2 gene
@@ -7148,12 +7722,29 @@ phenotypes:
 pathophysiology:
 - name: WNT/beta-catenin Signaling Deficiency
   description: &gt;-
-    Canonical WNT/beta-catenin signaling is central to the reciprocal epithelial-
-    mesenchymal interactions that initiate and pattern the tooth germ. Loss-of-
-    function variants in the WNT ligands WNT10A and WNT10B and the co-receptor
+    Canonical WNT/beta-catenin signaling is central to the reciprocal epithelial-mesenchymal
+    interactions that initiate and pattern the tooth germ. Loss-of-function
+    variants in the WNT ligands WNT10A and WNT10B and the co-receptor
     LRP6 reduce pathway activation, while truncating AXIN2 variants dysregulate
     the pathway; either inhibition or aberrant stimulation of WNT signaling can
     prevent normal tooth development.
+  genes:
+  - preferred_term: WNT10A
+    term:
+      id: hgnc:13829
+      label: WNT10A
+  - preferred_term: WNT10B
+    term:
+      id: hgnc:12775
+      label: WNT10B
+  - preferred_term: LRP6
+    term:
+      id: hgnc:6698
+      label: LRP6
+  - preferred_term: AXIN2
+    term:
+      id: hgnc:904
+      label: AXIN2
   biological_processes:
   - preferred_term: Canonical Wnt signaling pathway
     term:
@@ -7196,10 +7787,15 @@ pathophysiology:
 - name: EDA-EDAR-NF-kappaB Signaling Deficiency
   description: &gt;-
     The ectodysplasin pathway transduces EDA ligand binding to EDAR through the
-    EDARADD adaptor to activate NF-kappaB, a signal required for ectodermal-
-    appendage and tooth-germ development. X-linked EDA loss of function abrogates
+    EDARADD adaptor to activate NF-kappaB, a signal required for ectodermal-appendage
+    and tooth-germ development. X-linked EDA loss of function abrogates
     this signal and impairs odontogenesis, ranging from selective tooth agenesis
     to the dental component of hypohidrotic ectodermal dysplasia.
+  genes:
+  - preferred_term: EDA
+    term:
+      id: hgnc:3157
+      label: EDA
   biological_processes:
   - preferred_term: Canonical NF-kappaB signal transduction
     term:
@@ -7236,6 +7832,15 @@ pathophysiology:
     signaling. Heterozygous loss-of-function variants arrest tooth development at
     the bud stage and disrupt patterning, producing selective agenesis with
     characteristic class-specific (e.g., molar, premolar) patterns.
+  genes:
+  - preferred_term: PAX9
+    term:
+      id: hgnc:8623
+      label: PAX9
+  - preferred_term: MSX1
+    term:
+      id: hgnc:7391
+      label: MSX1
   biological_processes:
   - preferred_term: Regulation of odontogenesis
     term:
@@ -7277,8 +7882,8 @@ pathophysiology:
     causal_link_type: DIRECT
 - name: Impaired Odontogenesis
   description: &gt;-
-    Convergent consequence of WNT, EDA-NF-kappaB, and mesenchymal transcription-
-    factor deficiencies: the reciprocal epithelial-mesenchymal signaling that
+    Convergent consequence of WNT, EDA-NF-kappaB, and mesenchymal transcription-factor
+    deficiencies: the reciprocal epithelial-mesenchymal signaling that
     drives the dental lamina through the initiation, bud, cap, and bell stages
     fails, arresting tooth-germ development. Because tooth number is fixed during
     embryogenesis, the resulting absence of teeth is non-progressive.
@@ -7457,6 +8062,8 @@ treatments:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8746,7 +9353,7 @@ While the gathered literature does not extensively document naturally occurring 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Tooth Agenesis", "mondoId": "MONDO:0005486", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Tooth_Agenesis", "yamlRevision": "e4a233f84dc0"};
+        const OS_CONFIG = {"diseaseName": "Tooth Agenesis", "mondoId": "MONDO:0005486", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Tooth_Agenesis", "yamlRevision": "a0b878c00aae"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

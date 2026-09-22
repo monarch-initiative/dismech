@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4234,6 +4341,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ebv-latent-membrane-protein-1-lmp1-signaling" data-dismech-node="EBV Latent Membrane Protein 1 (LMP1) Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">EBV Latent Membrane Protein 1 (LMP1) Signaling</div>
 
+
                 <div class="item-desc">LMP1 is the primary EBV oncoprotein in NPC, functioning as a constitutively active receptor that mimics CD40 signaling. LMP1 activates NF-kB, MAPK, and PI3K/AKT pathways, promoting cell survival, proliferation, and epithelial-mesenchymal transition.</div>
 
 
@@ -4410,6 +4518,7 @@ This pathophysiological event occurs in nasopharynx (UBERON:0001728). UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lmp2a-mediated-b-cell-receptor-mimicry" data-dismech-node="LMP2A-Mediated B Cell Receptor Mimicry" data-dismech-type="pathophysiology">
                 <div class="item-name">LMP2A-Mediated B Cell Receptor Mimicry</div>
 
+
                 <div class="item-desc">LMP2A is a viral protein that mimics an activated B cell receptor, providing survival signals that prevent viral lytic reactivation and maintain latency. In epithelial cells, LMP2A activates PI3K/AKT and promotes cell motility.</div>
 
 
@@ -4474,6 +4583,7 @@ This pathophysiological event involves increased phosphatidylinositol 3-kinase s
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ebna1-mediated-viral-maintenance" data-dismech-node="EBNA1-Mediated Viral Maintenance" data-dismech-type="pathophysiology">
                 <div class="item-name">EBNA1-Mediated Viral Maintenance</div>
 
+
                 <div class="item-desc">EBNA1 is essential for EBV genome replication and maintenance during latency. It tethers viral episomes to host chromosomes and contributes to genomic instability by inducing oxidative stress and interfering with DNA damage responses.</div>
 
 
@@ -4533,6 +4643,7 @@ This pathophysiological event involves viral genome replication (GO:0019079). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-host-genetic-susceptibility" data-dismech-node="Host Genetic Susceptibility" data-dismech-type="pathophysiology">
                 <div class="item-name">Host Genetic Susceptibility</div>
+
 
                 <div class="item-desc">Specific HLA haplotypes, particularly HLA-A2, are associated with increased NPC risk in endemic populations. Additional susceptibility loci have been identified in GWAS studies, including genes involved in immune function and DNA repair.</div>
 
@@ -4602,6 +4713,7 @@ This pathophysiological event involves HLA-A (hgnc:4931). hgnc:4931 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-egfr-src-stat3-signaling-axis" data-dismech-node="EGFR/SRC/STAT3 Signaling Axis" data-dismech-type="pathophysiology">
                 <div class="item-name">EGFR/SRC/STAT3 Signaling Axis</div>
+
 
                 <div class="item-desc">The EGFR/SRC/STAT3 signaling axis is a critical multi-target pathway in NPC oncogenesis, independent of EBV-driven mechanisms. EGFR activation triggers SRC-mediated STAT3 phosphorylation, which drives transcription of downstream oncogenic targets including PD-L1 (promoting immune evasion), as well as genes promoting cell proliferation and migration. This axis represents a therapeutic target validated through network pharmacology, molecular docking, and in vitro experiments in NPC cell lines.</div>
 
@@ -4857,6 +4969,8 @@ This pathophysiological event occurs in nasopharynx (UBERON:0001728). UBERON:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -4878,6 +4992,8 @@ This pathophysiological event occurs in nasopharynx (UBERON:0001728). UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4903,6 +5019,8 @@ This pathophysiological event occurs in nasopharynx (UBERON:0001728). UBERON:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -4925,6 +5043,7 @@ This pathophysiological event occurs in nasopharynx (UBERON:0001728). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-evasion" data-dismech-node="Immune Evasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune Evasion</div>
+
 
                 <div class="item-desc">EBV-infected NPC cells evade immune surveillance through multiple mechanisms including PD-L1 upregulation, suppression of antigen presentation, and recruitment of regulatory T cells. STAT3 signaling downstream of EGFR/SRC activation drives PD-L1 transcription, enabling durable immune evasion independent of EBV mechanisms. This provides rationale for immune checkpoint inhibition.</div>
 
@@ -5000,6 +5119,8 @@ This pathophysiological event involves increased negative regulation of T cell m
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5021,6 +5142,8 @@ This pathophysiological event involves increased negative regulation of T cell m
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5081,6 +5204,8 @@ This pathophysiological event involves increased negative regulation of T cell m
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5207,6 +5332,9 @@ This clinical feature is Epistaxis (HP:0000421). HP:0000421 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5221,6 +5349,8 @@ This clinical feature is Epistaxis (HP:0000421). HP:0000421 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5285,6 +5415,9 @@ This clinical feature is cervical lymphadenopathy, annotated with Lymphadenopath
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5299,6 +5432,8 @@ This clinical feature is cervical lymphadenopathy, annotated with Lymphadenopath
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5365,6 +5500,9 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5379,6 +5517,8 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5445,6 +5585,9 @@ This clinical feature is Nasal congestion (HP:0001742). HP:0001742 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5459,6 +5602,8 @@ This clinical feature is Nasal congestion (HP:0001742). HP:0001742 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5525,6 +5670,9 @@ This clinical feature is Cranial nerve paralysis (HP:0006824). HP:0006824 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5539,6 +5687,8 @@ This clinical feature is Cranial nerve paralysis (HP:0006824). HP:0006824 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5594,6 +5744,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5608,6 +5761,8 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5707,6 +5862,9 @@ This disease-associated gene is HLA-A (hgnc:4931). hgnc:4931 is a gene from the 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-tp53" data-dismech-node="TP53" data-dismech-type="genetic">
@@ -5738,6 +5896,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -5781,6 +5942,9 @@ This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-nf-kb-pathway-alterations" data-dismech-node="NF-kB Pathway Alterations" data-dismech-type="genetic">
@@ -5790,6 +5954,9 @@ This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Various Mutations)</span>
 
                 </div>
+
+
+
 
 
 
@@ -5852,6 +6019,31 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Radiotherapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -5927,6 +6119,31 @@ This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent 
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Radiotherapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -6020,6 +6237,20 @@ This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Induction chemotherapy (gemcitabine-cisplatin or TPF) before chemoradiation is increasingly used for locally advanced disease based on recent trials showing improved survival.</div>
 
 
@@ -6066,6 +6297,20 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6141,6 +6386,123 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-epstein-barr-virus-ebv">
+                <div class="item-name">Epstein-Barr Virus (EBV)</div>
+
+                <div class="item-desc">EBV is present in virtually all non-keratinizing NPC and is essential for carcinogenesis. The virus establishes latent infection with expression of specific viral proteins (LMP1, LMP2, EBNA1) and non-coding RNAs (EBERs, BARTs) that drive oncogenic transformation.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Epstein-Barr virus
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10376" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-31">NCBITaxon:10376</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41016806" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41016806" target="_blank">PMID:41016806</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"In addition to its involvement in a wide range of malignancies such as lymphomas, nasopharyngeal carcinoma, and gastric cancer, recent evidence has shown its potential association with autoimmune diseases, positioning EBV as an interdisciplinary research model linking virology, oncology, and immunology."</div>
+
+
+                <div class="evidence-explanation">Supports the association of EBV with nasopharyngeal carcinoma.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6323,7 +6685,7 @@ infectious_agent:
   evidence:
   - reference: PMID:41016806
     reference_title: &#34;[Exploration and Functional Analysis of Epstein-Barr Virus Pathogenic Factors Using a Multidimensional Approach].&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;In addition to its involvement in a wide range of malignancies such as lymphomas, nasopharyngeal carcinoma, and gastric cancer, recent evidence has shown its potential association with autoimmune diseases, positioning EBV as an interdisciplinary research model linking virology, oncology, and immunology.&#34;
     explanation: &#34;Supports the association of EBV with nasopharyngeal carcinoma.&#34;
   infectious_agent_term:
@@ -6931,15 +7293,20 @@ references:
   found_in:
   - Nasopharyngeal_Carcinoma-deep-research-falcon.md
   findings:
-  - statement: &#39;Toripalimab: A new age in fighting Nasopharyngeal Carcinoma&#39;
-    supporting_text: Madam, Nasopharyngeal carcinomas (NPCs) lie amongst a group of malignant tumours whose incidence has steadily increased over the past 30 years.[1] These have a significantly higher incidence rate in Asian populations, which account for over 70% of new cases worldwide.[2] The leading risk factors associated with NPCs are tobacco and alcohol consumption, followed by HPV infections.
+  - statement: &gt;-
+      This letter describes toripalimab as a monoclonal antibody that blocks PD-1 interactions with
+      PD-L1 and PD-L2.
+    supporting_text: &#34;Toripalimab is a monoclonal antibody that blocks interactions between the PD - 1 and PD-L1 or PD-L2.&#34;
     evidence:
     - reference: DOI:10.47391/jpma.20757
       reference_title: &#39;Toripalimab: A new age in fighting Nasopharyngeal Carcinoma&#39;
       supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
-      snippet: Madam, Nasopharyngeal carcinomas (NPCs) lie amongst a group of malignant tumours whose incidence has steadily increased over the past 30 years.[1] These have a significantly higher incidence rate in Asian populations, which account for over 70% of new cases worldwide.[2] The leading risk factors associated with NPCs are tobacco and alcohol consumption, followed by HPV infections.
-      explanation: Deep research cited this publication as relevant literature for Nasopharyngeal Carcinoma.
+      evidence_source: OTHER
+      quote_role: REVIEW_SYNTHESIS
+      snippet: &#34;Toripalimab is a monoclonal antibody that blocks interactions between the PD - 1 and PD-L1 or PD-L2.&#34;
+      explanation: &gt;-
+        The letter describes the immune-checkpoint mechanism of toripalimab in its discussion of
+        therapy for recurrent or metastatic nasopharyngeal carcinoma.
 datasets:
 - accession: ega:EGAS00001002707
   title: Sequencing-based counting and size profiling of plasma Epstein-Barr virus DNA enhance population screening of nasopharyngeal carcinoma.
@@ -7029,6 +7396,8 @@ datasets:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7099,6 +7468,8 @@ datasets:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7167,6 +7538,8 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7313,6 +7686,8 @@ datasets:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7381,6 +7756,8 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -7527,6 +7904,8 @@ datasets:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7595,6 +7974,8 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7667,6 +8048,8 @@ datasets:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7714,10 +8097,10 @@ datasets:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">Toripalimab: A new age in fighting Nasopharyngeal Carcinoma</div>
+            <div class="reference-finding-statement">This letter describes toripalimab as a monoclonal antibody that blocks PD-1 interactions with PD-L1 and PD-L2.</div>
 
 
-            <div class="reference-finding-supporting">"Madam, Nasopharyngeal carcinomas (NPCs) lie amongst a group of malignant tumours whose incidence has steadily increased over the past 30 years.[1] These have a significantly higher incidence rate in Asian populations, which account for over 70% of new cases worldwide.[2] The leading risk factors..."</div>
+            <div class="reference-finding-supporting">"Toripalimab is a monoclonal antibody that blocks interactions between the PD - 1 and PD-L1 or PD-L2."</div>
 
 
 
@@ -7737,14 +8120,18 @@ datasets:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Madam, Nasopharyngeal carcinomas (NPCs) lie amongst a group of malignant tumours whose incidence has steadily increased over the past 30 years.[1] These have a significantly higher incidence rate in Asian populations, which account for over 70% of new cases worldwide.[2] The leading risk factors..."</div>
+                <div class="evidence-snippet">"Toripalimab is a monoclonal antibody that blocks interactions between the PD - 1 and PD-L1 or PD-L2."</div>
 
 
-                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Nasopharyngeal Carcinoma.</div>
+                <div class="evidence-explanation">The letter describes the immune-checkpoint mechanism of toripalimab in its discussion of therapy for recurrent or metastatic nasopharyngeal carcinoma.</div>
 
 
 
@@ -7771,6 +8158,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8086,7 +8475,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Nasopharyngeal Carcinoma", "mondoId": "MONDO:0015459", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Nasopharyngeal_Carcinoma", "yamlRevision": "384fd89caf09"};
+        const OS_CONFIG = {"diseaseName": "Nasopharyngeal Carcinoma", "mondoId": "MONDO:0015459", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Nasopharyngeal_Carcinoma", "yamlRevision": "311aa6cfde9d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

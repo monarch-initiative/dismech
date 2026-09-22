@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3726,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3768,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 2</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Influenza"
@@ -3929,7 +4036,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3965,6 +4072,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4061,6 +4176,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4121,6 +4238,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4240,6 +4359,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-respiratory-epithelial-infection-and-cytopathic-effect" data-dismech-node="Respiratory Epithelial Infection and Cytopathic Effect" data-dismech-type="pathophysiology">
                 <div class="item-name">Respiratory Epithelial Infection and Cytopathic Effect</div>
+
 
                 <div class="item-desc">Influenza viruses bind to sialic acid residues on respiratory epithelial cells via hemagglutinin, followed by endocytosis and viral replication in the nucleus. Viral neuraminidase facilitates release of new virions. This causes direct cytopathic damage to airway epithelium, leading to desquamation, impaired mucociliary clearance, and susceptibility to secondary bacterial infection.
 </div>
@@ -4423,6 +4543,23 @@ This pathophysiological event occurs in respiratory system (UBERON:0001004). UBE
                 </div>
 
 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Experimental models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-immune-competent-microvascularized-lung-on-a-chip-ic-loc-severe-h1n1-model">Immune-competent microvascularized lung-on-a-chip (IC-LOC) severe H1N1 model</a>
+
+                            <span class="crosslink-meta">ORGAN ON CHIP</span>
+
+
+                            <span class="crosslink-desc">H1N1 infection of the airway compartment produced epithelial cell damage alongside viral replication, reproducing the cytopathic effect of severe influenza on human airway epithelium.</span>
+
+                        </div>
+
+                    </div>
+                </div>
+
 
 
 
@@ -4442,6 +4579,8 @@ This pathophysiological event occurs in respiratory system (UBERON:0001004). UBE
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4466,6 +4605,7 @@ This pathophysiological event occurs in respiratory system (UBERON:0001004). UBE
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-toll-like-receptor-signaling-and-innate-immune-activation" data-dismech-node="Toll-like Receptor Signaling and Innate Immune Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Toll-like Receptor Signaling and Innate Immune Activation</div>
+
 
                 <div class="item-desc">Innate immune sensing of influenza occurs through endosomal TLR3, TLR7, and TLR8. TLR7/8 signal via MYD88 to activate IRF5/IRF7 and NF-kappaB, while TLR3 signals via TRIF to activate IRF3 via TBK1/IKK-epsilon. This dual signaling induces type I and III interferons, pro-inflammatory cytokines, and chemokines. The TLR response is a double-edged sword: necessary for viral control but capable of driving immunopathology when hyperactivated.
 </div>
@@ -4662,6 +4802,8 @@ This pathophysiological event involves response to type I interferon (GO:0034340
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4683,6 +4825,8 @@ This pathophysiological event involves response to type I interferon (GO:0034340
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4707,6 +4851,7 @@ This pathophysiological event involves response to type I interferon (GO:0034340
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inflammasome-activation-and-cytokine-storm" data-dismech-node="Inflammasome Activation and Cytokine Storm" data-dismech-type="pathophysiology">
                 <div class="item-name">Inflammasome Activation and Cytokine Storm</div>
+
 
                 <div class="item-desc">IAV infection activates NLRP3 and AIM2 inflammasomes. AIM2, canonically a cytosolic dsDNA sensor, is activated by host mitochondrial DNA released after IAV-induced mitochondrial damage. Inflammasome activation leads to caspase-1-mediated processing of IL-1-beta and IL-18, and gasdermin D-mediated pyroptosis. Excessive inflammasome activation contributes to the cytokine storm associated with severe influenza.
 </div>
@@ -4792,6 +4937,23 @@ This pathophysiological event involves pyroptotic inflammatory response (GO:0070
 
 
 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Experimental models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-immune-competent-microvascularized-lung-on-a-chip-ic-loc-severe-h1n1-model">Immune-competent microvascularized lung-on-a-chip (IC-LOC) severe H1N1 model</a>
+
+                            <span class="crosslink-meta">ORGAN ON CHIP</span>
+
+
+                            <span class="crosslink-desc">Severe H1N1 infection produced airway and interstitial cytokine profiles matching those measured in bronchoalveolar lavage fluid from patients with severe influenza. Selective inhibition then established directionality: blocking IL-1beta abolished the storm, whereas blocking TNF-alpha worsened it, identifying TNF-alpha as a regulator rather than a driver.</span>
+
+                        </div>
+
+                    </div>
+                </div>
+
 
 
 
@@ -4811,6 +4973,8 @@ This pathophysiological event involves pyroptotic inflammatory response (GO:0070
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4836,6 +5000,8 @@ This pathophysiological event involves pyroptotic inflammatory response (GO:0070
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4858,6 +5024,7 @@ This pathophysiological event involves pyroptotic inflammatory response (GO:0070
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-panoptosis-and-inflammatory-cell-death" data-dismech-node="PANoptosis and Inflammatory Cell Death" data-dismech-type="pathophysiology">
                 <div class="item-name">PANoptosis and Inflammatory Cell Death</div>
+
 
                 <div class="item-desc">Influenza A virus triggers multiple regulated cell death pathways including apoptosis, necroptosis, and pyroptosis, integrated as PANoptosis. ZBP1 senses viral Z-RNA and coordinates these death pathways via RHIM-dependent interactions with RIPK3/RIPK1. MLKL-driven membrane rupture during necroptosis activates NLRP3 inflammasome. Caspase-3 can cleave gasdermin E, linking apoptosis to pyroptosis. This integrated cell death ensures viral clearance but can intensify tissue damage.
 </div>
@@ -4960,6 +5127,8 @@ This pathophysiological event involves programmed necrotic cell death (GO:009730
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4983,6 +5152,7 @@ This pathophysiological event involves programmed necrotic cell death (GO:009730
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-dysfunction-and-thromboinflammation" data-dismech-node="Endothelial Dysfunction and Thromboinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Endothelial Dysfunction and Thromboinflammation</div>
 
+
                 <div class="item-desc">Severe influenza involves pulmonary microvascular endothelial infection and activation, leading to vascular leakage, adhesion molecule upregulation (ICAM-1, VCAM-1), and thromboinflammatory complications including venous thromboembolism. In critically ill influenza cohorts, VTE incidence has been reported at 9.37%.
 </div>
 
@@ -4998,6 +5168,23 @@ This pathophysiological event involves programmed necrotic cell death (GO:009730
 
 
 
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Experimental models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-immune-competent-microvascularized-lung-on-a-chip-ic-loc-severe-h1n1-model">Immune-competent microvascularized lung-on-a-chip (IC-LOC) severe H1N1 model</a>
+
+                            <span class="crosslink-meta">ORGAN ON CHIP</span>
+
+
+                            <span class="crosslink-desc">The microvascularized interstitial compartment allowed stromal-immune signalling to be measured directly, identifying a fibroblast-derived CXCL12 to CXCR4 axis as the dominant ligand-receptor interaction in the response, and CXCR4 inhibition as a candidate intervention that lowered damage-associated cytokines while preserving antiviral ones.</span>
+
+                        </div>
+
+                    </div>
+                </div>
 
 
 
@@ -5036,6 +5223,8 @@ This pathophysiological event involves programmed necrotic cell death (GO:009730
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5058,6 +5247,7 @@ This pathophysiological event involves programmed necrotic cell death (GO:009730
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-triggering-of-acute-myocardial-infarction" data-dismech-node="Triggering of Acute Myocardial Infarction" data-dismech-type="pathophysiology">
                 <div class="item-name">Triggering of Acute Myocardial Infarction</div>
+
 
                 <div class="item-desc">Acute influenza is a recognized short-term trigger of acute myocardial infarction. Influenza-driven systemic inflammation, endothelial activation, platelet activation, and a procoagulant shift can destabilize vulnerable coronary atherosclerotic plaque and precipitate atherothrombotic occlusion, with the excess risk concentrated in the first 7 days after infection. In a self-controlled case-series of laboratory-confirmed influenza, the incidence of hospitalization for acute myocardial infarction was about six-fold higher during the 7-day risk interval than during the control interval, with no increased incidence after day 7. This makes acute MI an important downstream cardiovascular sequela of influenza beyond the respiratory tract, and underpins the cardioprotective rationale for influenza vaccination.
 </div>
@@ -5304,6 +5494,8 @@ This pathophysiological event occurs in coronary artery (UBERON:0001621). UBERON
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5325,6 +5517,8 @@ This pathophysiological event occurs in coronary artery (UBERON:0001621). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5372,7 +5566,7 @@ This pathophysiological event occurs in coronary artery (UBERON:0001621). UBERON
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Endothelial Dysfunction and Thromboinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe influenza involves pulmonary microvascular endothelial infection and activation, leading to vascular leakage, adhesion molecule upregulation (ICAM-1, VCAM-1), and thromboinflammatory complications including venous thromboembolism. In critically ill influenza cohorts, VTE incidence has been reported at 9.37%.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Triggering of Acute Myocardial Infarction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute influenza is a recognized short-term trigger of acute myocardial infarction. Influenza-driven systemic inflammation, endothelial activation, platelet activation, and a procoagulant shift can destabilize vulnerable coronary atherosclerotic plaque and precipitate atherothrombotic occlusion, with the excess risk concentrated in the first 7 days after infection. In a self-controlled case-series of laboratory-confirmed influenza, the incidence of hospitalization for acute myocardial infarction was about six-fold higher during the 7-day risk interval than during the control interval, with no increased incidence after day 7. This makes acute MI an important downstream cardiovascular sequela of influenza beyond the respiratory tract, and underpins the cardioprotective rationale for influenza vaccination.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"coronary endothelial cell\", \"platelet\"], \"biological_processes\": [\"inflammatory response\", \"platelet activation\", \"blood coagulation\"], \"locations\": [\"heart\", \"coronary artery\"]}}], \"edges\": [{\"source\": \"Endothelial Dysfunction and Thromboinflammation\", \"target\": \"Triggering of Acute Myocardial Infarction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The acute systemic inflammatory and prothrombotic state of influenza acts as a trigger for acute myocardial infarction in the first week after infection.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Systemic inflammation and thromboinflammatory endothelial activation\", \"Coronary atherosclerotic plaque instability and rupture\", \"Platelet activation and procoagulant shift causing atherothrombotic coronary occlusion\"]}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Endothelial Dysfunction and Thromboinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe influenza involves pulmonary microvascular endothelial infection and activation, leading to vascular leakage, adhesion molecule upregulation (ICAM-1, VCAM-1), and thromboinflammatory complications including venous thromboembolism. In critically ill influenza cohorts, VTE incidence has been reported at 9.37%.\\n\", \"meta\": {\"evidence_count\": 1, \"experimental_models\": [{\"name\": \"Immune-competent microvascularized lung-on-a-chip (IC-LOC) severe H1N1 model\", \"model_type\": \"ORGAN_ON_CHIP\", \"namo_type\": \"namo:OrganOnChip\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"The microvascularized interstitial compartment allowed stromal-immune signalling to be measured directly, identifying a fibroblast-derived CXCL12 to CXCR4 axis as the dominant ligand-receptor interaction in the response, and CXCR4 inhibition as a candidate intervention that lowered damage-associated cytokines while preserving antiviral ones.\"}]}}, {\"id\": \"Immune-competent microvascularized lung-on-a-chip (IC-LOC) severe H1N1 model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A microvascularized human small-airway chip carrying both tissue-resident (alveolar macrophage, dendritic cell, interstitial macrophage) and circulating immune populations alongside airway epithelium and stromal fibroblasts. Infection at high multiplicity reproduces the cytokine storm of severe influenza, and single-cell RNA sequencing plus targeted inhibition were used to separate the contributions of individual mediators. Its distinctive result is a dissociation that a cytokine panel alone would not reveal: IL-1beta and TNF-alpha, usually grouped together as pro-inflammatory drivers, act in opposite directions on the storm.\", \"meta\": {\"cell_types\": [\"Bronchial epithelial cell\", \"Alveolar macrophage\", \"Lung fibroblast\"], \"model_type\": \"ORGAN_ON_CHIP\", \"namo_type\": \"namo:OrganOnChip\", \"conditions\": [\"influenza A H1N1 infection (MOI 10, severe)\", \"IL-1beta inhibition (canakinumab)\", \"TNF-alpha inhibition (infliximab)\", \"CXCR4 inhibition (AMD3100)\", \"oseltamivir\"], \"publication\": \"PMID:40987954\"}}, {\"id\": \"Inflammasome Activation and Cytokine Storm\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IAV infection activates NLRP3 and AIM2 inflammasomes. AIM2, canonically a cytosolic dsDNA sensor, is activated by host mitochondrial DNA released after IAV-induced mitochondrial damage. Inflammasome activation leads to caspase-1-mediated processing of IL-1-beta and IL-18, and gasdermin D-mediated pyroptosis. Excessive inflammasome activation contributes to the cytokine storm associated with severe influenza.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"pyroptotic inflammatory response\"], \"experimental_models\": [{\"name\": \"Immune-competent microvascularized lung-on-a-chip (IC-LOC) severe H1N1 model\", \"model_type\": \"ORGAN_ON_CHIP\", \"namo_type\": \"namo:OrganOnChip\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Severe H1N1 infection produced airway and interstitial cytokine profiles matching those measured in bronchoalveolar lavage fluid from patients with severe influenza. Selective inhibition then established directionality: blocking IL-1beta abolished the storm, whereas blocking TNF-alpha worsened it, identifying TNF-alpha as a regulator rather than a driver.\"}]}}, {\"id\": \"Respiratory Epithelial Infection and Cytopathic Effect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Influenza viruses bind to sialic acid residues on respiratory epithelial cells via hemagglutinin, followed by endocytosis and viral replication in the nucleus. Viral neuraminidase facilitates release of new virions. This causes direct cytopathic damage to airway epithelium, leading to desquamation, impaired mucociliary clearance, and susceptibility to secondary bacterial infection.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"respiratory epithelial cell\", \"alveolar macrophage\"], \"biological_processes\": [\"viral genome replication\", \"defense response to virus\"], \"locations\": [\"lung\", \"respiratory system\"], \"experimental_models\": [{\"name\": \"Immune-competent microvascularized lung-on-a-chip (IC-LOC) severe H1N1 model\", \"model_type\": \"ORGAN_ON_CHIP\", \"namo_type\": \"namo:OrganOnChip\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"H1N1 infection of the airway compartment produced epithelial cell damage alongside viral replication, reproducing the cytopathic effect of severe influenza on human airway epithelium.\"}]}}, {\"id\": \"Triggering of Acute Myocardial Infarction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute influenza is a recognized short-term trigger of acute myocardial infarction. Influenza-driven systemic inflammation, endothelial activation, platelet activation, and a procoagulant shift can destabilize vulnerable coronary atherosclerotic plaque and precipitate atherothrombotic occlusion, with the excess risk concentrated in the first 7 days after infection. In a self-controlled case-series of laboratory-confirmed influenza, the incidence of hospitalization for acute myocardial infarction was about six-fold higher during the 7-day risk interval than during the control interval, with no increased incidence after day 7. This makes acute MI an important downstream cardiovascular sequela of influenza beyond the respiratory tract, and underpins the cardioprotective rationale for influenza vaccination.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"coronary endothelial cell\", \"platelet\"], \"biological_processes\": [\"inflammatory response\", \"platelet activation\", \"blood coagulation\"], \"locations\": [\"heart\", \"coronary artery\"]}}], \"edges\": [{\"source\": \"Endothelial Dysfunction and Thromboinflammation\", \"target\": \"Triggering of Acute Myocardial Infarction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The acute systemic inflammatory and prothrombotic state of influenza acts as a trigger for acute myocardial infarction in the first week after infection.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Systemic inflammation and thromboinflammatory endothelial activation\", \"Coronary atherosclerotic plaque instability and rupture\", \"Platelet activation and procoagulant shift causing atherothrombotic coronary occlusion\"]}, {\"source\": \"Immune-competent microvascularized lung-on-a-chip (IC-LOC) severe H1N1 model\", \"target\": \"Inflammasome Activation and Cytokine Storm\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Severe H1N1 infection produced airway and interstitial cytokine profiles matching those measured in bronchoalveolar lavage fluid from patients with severe influenza. Selective inhibition then established directionality: blocking IL-1beta abolished the storm, whereas blocking TNF-alpha worsened it, identifying TNF-alpha as a regulator rather than a driver.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The full immune response required adding circulating immune cells to the resident populations, so the model\u0027s fidelity depends on a reconstruction choice rather than on intrinsic tissue composition. It carries no adaptive memory, no systemic organ crosstalk, and a single donor genotype per device, so it cannot address host-genetic variation in severity.\"}, {\"source\": \"Immune-competent microvascularized lung-on-a-chip (IC-LOC) severe H1N1 model\", \"target\": \"Respiratory Epithelial Infection and Cytopathic Effect\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"H1N1 infection of the airway compartment produced epithelial cell damage alongside viral replication, reproducing the cytopathic effect of severe influenza on human airway epithelium.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model is built on small-airway rather than alveolar epithelium, so it does not capture the alveolar epithelial injury that characterizes fatal influenza pneumonia, and infection is delivered as a single synchronized high-multiplicity inoculum rather than as a spreading infection.\"}, {\"source\": \"Immune-competent microvascularized lung-on-a-chip (IC-LOC) severe H1N1 model\", \"target\": \"Endothelial Dysfunction and Thromboinflammation\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The microvascularized interstitial compartment allowed stromal-immune signalling to be measured directly, identifying a fibroblast-derived CXCL12 to CXCR4 axis as the dominant ligand-receptor interaction in the response, and CXCR4 inhibition as a candidate intervention that lowered damage-associated cytokines while preserving antiviral ones.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The vascular compartment is a perfused microvascular network without platelets or coagulation factors, so it can report endothelial and stromal signalling but cannot model the thrombotic half of thromboinflammation that this node describes.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5442,6 +5636,9 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5456,6 +5653,8 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5517,6 +5716,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Fever is a universally recognized cardinal symptom of influenza infection.</div>
 
 
@@ -5571,6 +5773,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -5607,6 +5812,9 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5654,6 +5862,9 @@ This clinical feature is Sore throat, annotated with Pharyngitis (HP:0025439). H
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-rhinorrhea" data-dismech-node="Rhinorrhea" data-dismech-type="phenotype">
@@ -5690,6 +5901,9 @@ This clinical feature is Rhinorrhea (HP:0031417). HP:0031417 is a phenotype from
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-dyspnea" data-dismech-node="Dyspnea" data-dismech-type="phenotype">
@@ -5717,6 +5931,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5771,6 +5988,9 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
@@ -5807,6 +6027,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-chills" data-dismech-node="Chills" data-dismech-type="phenotype">
@@ -5834,6 +6057,9 @@ This clinical feature is Chills (HP:0025143). HP:0025143 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5934,6 +6160,20 @@ This treatment is neuraminidase inhibitor therapy, annotated with Pharmacotherap
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Oseltamivir (oral) and zanamivir (inhaled) inhibit viral neuraminidase, preventing release of new virions from infected cells. Most effective when administered within 48 hours of symptom onset.
 </div>
 
@@ -5958,6 +6198,8 @@ This treatment is neuraminidase inhibitor therapy, annotated with Pharmacotherap
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5979,6 +6221,8 @@ This treatment is neuraminidase inhibitor therapy, annotated with Pharmacotherap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6042,6 +6286,20 @@ This treatment is baloxavir marboxil therapy, annotated with Pharmacotherapy (NC
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Baloxavir marboxil inhibits the cap-dependent endonuclease of the influenza polymerase complex, blocking viral mRNA synthesis. Single-dose oral therapy that has shown faster symptom resolution compared to oseltamivir in real-world studies.
 </div>
 
@@ -6064,6 +6322,8 @@ This treatment is baloxavir marboxil therapy, annotated with Pharmacotherapy (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6127,6 +6387,31 @@ This treatment is influenza vaccination, annotated with Vaccination (NCIT:C15346
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Vaccine</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Seasonal influenza vaccination with inactivated, live-attenuated, recombinant, or cell-based vaccines targeting predicted circulating strains is the primary preventive measure.
 </div>
 
@@ -6149,6 +6434,8 @@ This treatment is influenza vaccination, annotated with Vaccination (NCIT:C15346
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6211,6 +6498,20 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Antipyretics, hydration, and rest for mild cases. Mechanical ventilation and intensive care for severe respiratory failure.
 </div>
 
@@ -6229,6 +6530,318 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-influenza-a-virus">
+                <div class="item-name">Influenza A virus</div>
+
+                <div class="item-desc">Influenza A viruses are the most clinically significant type, capable of infecting humans, birds, pigs, and other animals. They are classified by hemagglutinin (H) and neuraminidase (N) surface glycoproteins and are responsible for seasonal epidemics and pandemics due to antigenic drift and shift.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Influenza A virus
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_11320" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-37">NCBITaxon:11320</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-37">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29955068" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29955068" target="_blank">PMID:29955068</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Influenza is an infectious respiratory disease that, in humans, is caused by influenza A and influenza B viruses. Typically characterized by annual seasonal epidemics, sporadic pandemic outbreaks involve influenza A virus strains of zoonotic origin."</div>
+
+
+                <div class="evidence-explanation">Confirms influenza A causes seasonal epidemics and pandemic outbreaks of zoonotic origin.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-influenza-b-virus">
+                <div class="item-name">Influenza B virus</div>
+
+                <div class="item-desc">Influenza B viruses primarily infect humans and cause seasonal epidemics. They undergo antigenic drift but not antigenic shift. The Yamagata lineage has not been detected globally since March 2020 and is considered functionally extinct; current vaccines have transitioned to trivalent formulations containing only the Victoria lineage.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Influenza B virus
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_11520" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-38">NCBITaxon:11520</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-38">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29955068" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29955068" target="_blank">PMID:29955068</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Influenza is an infectious respiratory disease that, in humans, is caused by influenza A and influenza B viruses."</div>
+
+
+                <div class="evidence-explanation">Confirms influenza B as a causative agent of human influenza.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Transmission -->
+
+        <div class="card" id="transmission">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">↔️</div>
+                <h2 class="card-title">Transmission</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-contact-respiratory-droplet-and-aerosol-transmission">
+                <div class="item-name">Contact, respiratory droplet and aerosol transmission</div>
+
+                <div class="item-desc">Influenza viruses spread between people by direct and indirect contact, by large respiratory droplets, and by small-particle aerosols (droplet nuclei). Modelling of household intervention trials attributes about half of transmission events to the aerosol route, which is why droplet and contact precautions alone do not fully interrupt household spread.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23736803" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23736803" target="_blank">PMID:23736803</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Influenza A viruses are believed to spread between humans through contact, large respiratory droplets and small particle droplet nuclei (aerosols), but the relative importance of each of these modes of transmission is unclear."</div>
+
+
+                <div class="evidence-explanation">Enumerates the three recognised routes of human influenza A transmission. The sentence states the established position the study set out to resolve, so it is graded as background.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23736803" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23736803" target="_blank">PMID:23736803</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We find that aerosol transmission accounts for approximately half of all transmission events."</div>
+
+
+                <div class="evidence-explanation">Quantifies the aerosol contribution. The estimate comes from a mathematical model fitted to randomised household trial data rather than from direct measurement, so it is graded as computational.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23736803" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23736803" target="_blank">PMID:23736803</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This implies that measures to reduce transmission by contact or large droplets may not be sufficient to control influenza A virus transmission in households."</div>
+
+
+                <div class="evidence-explanation">States the control consequence of the aerosol route, supporting it as a distinct transmission mode rather than a minor contributor.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6424,6 +7037,607 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
         <!-- Experimental Models -->
 
+        <div id="experimental-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fffbeb; color: #f59e0b;">🧫</div>
+                <h2 class="card-title">Experimental Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-immune-competent-microvascularized-lung-on-a-chip-ic-loc-severe-h1n1-model" data-dismech-node="Immune-competent microvascularized lung-on-a-chip (IC-LOC) severe H1N1 model" data-dismech-type="experimental_model">
+                <div class="item-name">
+                    Immune-competent microvascularized lung-on-a-chip (IC-LOC) severe H1N1 model
+
+                    <span class="tag tag-exp-model-type">ORGAN_ON_CHIP</span>
+
+
+                    <span class="tag tag-namo-type">
+
+
+
+    <a href="https://w3id.org/monarch-initiative/namo/OrganOnChip" target="_blank" class="curie-chip curie-chip-namo" title="Open namo:OrganOnChip">namo:OrganOnChip</a>
+
+
+                    </span>
+
+                </div>
+
+                <div class="item-desc">A microvascularized human small-airway chip carrying both tissue-resident (alveolar macrophage, dendritic cell, interstitial macrophage) and circulating immune populations alongside airway epithelium and stromal fibroblasts. Infection at high multiplicity reproduces the cytokine storm of severe influenza, and single-cell RNA sequencing plus targeted inhibition were used to separate the contributions of individual mediators. Its distinctive result is a dissociation that a cytokine panel alone would not reveal: IL-1beta and TNF-alpha, usually grouped together as pro-inflammatory drivers, act in opposite directions on the storm.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-condition">influenza A H1N1 infection (MOI 10, severe)</span>
+
+                    <span class="tag tag-condition">IL-1beta inhibition (canakinumab)</span>
+
+                    <span class="tag tag-condition">TNF-alpha inhibition (infliximab)</span>
+
+                    <span class="tag tag-condition">CXCR4 inhibition (AMD3100)</span>
+
+                    <span class="tag tag-condition">oseltamivir</span>
+
+                </div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+
+
+                    <span class="tag tag-cell">
+
+                        Bronchial epithelial cell
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-39">CL:0002328</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses Bronchial epithelial cell (CL:0002328). CL:0002328 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+                    <span class="tag tag-cell">
+
+                        Alveolar macrophage
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-40">CL:0000583</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses Alveolar macrophage (CL:0000583). CL:0000583 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+                    <span class="tag tag-cell">
+
+                        Lung fibroblast
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002553" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-41">CL:0002553</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses Lung fibroblast, annotated with fibroblast of lung (CL:0002553). CL:0002553 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Organism</div>
+
+
+                        <div class="model-detail-value">
+
+                            human
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-42">NCBITaxon:9606</a>
+
+
+
+                            <span class="pill-tip" role="tooltip" id="pill-tip-42">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
+                        </div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Tissue</div>
+
+
+                        <div class="model-detail-value">
+
+                            epithelium of bronchiole
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002051" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-43">UBERON:0002051</a>
+
+
+
+                            <span class="pill-tip" role="tooltip" id="pill-tip-43">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses epithelium of bronchiole (UBERON:0002051). UBERON:0002051 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                        </div>
+                    </div>
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Culture</div>
+                        <div class="model-detail-value">Microvascularized immune-competent lung-on-a-chip with airway and interstitial compartments</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+
+
+
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40987954" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:40987954">PMID:40987954</a>
+
+
+                        </div>
+                    </div>
+
+                </div>
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-inflammasome-activation-and-cytokine-storm">Inflammasome Activation and Cytokine Storm</a>
+
+                <span class="crosslink-meta">recapitulates</span>
+
+
+                <span class="crosslink-meta">fidelity: high</span>
+
+
+                <span class="crosslink-desc">Severe H1N1 infection produced airway and interstitial cytokine profiles matching those measured in bronchoalveolar lavage fluid from patients with severe influenza. Selective inhibition then established directionality: blocking IL-1beta abolished the storm, whereas blocking TNF-alpha worsened it, identifying TNF-alpha as a regulator rather than a driver.</span>
+
+
+                <div class="mapping-notes">Limitations: The full immune response required adding circulating immune cells to the resident populations, so the model&#39;s fidelity depends on a reconstruction choice rather than on intrinsic tissue composition. It carries no adaptive memory, no systemic organ crosstalk, and a single donor genotype per device, so it cannot address host-genetic variation in severity.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Airway and interstitial pro-inflammatory cytokine secretion</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: INCREASED</div>
+
+
+        <div class="mapping-notes">Interpretation: Cytokine elevation matching patient lavage fluid is the primary evidence that the chip reproduces the human storm.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40987954" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40987954" target="_blank">PMID:40987954</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here we develop an immune-competent, microvascularized, human lung-on-a-chip device to model the small airways, successfully demonstrating the cytokine storm, immune cell activation, epithelial cell damage, and other cellular- and tissue-level human immune responses to severe H1N1 infection."</div>
+
+
+                <div class="evidence-explanation">Reports the cytokine storm and immune activation this readout measures.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Cytokine response to IL-1beta versus TNF-alpha blockade</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: ALTERED</div>
+
+
+        <div class="mapping-notes">Interpretation: Opposite responses to blocking two mediators usually treated together distinguish a driver from a regulator of the storm.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40987954" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40987954" target="_blank">PMID:40987954</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We find that inhibition of IL-1β completely ameliorates the observed cytokine storm, whereas TNF-α appears to be a critical regulator, as its inhibition results in a highly increased inflammatory response."</div>
+
+
+                <div class="evidence-explanation">The inhibition experiment that establishes the opposing roles.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40987954" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40987954" target="_blank">PMID:40987954</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We find that interleukin-1β and tumour necrosis factor-α play opposing roles in the initiation and regulation of the cytokine storm associated with severe influenza."</div>
+
+
+                <div class="evidence-explanation">Supports the chip as informative for the mechanism of the influenza cytokine storm.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-respiratory-epithelial-infection-and-cytopathic-effect">Respiratory Epithelial Infection and Cytopathic Effect</a>
+
+                <span class="crosslink-meta">recapitulates</span>
+
+
+                <span class="crosslink-meta">fidelity: moderate</span>
+
+
+                <span class="crosslink-desc">H1N1 infection of the airway compartment produced epithelial cell damage alongside viral replication, reproducing the cytopathic effect of severe influenza on human airway epithelium.</span>
+
+
+                <div class="mapping-notes">Limitations: The model is built on small-airway rather than alveolar epithelium, so it does not capture the alveolar epithelial injury that characterizes fatal influenza pneumonia, and infection is delivered as a single synchronized high-multiplicity inoculum rather than as a spreading infection.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Epithelial cell damage after H1N1 infection</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: INCREASED</div>
+
+
+        <div class="mapping-notes">Interpretation: Epithelial damage is the direct cytopathic readout in the airway compartment.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40987954" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40987954" target="_blank">PMID:40987954</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here we develop an immune-competent, microvascularized, human lung-on-a-chip device to model the small airways, successfully demonstrating the cytokine storm, immune cell activation, epithelial cell damage, and other cellular- and tissue-level human immune responses to severe H1N1 infection."</div>
+
+
+                <div class="evidence-explanation">Reports epithelial cell damage among the recapitulated responses.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40987954" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40987954" target="_blank">PMID:40987954</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However, the full array of tissue-resident and circulatory immune cells is necessary to elicit a significant airway and interstitial cytokine storm in response to severe infection."</div>
+
+
+                <div class="evidence-explanation">Records that the epithelial response is only fully realized with the complete immune reconstruction; PARTIAL reflects that dependence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-endothelial-dysfunction-and-thromboinflammation">Endothelial Dysfunction and Thromboinflammation</a>
+
+                <span class="crosslink-meta">measures</span>
+
+
+                <span class="crosslink-meta">fidelity: moderate</span>
+
+
+                <span class="crosslink-desc">The microvascularized interstitial compartment allowed stromal-immune signalling to be measured directly, identifying a fibroblast-derived CXCL12 to CXCR4 axis as the dominant ligand-receptor interaction in the response, and CXCR4 inhibition as a candidate intervention that lowered damage-associated cytokines while preserving antiviral ones.</span>
+
+
+                <div class="mapping-notes">Limitations: The vascular compartment is a perfused microvascular network without platelets or coagulation factors, so it can report endothelial and stromal signalling but cannot model the thrombotic half of thromboinflammation that this node describes.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">CXCL12-CXCR4 ligand-receptor interaction in the interstitial compartment</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: INCREASED</div>
+
+
+        <div class="mapping-notes">Interpretation: Fibroblast-derived CXCL12 signalling to immune CXCR4 is the dominant stromal-immune interaction identified in infected devices.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40987954" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40987954" target="_blank">PMID:40987954</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"When considering the specific ligand–receptor (L–R) interactions, we found that the CXCL12–CXCR4 interaction had the largest relative contribution in the CXCL pathway, coming largely from fibroblast CXCL12"</div>
+
+
+                <div class="evidence-explanation">Identifies the specific stromal-immune interaction this readout measures.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40987954" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40987954" target="_blank">PMID:40987954</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Furthermore, we discover the critical stromal-immune CXCL12-CXCR4 interaction and its role in immune response to infection."</div>
+
+
+                <div class="evidence-explanation">Supports the chip as a system for measuring stromal-immune signalling in the infected lung interstitium.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
+
+
+
+
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Animal Models -->
 
@@ -6455,7 +7669,7 @@ description: &gt;
   and young populations.
 category: Infectious Disease
 parents:
-  - Viral Respiratory Infection
+- Viral Respiratory Infection
 notes: &gt;
   Influenza epidemiology: The WHO estimates annual epidemics result in approximately
   1 billion infections, 3-5 million cases of severe illness, and 300,000-500,000
@@ -6470,458 +7684,503 @@ disease_term:
     id: MONDO:0005812
     label: influenza
 infectious_agent:
-  - name: Influenza A virus
-    infectious_agent_term:
-      preferred_term: Influenza A virus
-      term:
-        id: NCBITaxon:11320
-        label: Influenza A virus
-    description: &gt;
-      Influenza A viruses are the most clinically significant type, capable of infecting
-      humans, birds, pigs, and other animals. They are classified by hemagglutinin (H) and
-      neuraminidase (N) surface glycoproteins and are responsible for seasonal epidemics
-      and pandemics due to antigenic drift and shift.
-    evidence:
-      - reference: PMID:29955068
-        reference_title: &#34;Influenza.&#34;
-        supports: SUPPORT
-        snippet: &#34;Influenza is an infectious respiratory disease that, in humans, is caused by influenza A and influenza B viruses. Typically characterized by annual seasonal epidemics, sporadic pandemic outbreaks involve influenza A virus strains of zoonotic origin.&#34;
-        explanation: Confirms influenza A causes seasonal epidemics and pandemic outbreaks of zoonotic origin.
-        evidence_source: HUMAN_CLINICAL
-  - name: Influenza B virus
-    infectious_agent_term:
-      preferred_term: Influenza B virus
-      term:
-        id: NCBITaxon:11520
-        label: Influenza B virus
-    description: &gt;
-      Influenza B viruses primarily infect humans and cause seasonal epidemics. They undergo
-      antigenic drift but not antigenic shift. The Yamagata lineage has not been detected
-      globally since March 2020 and is considered functionally extinct; current vaccines
-      have transitioned to trivalent formulations containing only the Victoria lineage.
-    evidence:
-      - reference: PMID:29955068
-        reference_title: &#34;Influenza.&#34;
-        supports: SUPPORT
-        snippet: &#34;Influenza is an infectious respiratory disease that, in humans, is caused by influenza A and influenza B viruses.&#34;
-        explanation: Confirms influenza B as a causative agent of human influenza.
-        evidence_source: HUMAN_CLINICAL
+- name: Influenza A virus
+  infectious_agent_term:
+    preferred_term: Influenza A virus
+    term:
+      id: NCBITaxon:11320
+      label: Influenza A virus
+  description: &gt;
+    Influenza A viruses are the most clinically significant type, capable of infecting
+    humans, birds, pigs, and other animals. They are classified by hemagglutinin (H) and
+    neuraminidase (N) surface glycoproteins and are responsible for seasonal epidemics
+    and pandemics due to antigenic drift and shift.
+  evidence:
+  - reference: PMID:29955068
+    reference_title: &#34;Influenza.&#34;
+    supports: SUPPORT
+    snippet: &#34;Influenza is an infectious respiratory disease that, in humans, is caused by influenza A and influenza B viruses. Typically characterized by annual seasonal epidemics, sporadic pandemic outbreaks involve influenza A virus strains of zoonotic origin.&#34;
+    explanation: Confirms influenza A causes seasonal epidemics and pandemic outbreaks of zoonotic origin.
+    evidence_source: HUMAN_CLINICAL
+- name: Influenza B virus
+  infectious_agent_term:
+    preferred_term: Influenza B virus
+    term:
+      id: NCBITaxon:11520
+      label: Influenza B virus
+  description: &gt;
+    Influenza B viruses primarily infect humans and cause seasonal epidemics. They undergo
+    antigenic drift but not antigenic shift. The Yamagata lineage has not been detected
+    globally since March 2020 and is considered functionally extinct; current vaccines
+    have transitioned to trivalent formulations containing only the Victoria lineage.
+  evidence:
+  - reference: PMID:29955068
+    reference_title: &#34;Influenza.&#34;
+    supports: SUPPORT
+    snippet: &#34;Influenza is an infectious respiratory disease that, in humans, is caused by influenza A and influenza B viruses.&#34;
+    explanation: Confirms influenza B as a causative agent of human influenza.
+    evidence_source: HUMAN_CLINICAL
+transmission:
+- name: Contact, respiratory droplet and aerosol transmission
+  description: &gt;-
+    Influenza viruses spread between people by direct and indirect contact, by
+    large respiratory droplets, and by small-particle aerosols (droplet nuclei).
+    Modelling of household intervention trials attributes about half of
+    transmission events to the aerosol route, which is why droplet and contact
+    precautions alone do not fully interrupt household spread.
+  evidence:
+  - reference: PMID:23736803
+    reference_title: Aerosol transmission is an important mode of influenza A virus spread.
+    supports: SUPPORT
+    quote_role: BACKGROUND
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Influenza A viruses are believed to spread between humans through
+      contact, large respiratory droplets and small particle droplet nuclei
+      (aerosols), but the relative importance of each of these modes of
+      transmission is unclear.
+    explanation: &gt;-
+      Enumerates the three recognised routes of human influenza A
+      transmission. The sentence states the established position the study
+      set out to resolve, so it is graded as background.
+  - reference: PMID:23736803
+    reference_title: Aerosol transmission is an important mode of influenza A virus spread.
+    supports: SUPPORT
+    evidence_source: COMPUTATIONAL
+    snippet: &gt;-
+      We find that aerosol transmission accounts for approximately half of all
+      transmission events.
+    explanation: &gt;-
+      Quantifies the aerosol contribution. The estimate comes from a
+      mathematical model fitted to randomised household trial data rather than
+      from direct measurement, so it is graded as computational.
+  - reference: PMID:23736803
+    reference_title: Aerosol transmission is an important mode of influenza A virus spread.
+    supports: SUPPORT
+    evidence_source: COMPUTATIONAL
+    snippet: &gt;-
+      This implies that measures to reduce transmission by contact or large
+      droplets may not be sufficient to control influenza A virus transmission
+      in households.
+    explanation: &gt;-
+      States the control consequence of the aerosol route, supporting it as a
+      distinct transmission mode rather than a minor contributor.
 has_subtypes:
-  - name: Seasonal Influenza
-    description: Annual epidemics caused by circulating influenza A and B strains undergoing antigenic drift.
-    evidence:
-      - reference: PMID:29955068
-        reference_title: &#34;Influenza.&#34;
-        supports: SUPPORT
-        snippet: &#34;Influenza vaccines are formulated every year to match the circulating strains, as they evolve antigenically owing to antigenic drift.&#34;
-        explanation: Describes the annual reformulation needed due to antigenic drift driving seasonal epidemics.
-        evidence_source: HUMAN_CLINICAL
-  - name: Pandemic Influenza
-    description: &gt;
-      Global outbreaks caused by novel influenza A subtypes to which the population has
-      little or no pre-existing immunity, arising from antigenic shift.
-    evidence:
-      - reference: PMID:29955068
-        reference_title: &#34;Influenza.&#34;
-        supports: SUPPORT
-        snippet: &#34;The most severe influenza pandemic, in 1918, resulted in &gt;40 million deaths worldwide.&#34;
-        explanation: Documents pandemic influenza and its catastrophic potential.
-        evidence_source: HUMAN_CLINICAL
-  - name: Avian Influenza
-    description: &gt;
-      Influenza caused by avian-origin influenza A viruses (e.g., H5N1, H7N9) that
-      can occasionally infect humans with high case fatality rates.
+- name: Seasonal Influenza
+  description: Annual epidemics caused by circulating influenza A and B strains undergoing antigenic drift.
+  evidence:
+  - reference: PMID:29955068
+    reference_title: &#34;Influenza.&#34;
+    supports: SUPPORT
+    snippet: &#34;Influenza vaccines are formulated every year to match the circulating strains, as they evolve antigenically owing to antigenic drift.&#34;
+    explanation: Describes the annual reformulation needed due to antigenic drift driving seasonal epidemics.
+    evidence_source: HUMAN_CLINICAL
+- name: Pandemic Influenza
+  description: &gt;
+    Global outbreaks caused by novel influenza A subtypes to which the population has
+    little or no pre-existing immunity, arising from antigenic shift.
+  evidence:
+  - reference: PMID:29955068
+    reference_title: &#34;Influenza.&#34;
+    supports: SUPPORT
+    snippet: &#34;The most severe influenza pandemic, in 1918, resulted in &gt;40 million deaths worldwide.&#34;
+    explanation: Documents pandemic influenza and its catastrophic potential.
+    evidence_source: HUMAN_CLINICAL
+- name: Avian Influenza
+  description: &gt;
+    Influenza caused by avian-origin influenza A viruses (e.g., H5N1, H7N9) that
+    can occasionally infect humans with high case fatality rates.
 pathophysiology:
-  - name: Respiratory Epithelial Infection and Cytopathic Effect
+- name: Respiratory Epithelial Infection and Cytopathic Effect
+  description: &gt;
+    Influenza viruses bind to sialic acid residues on respiratory epithelial cells
+    via hemagglutinin, followed by endocytosis and viral replication in the nucleus.
+    Viral neuraminidase facilitates release of new virions. This causes direct cytopathic
+    damage to airway epithelium, leading to desquamation, impaired mucociliary
+    clearance, and susceptibility to secondary bacterial infection.
+  cell_types:
+  - preferred_term: respiratory epithelial cell
+    term:
+      id: CL:0002632
+      label: epithelial cell of lower respiratory tract
+  - preferred_term: alveolar macrophage
+    term:
+      id: CL:0000583
+      label: alveolar macrophage
+  biological_processes:
+  - preferred_term: viral genome replication
+    term:
+      id: GO:0019079
+      label: viral genome replication
+  - preferred_term: defense response to virus
+    term:
+      id: GO:0051607
+      label: defense response to virus
+  locations:
+  - preferred_term: lung
+    term:
+      id: UBERON:0002048
+      label: lung
+  - preferred_term: respiratory system
+    term:
+      id: UBERON:0001004
+      label: respiratory system
+  evidence:
+  - reference: DOI:10.3390/pathogens13070561
+    reference_title: &#34;Host Innate Antiviral Response to Influenza A Virus Infection: From Viral Sensing to Antagonism and Escape&#34;
+    supports: SUPPORT
+    snippet: &#34;Influenza virus possesses an RNA genome of single-stranded, negative-sensed, and segmented configuration. Influenza virus causes an acute respiratory disease, commonly known as the \&#34;flu\&#34; in humans. In some individuals, flu can lead to pneumonia and acute respiratory distress syndrome.&#34;
+    explanation: Describes influenza as an acute respiratory disease caused by viral infection of the respiratory tract.
+    evidence_source: HUMAN_CLINICAL
+- name: Toll-like Receptor Signaling and Innate Immune Activation
+  conforms_to: &#34;innate_antiviral_interferon_response#Viral PAMP Sensing by Pattern-Recognition Receptors&#34;
+  description: &gt;
+    Innate immune sensing of influenza occurs through endosomal TLR3, TLR7, and TLR8.
+    TLR7/8 signal via MYD88 to activate IRF5/IRF7 and NF-kappaB, while TLR3 signals via
+    TRIF to activate IRF3 via TBK1/IKK-epsilon. This dual signaling induces type I and III
+    interferons, pro-inflammatory cytokines, and chemokines. The TLR response is a
+    double-edged sword: necessary for viral control but capable of driving immunopathology
+    when hyperactivated.
+  cell_types:
+  - preferred_term: dendritic cell
+    term:
+      id: CL:0000451
+      label: dendritic cell
+  - preferred_term: macrophage
+    term:
+      id: CL:0000235
+      label: macrophage
+  - preferred_term: neutrophil
+    term:
+      id: CL:0000775
+      label: neutrophil
+  biological_processes:
+  - preferred_term: toll-like receptor signaling pathway
+    term:
+      id: GO:0002224
+      label: toll-like receptor signaling pathway
+  - preferred_term: response to type I interferon
+    term:
+      id: GO:0034340
+      label: response to type I interferon
+  evidence:
+  - reference: DOI:10.3390/ijms25115909
+    reference_title: &#34;Recent Insights into the Molecular Mechanisms of the Toll-like Receptor Response to Influenza Virus Infection&#34;
+    supports: SUPPORT
+    snippet: &#34;Because TLRs may act as a double-edged sword, a balanced TLR response is critical for the overall benefit of the host.&#34;
+    explanation: Confirms the dual role of TLR signaling in both antiviral defense and immunopathology during influenza.
+    evidence_source: IN_VITRO
+  - reference: DOI:10.3390/pathogens13070561
+    reference_title: &#34;Host Innate Antiviral Response to Influenza A Virus Infection: From Viral Sensing to Antagonism and Escape&#34;
+    supports: SUPPORT
+    snippet: &#34;Host cells sense IAV infection through multiple receptors and mechanisms, which culminate in the induction of a concerted innate antiviral response and the creation of an antiviral state, which inhibits and clears the infection from host cells.&#34;
+    explanation: Describes innate antiviral sensing mechanisms including TLR pathways.
+    evidence_source: IN_VITRO
+- name: Inflammasome Activation and Cytokine Storm
+  description: &gt;
+    IAV infection activates NLRP3 and AIM2 inflammasomes. AIM2, canonically a cytosolic
+    dsDNA sensor, is activated by host mitochondrial DNA released after IAV-induced
+    mitochondrial damage. Inflammasome activation leads to caspase-1-mediated processing
+    of IL-1-beta and IL-18, and gasdermin D-mediated pyroptosis. Excessive inflammasome
+    activation contributes to the cytokine storm associated with severe influenza.
+  cell_types:
+  - preferred_term: macrophage
+    term:
+      id: CL:0000235
+      label: macrophage
+  biological_processes:
+  - preferred_term: pyroptotic inflammatory response
+    term:
+      id: GO:0070269
+      label: pyroptotic inflammatory response
+  evidence:
+  - reference: DOI:10.3390/v16101535
+    reference_title: &#34;Taking AIM at Influenza: The Role of the AIM2 Inflammasome&#34;
+    supports: SUPPORT
+    snippet: &#34;Paradoxically, AIM2 deficiency has been linked to both enhanced and reduced vulnerability to IAV infection.&#34;
+    explanation: Describes the complex role of AIM2 inflammasome in influenza pathogenesis.
+    evidence_source: MODEL_ORGANISM
+  - reference: DOI:10.3390/v16101535
+    reference_title: &#34;Taking AIM at Influenza: The Role of the AIM2 Inflammasome&#34;
+    supports: SUPPORT
+    snippet: &#34;While a strong response is necessary for early viral control, overactivation of inflammasomes can precipitate harmful hyperinflammatory responses, a defining characteristic observed during severe influenza infections.&#34;
+    explanation: Confirms that inflammasome overactivation drives hyperinflammation in severe influenza.
+    evidence_source: MODEL_ORGANISM
+- name: PANoptosis and Inflammatory Cell Death
+  description: &gt;
+    Influenza A virus triggers multiple regulated cell death pathways including apoptosis,
+    necroptosis, and pyroptosis, integrated as PANoptosis. ZBP1 senses viral Z-RNA and
+    coordinates these death pathways via RHIM-dependent interactions with RIPK3/RIPK1.
+    MLKL-driven membrane rupture during necroptosis activates NLRP3 inflammasome.
+    Caspase-3 can cleave gasdermin E, linking apoptosis to pyroptosis. This integrated
+    cell death ensures viral clearance but can intensify tissue damage.
+  biological_processes:
+  - preferred_term: necroptotic process
+    term:
+      id: GO:0070266
+      label: necroptotic process
+  - preferred_term: programmed necrotic cell death
+    term:
+      id: GO:0097300
+      label: programmed necrotic cell death
+  evidence:
+  - reference: DOI:10.3390/vetsci11110555
+    reference_title: &#34;Mechanistic Insights into Influenza A Virus-Induced Cell Death and Emerging Treatment Strategies&#34;
+    supports: SUPPORT
+    snippet: &#34;Influenza A virus (IAV) infection initiates a complex interplay of cell death modalities, including apoptosis, necroptosis, pyroptosis, and their integration, known as PANoptosis, which significantly impacts host immune responses and tissue integrity.&#34;
+    explanation: Directly describes PANoptosis as integrated cell death modalities in IAV infection.
+    evidence_source: MODEL_ORGANISM
+- name: Endothelial Dysfunction and Thromboinflammation
+  description: &gt;
+    Severe influenza involves pulmonary microvascular endothelial infection and activation,
+    leading to vascular leakage, adhesion molecule upregulation (ICAM-1, VCAM-1),
+    and thromboinflammatory complications including venous thromboembolism. In critically
+    ill influenza cohorts, VTE incidence has been reported at 9.37%.
+  evidence:
+  - reference: DOI:10.1177/10760296241278615
+    reference_title: &#34;Thrombosis in Critically Ill Influenza Patients: Incidence and Risk Factors&#34;
+    supports: SUPPORT
+    snippet: &#34;A total of 854 patients with severe influenza were included in the analysis. The incidence of VTE was 9.37% (80/854).&#34;
+    explanation: Quantifies VTE incidence in critically ill influenza patients.
+    evidence_source: HUMAN_CLINICAL
+  downstream:
+  - target: Triggering of Acute Myocardial Infarction
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Systemic inflammation and thromboinflammatory endothelial activation
+    - Coronary atherosclerotic plaque instability and rupture
+    - Platelet activation and procoagulant shift causing atherothrombotic coronary occlusion
     description: &gt;
-      Influenza viruses bind to sialic acid residues on respiratory epithelial cells
-      via hemagglutinin, followed by endocytosis and viral replication in the nucleus.
-      Viral neuraminidase facilitates release of new virions. This causes direct cytopathic
-      damage to airway epithelium, leading to desquamation, impaired mucociliary
-      clearance, and susceptibility to secondary bacterial infection.
-    cell_types:
-      - preferred_term: respiratory epithelial cell
-        term:
-          id: CL:0002632
-          label: epithelial cell of lower respiratory tract
-      - preferred_term: alveolar macrophage
-        term:
-          id: CL:0000583
-          label: alveolar macrophage
-    biological_processes:
-      - preferred_term: viral genome replication
-        term:
-          id: GO:0019079
-          label: viral genome replication
-      - preferred_term: defense response to virus
-        term:
-          id: GO:0051607
-          label: defense response to virus
-    locations:
-      - preferred_term: lung
-        term:
-          id: UBERON:0002048
-          label: lung
-      - preferred_term: respiratory system
-        term:
-          id: UBERON:0001004
-          label: respiratory system
-    evidence:
-      - reference: DOI:10.3390/pathogens13070561
-        reference_title: &#34;Host Innate Antiviral Response to Influenza A Virus Infection: From Viral Sensing to Antagonism and Escape&#34;
-        supports: SUPPORT
-        snippet: &#34;Influenza virus possesses an RNA genome of single-stranded, negative-sensed, and segmented configuration. Influenza virus causes an acute respiratory disease, commonly known as the \&#34;flu\&#34; in humans. In some individuals, flu can lead to pneumonia and acute respiratory distress syndrome.&#34;
-        explanation: Describes influenza as an acute respiratory disease caused by viral infection of the respiratory tract.
-        evidence_source: HUMAN_CLINICAL
-  - name: Toll-like Receptor Signaling and Innate Immune Activation
-    conforms_to: &#34;innate_antiviral_interferon_response#Viral PAMP Sensing by Pattern-Recognition Receptors&#34;
-    description: &gt;
-      Innate immune sensing of influenza occurs through endosomal TLR3, TLR7, and TLR8.
-      TLR7/8 signal via MYD88 to activate IRF5/IRF7 and NF-kappaB, while TLR3 signals via
-      TRIF to activate IRF3 via TBK1/IKK-epsilon. This dual signaling induces type I and III
-      interferons, pro-inflammatory cytokines, and chemokines. The TLR response is a
-      double-edged sword: necessary for viral control but capable of driving immunopathology
-      when hyperactivated.
-    cell_types:
-      - preferred_term: dendritic cell
-        term:
-          id: CL:0000451
-          label: dendritic cell
-      - preferred_term: macrophage
-        term:
-          id: CL:0000235
-          label: macrophage
-      - preferred_term: neutrophil
-        term:
-          id: CL:0000775
-          label: neutrophil
-    biological_processes:
-      - preferred_term: toll-like receptor signaling pathway
-        term:
-          id: GO:0002224
-          label: toll-like receptor signaling pathway
-      - preferred_term: response to type I interferon
-        term:
-          id: GO:0034340
-          label: response to type I interferon
-    evidence:
-      - reference: DOI:10.3390/ijms25115909
-        reference_title: &#34;Recent Insights into the Molecular Mechanisms of the Toll-like Receptor Response to Influenza Virus Infection&#34;
-        supports: SUPPORT
-        snippet: &#34;Because TLRs may act as a double-edged sword, a balanced TLR response is critical for the overall benefit of the host.&#34;
-        explanation: Confirms the dual role of TLR signaling in both antiviral defense and immunopathology during influenza.
-        evidence_source: IN_VITRO
-      - reference: DOI:10.3390/pathogens13070561
-        reference_title: &#34;Host Innate Antiviral Response to Influenza A Virus Infection: From Viral Sensing to Antagonism and Escape&#34;
-        supports: SUPPORT
-        snippet: &#34;Host cells sense IAV infection through multiple receptors and mechanisms, which culminate in the induction of a concerted innate antiviral response and the creation of an antiviral state, which inhibits and clears the infection from host cells.&#34;
-        explanation: Describes innate antiviral sensing mechanisms including TLR pathways.
-        evidence_source: IN_VITRO
-  - name: Inflammasome Activation and Cytokine Storm
-    description: &gt;
-      IAV infection activates NLRP3 and AIM2 inflammasomes. AIM2, canonically a cytosolic
-      dsDNA sensor, is activated by host mitochondrial DNA released after IAV-induced
-      mitochondrial damage. Inflammasome activation leads to caspase-1-mediated processing
-      of IL-1-beta and IL-18, and gasdermin D-mediated pyroptosis. Excessive inflammasome
-      activation contributes to the cytokine storm associated with severe influenza.
-    cell_types:
-      - preferred_term: macrophage
-        term:
-          id: CL:0000235
-          label: macrophage
-    biological_processes:
-      - preferred_term: pyroptotic inflammatory response
-        term:
-          id: GO:0070269
-          label: pyroptotic inflammatory response
-    evidence:
-      - reference: DOI:10.3390/v16101535
-        reference_title: &#34;Taking AIM at Influenza: The Role of the AIM2 Inflammasome&#34;
-        supports: SUPPORT
-        snippet: &#34;Paradoxically, AIM2 deficiency has been linked to both enhanced and reduced vulnerability to IAV infection.&#34;
-        explanation: Describes the complex role of AIM2 inflammasome in influenza pathogenesis.
-        evidence_source: MODEL_ORGANISM
-      - reference: DOI:10.3390/v16101535
-        reference_title: &#34;Taking AIM at Influenza: The Role of the AIM2 Inflammasome&#34;
-        supports: SUPPORT
-        snippet: &#34;While a strong response is necessary for early viral control, overactivation of inflammasomes can precipitate harmful hyperinflammatory responses, a defining characteristic observed during severe influenza infections.&#34;
-        explanation: Confirms that inflammasome overactivation drives hyperinflammation in severe influenza.
-        evidence_source: MODEL_ORGANISM
-  - name: PANoptosis and Inflammatory Cell Death
-    description: &gt;
-      Influenza A virus triggers multiple regulated cell death pathways including apoptosis,
-      necroptosis, and pyroptosis, integrated as PANoptosis. ZBP1 senses viral Z-RNA and
-      coordinates these death pathways via RHIM-dependent interactions with RIPK3/RIPK1.
-      MLKL-driven membrane rupture during necroptosis activates NLRP3 inflammasome.
-      Caspase-3 can cleave gasdermin E, linking apoptosis to pyroptosis. This integrated
-      cell death ensures viral clearance but can intensify tissue damage.
-    biological_processes:
-      - preferred_term: necroptotic process
-        term:
-          id: GO:0070266
-          label: necroptotic process
-      - preferred_term: programmed necrotic cell death
-        term:
-          id: GO:0097300
-          label: programmed necrotic cell death
-    evidence:
-      - reference: DOI:10.3390/vetsci11110555
-        reference_title: &#34;Mechanistic Insights into Influenza A Virus-Induced Cell Death and Emerging Treatment Strategies&#34;
-        supports: SUPPORT
-        snippet: &#34;Influenza A virus (IAV) infection initiates a complex interplay of cell death modalities, including apoptosis, necroptosis, pyroptosis, and their integration, known as PANoptosis, which significantly impacts host immune responses and tissue integrity.&#34;
-        explanation: Directly describes PANoptosis as integrated cell death modalities in IAV infection.
-        evidence_source: MODEL_ORGANISM
-  - name: Endothelial Dysfunction and Thromboinflammation
-    description: &gt;
-      Severe influenza involves pulmonary microvascular endothelial infection and activation,
-      leading to vascular leakage, adhesion molecule upregulation (ICAM-1, VCAM-1),
-      and thromboinflammatory complications including venous thromboembolism. In critically
-      ill influenza cohorts, VTE incidence has been reported at 9.37%.
-    evidence:
-      - reference: DOI:10.1177/10760296241278615
-        reference_title: &#34;Thrombosis in Critically Ill Influenza Patients: Incidence and Risk Factors&#34;
-        supports: SUPPORT
-        snippet: &#34;A total of 854 patients with severe influenza were included in the analysis. The incidence of VTE was 9.37% (80/854).&#34;
-        explanation: Quantifies VTE incidence in critically ill influenza patients.
-        evidence_source: HUMAN_CLINICAL
-    downstream:
-      - target: Triggering of Acute Myocardial Infarction
-        causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
-        intermediate_mechanisms:
-          - Systemic inflammation and thromboinflammatory endothelial activation
-          - Coronary atherosclerotic plaque instability and rupture
-          - Platelet activation and procoagulant shift causing atherothrombotic coronary occlusion
-        description: &gt;
-          The acute systemic inflammatory and prothrombotic state of influenza acts as a
-          trigger for acute myocardial infarction in the first week after infection.
-  - name: Triggering of Acute Myocardial Infarction
-    description: &gt;
-      Acute influenza is a recognized short-term trigger of acute myocardial infarction.
-      Influenza-driven systemic inflammation, endothelial activation, platelet activation,
-      and a procoagulant shift can destabilize vulnerable coronary atherosclerotic plaque
-      and precipitate atherothrombotic occlusion, with the excess risk concentrated in the
-      first 7 days after infection. In a self-controlled case-series of laboratory-confirmed
-      influenza, the incidence of hospitalization for acute myocardial infarction was about
-      six-fold higher during the 7-day risk interval than during the control interval, with
-      no increased incidence after day 7. This makes acute MI an important downstream
-      cardiovascular sequela of influenza beyond the respiratory tract, and underpins the
-      cardioprotective rationale for influenza vaccination.
-    cell_types:
-      - preferred_term: coronary endothelial cell
-        term:
-          id: CL:0000115
-          label: endothelial cell
-      - preferred_term: platelet
-        term:
-          id: CL:0000233
-          label: platelet
-    biological_processes:
-      - preferred_term: inflammatory response
-        term:
-          id: GO:0006954
-          label: inflammatory response
-        modifier: INCREASED
-      - preferred_term: platelet activation
-        term:
-          id: GO:0030168
-          label: platelet activation
-        modifier: INCREASED
-      - preferred_term: blood coagulation
-        term:
-          id: GO:0007596
-          label: blood coagulation
-        modifier: INCREASED
-    locations:
-      - preferred_term: heart
-        term:
-          id: UBERON:0000948
-          label: heart
-      - preferred_term: coronary artery
-        term:
-          id: UBERON:0001621
-          label: coronary artery
-    evidence:
-      - reference: PMID:29365305
-        reference_title: &#34;Acute Myocardial Infarction after Laboratory-Confirmed Influenza Infection.&#34;
-        supports: SUPPORT
-        snippet: &#34;The incidence ratio of an admission for acute myocardial infarction during the risk interval as compared with the control interval was 6.05&#34;
-        explanation: Self-controlled case-series quantifies a ~6-fold increased risk of acute MI in the first 7 days after laboratory-confirmed influenza, establishing influenza as an acute MI trigger.
-        evidence_source: HUMAN_CLINICAL
-      - reference: PMID:29365305
-        reference_title: &#34;Acute Myocardial Infarction after Laboratory-Confirmed Influenza Infection.&#34;
-        supports: SUPPORT
-        snippet: &#34;Acute myocardial infarction can be triggered by acute respiratory infections.&#34;
-        explanation: States the mechanistic premise that acute respiratory infection, including influenza, can trigger acute myocardial infarction.
-        evidence_source: HUMAN_CLINICAL
+      The acute systemic inflammatory and prothrombotic state of influenza acts as a
+      trigger for acute myocardial infarction in the first week after infection.
+- name: Triggering of Acute Myocardial Infarction
+  description: &gt;
+    Acute influenza is a recognized short-term trigger of acute myocardial infarction.
+    Influenza-driven systemic inflammation, endothelial activation, platelet activation,
+    and a procoagulant shift can destabilize vulnerable coronary atherosclerotic plaque
+    and precipitate atherothrombotic occlusion, with the excess risk concentrated in the
+    first 7 days after infection. In a self-controlled case-series of laboratory-confirmed
+    influenza, the incidence of hospitalization for acute myocardial infarction was about
+    six-fold higher during the 7-day risk interval than during the control interval, with
+    no increased incidence after day 7. This makes acute MI an important downstream
+    cardiovascular sequela of influenza beyond the respiratory tract, and underpins the
+    cardioprotective rationale for influenza vaccination.
+  cell_types:
+  - preferred_term: coronary endothelial cell
+    term:
+      id: CL:0000115
+      label: endothelial cell
+  - preferred_term: platelet
+    term:
+      id: CL:0000233
+      label: platelet
+  biological_processes:
+  - preferred_term: inflammatory response
+    term:
+      id: GO:0006954
+      label: inflammatory response
+    modifier: INCREASED
+  - preferred_term: platelet activation
+    term:
+      id: GO:0030168
+      label: platelet activation
+    modifier: INCREASED
+  - preferred_term: blood coagulation
+    term:
+      id: GO:0007596
+      label: blood coagulation
+    modifier: INCREASED
+  locations:
+  - preferred_term: heart
+    term:
+      id: UBERON:0000948
+      label: heart
+  - preferred_term: coronary artery
+    term:
+      id: UBERON:0001621
+      label: coronary artery
+  evidence:
+  - reference: PMID:29365305
+    reference_title: &#34;Acute Myocardial Infarction after Laboratory-Confirmed Influenza Infection.&#34;
+    supports: SUPPORT
+    snippet: &#34;The incidence ratio of an admission for acute myocardial infarction during the risk interval as compared with the control interval was 6.05&#34;
+    explanation: Self-controlled case-series quantifies a ~6-fold increased risk of acute MI in the first 7 days after laboratory-confirmed influenza, establishing influenza as an acute MI trigger.
+    evidence_source: HUMAN_CLINICAL
+  - reference: PMID:29365305
+    reference_title: &#34;Acute Myocardial Infarction after Laboratory-Confirmed Influenza Infection.&#34;
+    supports: SUPPORT
+    snippet: &#34;Acute myocardial infarction can be triggered by acute respiratory infections.&#34;
+    explanation: States the mechanistic premise that acute respiratory infection, including influenza, can trigger acute myocardial infarction.
+    evidence_source: HUMAN_CLINICAL
 phenotypes:
-  - category: Constitutional
-    name: Fever
-    description: Acute onset of high fever (38-41 degrees C) is a hallmark of influenza.
-    frequency: VERY_FREQUENT
-    phenotype_term:
-      preferred_term: Fever
-      term:
-        id: HP:0001945
-        label: Fever
-    notes: Fever is a universally recognized cardinal symptom of influenza infection.
-  - category: Respiratory
-    name: Cough
-    description: Dry or productive cough is one of the most common symptoms of influenza.
-    frequency: VERY_FREQUENT
-    phenotype_term:
-      preferred_term: Cough
-      term:
-        id: HP:0012735
-        label: Cough
-  - category: Constitutional
-    name: Myalgia
-    description: Diffuse muscle aches are characteristic of influenza infection.
-    frequency: FREQUENT
-    phenotype_term:
-      preferred_term: Myalgia
-      term:
-        id: HP:0003326
-        label: Myalgia
-  - category: Constitutional
-    name: Headache
-    description: Frontal or generalized headache accompanies acute influenza.
-    frequency: FREQUENT
-    phenotype_term:
-      preferred_term: Headache
-      term:
-        id: HP:0002315
-        label: Headache
-  - category: Respiratory
-    name: Sore Throat
-    description: Pharyngitis occurs frequently with influenza infection.
-    frequency: FREQUENT
-    phenotype_term:
-      preferred_term: Sore throat
-      term:
-        id: HP:0025439
-        label: Pharyngitis
-  - category: Constitutional
-    name: Fatigue
-    description: Profound fatigue and malaise may persist for weeks after acute illness.
-    frequency: VERY_FREQUENT
-    phenotype_term:
-      preferred_term: Fatigue
-      term:
-        id: HP:0012378
-        label: Fatigue
-  - category: Constitutional
-    name: Chills
-    description: Rigors and chills frequently accompany the febrile phase.
-    frequency: FREQUENT
-    phenotype_term:
-      preferred_term: Chills
-      term:
-        id: HP:0025143
-        label: Chills
-  - category: Respiratory
-    name: Rhinorrhea
-    description: Nasal congestion and rhinorrhea are common upper respiratory symptoms.
-    frequency: FREQUENT
-    phenotype_term:
-      preferred_term: Rhinorrhea
-      term:
-        id: HP:0031417
-        label: Rhinorrhea
-  - category: Respiratory
-    name: Dyspnea
-    description: Shortness of breath occurs in severe cases, particularly with viral pneumonia.
-    frequency: OCCASIONAL
-    phenotype_term:
-      preferred_term: Dyspnea
-      term:
-        id: HP:0002094
-        label: Dyspnea
-  - category: Respiratory
-    name: Pneumonia
-    description: &gt;
-      Primary viral pneumonia or secondary bacterial pneumonia is the most serious
-      pulmonary complication and a leading cause of influenza-related mortality.
-    frequency: OCCASIONAL
-    phenotype_term:
-      preferred_term: Pneumonia
-      term:
-        id: HP:0002090
-        label: Pneumonia
-    evidence:
-      - reference: DOI:10.3390/pathogens13070561
-        reference_title: &#34;Host Innate Antiviral Response to Influenza A Virus Infection: From Viral Sensing to Antagonism and Escape&#34;
-        supports: SUPPORT
-        snippet: &#34;In some individuals, flu can lead to pneumonia and acute respiratory distress syndrome.&#34;
-        explanation: Confirms pneumonia as a serious complication of influenza.
-        evidence_source: HUMAN_CLINICAL
+- category: Constitutional
+  name: Fever
+  description: Acute onset of high fever (38-41 degrees C) is a hallmark of influenza.
+  frequency: VERY_FREQUENT
+  phenotype_term:
+    preferred_term: Fever
+    term:
+      id: HP:0001945
+      label: Fever
+  notes: Fever is a universally recognized cardinal symptom of influenza infection.
+- category: Respiratory
+  name: Cough
+  description: Dry or productive cough is one of the most common symptoms of influenza.
+  frequency: VERY_FREQUENT
+  phenotype_term:
+    preferred_term: Cough
+    term:
+      id: HP:0012735
+      label: Cough
+- category: Constitutional
+  name: Myalgia
+  description: Diffuse muscle aches are characteristic of influenza infection.
+  frequency: FREQUENT
+  phenotype_term:
+    preferred_term: Myalgia
+    term:
+      id: HP:0003326
+      label: Myalgia
+- category: Constitutional
+  name: Headache
+  description: Frontal or generalized headache accompanies acute influenza.
+  frequency: FREQUENT
+  phenotype_term:
+    preferred_term: Headache
+    term:
+      id: HP:0002315
+      label: Headache
+- category: Respiratory
+  name: Sore Throat
+  description: Pharyngitis occurs frequently with influenza infection.
+  frequency: FREQUENT
+  phenotype_term:
+    preferred_term: Sore throat
+    term:
+      id: HP:0025439
+      label: Pharyngitis
+- category: Constitutional
+  name: Fatigue
+  description: Profound fatigue and malaise may persist for weeks after acute illness.
+  frequency: VERY_FREQUENT
+  phenotype_term:
+    preferred_term: Fatigue
+    term:
+      id: HP:0012378
+      label: Fatigue
+- category: Constitutional
+  name: Chills
+  description: Rigors and chills frequently accompany the febrile phase.
+  frequency: FREQUENT
+  phenotype_term:
+    preferred_term: Chills
+    term:
+      id: HP:0025143
+      label: Chills
+- category: Respiratory
+  name: Rhinorrhea
+  description: Nasal congestion and rhinorrhea are common upper respiratory symptoms.
+  frequency: FREQUENT
+  phenotype_term:
+    preferred_term: Rhinorrhea
+    term:
+      id: HP:0031417
+      label: Rhinorrhea
+- category: Respiratory
+  name: Dyspnea
+  description: Shortness of breath occurs in severe cases, particularly with viral pneumonia.
+  frequency: OCCASIONAL
+  phenotype_term:
+    preferred_term: Dyspnea
+    term:
+      id: HP:0002094
+      label: Dyspnea
+- category: Respiratory
+  name: Pneumonia
+  description: &gt;
+    Primary viral pneumonia or secondary bacterial pneumonia is the most serious
+    pulmonary complication and a leading cause of influenza-related mortality.
+  frequency: OCCASIONAL
+  phenotype_term:
+    preferred_term: Pneumonia
+    term:
+      id: HP:0002090
+      label: Pneumonia
+  evidence:
+  - reference: DOI:10.3390/pathogens13070561
+    reference_title: &#34;Host Innate Antiviral Response to Influenza A Virus Infection: From Viral Sensing to Antagonism and Escape&#34;
+    supports: SUPPORT
+    snippet: &#34;In some individuals, flu can lead to pneumonia and acute respiratory distress syndrome.&#34;
+    explanation: Confirms pneumonia as a serious complication of influenza.
+    evidence_source: HUMAN_CLINICAL
 treatments:
-  - name: Neuraminidase Inhibitors
-    description: &gt;
-      Oseltamivir (oral) and zanamivir (inhaled) inhibit viral neuraminidase,
-      preventing release of new virions from infected cells. Most effective when
-      administered within 48 hours of symptom onset.
-    treatment_term:
-      preferred_term: neuraminidase inhibitor therapy
-      term:
-        id: NCIT:C15986
-        label: Pharmacotherapy
-    evidence:
-      - reference: PMID:29955068
-        reference_title: &#34;Influenza.&#34;
-        supports: SUPPORT
-        snippet: &#34;Antiviral agents that target the influenza virus enzyme neuraminidase have been developed for prophylaxis and therapy.&#34;
-        explanation: Confirms neuraminidase inhibitors as established influenza antivirals.
-        evidence_source: HUMAN_CLINICAL
-      - reference: PMID:41760115
-        reference_title: Summary of WHO clinical practice guidelines for influenza.
-        supports: SUPPORT
-        evidence_source: OTHER
-        snippet: &#34;For seasonal influenza, WHO conditionally recommends treatment within 48 hours of symptom onset with oseltamivir for severe illness, and baloxavir for patients at high risk of progression from non-severe to severe illness.&#34;
-        explanation: The WHO influenza clinical practice guidelines conditionally recommend oseltamivir for severe illness within 48 hours of onset.
-  - name: Cap-Dependent Endonuclease Inhibitor (Baloxavir Marboxil)
-    description: &gt;
-      Baloxavir marboxil inhibits the cap-dependent endonuclease of the influenza
-      polymerase complex, blocking viral mRNA synthesis. Single-dose oral therapy
-      that has shown faster symptom resolution compared to oseltamivir in real-world studies.
-    treatment_term:
-      preferred_term: baloxavir marboxil therapy
-      term:
-        id: NCIT:C15986
-        label: Pharmacotherapy
-    evidence:
-      - reference: PMID:41760115
-        reference_title: Summary of WHO clinical practice guidelines for influenza.
-        supports: SUPPORT
-        evidence_source: OTHER
-        snippet: &#34;For seasonal influenza, WHO conditionally recommends treatment within 48 hours of symptom onset with oseltamivir for severe illness, and baloxavir for patients at high risk of progression from non-severe to severe illness.&#34;
-        explanation: The WHO influenza guidelines conditionally recommend baloxavir for patients at high risk of progression from non-severe to severe illness.
-  - name: Annual Vaccination
-    description: &gt;
-      Seasonal influenza vaccination with inactivated, live-attenuated, recombinant,
-      or cell-based vaccines targeting predicted circulating strains is the primary
-      preventive measure.
-    therapeutic_modality: VACCINE
-    treatment_term:
-      preferred_term: influenza vaccination
-      term:
-        id: NCIT:C15346
-        label: Vaccination
-    evidence:
-      - reference: PMID:29955068
-        reference_title: &#34;Influenza.&#34;
-        supports: SUPPORT
-        snippet: &#34;Influenza vaccines are formulated every year to match the circulating strains, as they evolve antigenically owing to antigenic drift.&#34;
-        explanation: Describes the rationale for annual influenza vaccination.
-        evidence_source: HUMAN_CLINICAL
-  - name: Supportive Care
-    description: &gt;
-      Antipyretics, hydration, and rest for mild cases. Mechanical ventilation and
-      intensive care for severe respiratory failure.
-    treatment_term:
-      preferred_term: Supportive Care
-      term:
-        id: NCIT:C15747
-        label: Supportive Care
+- name: Neuraminidase Inhibitors
+  description: &gt;
+    Oseltamivir (oral) and zanamivir (inhaled) inhibit viral neuraminidase,
+    preventing release of new virions from infected cells. Most effective when
+    administered within 48 hours of symptom onset.
+  treatment_term:
+    preferred_term: neuraminidase inhibitor therapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+  evidence:
+  - reference: PMID:29955068
+    reference_title: &#34;Influenza.&#34;
+    supports: SUPPORT
+    snippet: &#34;Antiviral agents that target the influenza virus enzyme neuraminidase have been developed for prophylaxis and therapy.&#34;
+    explanation: Confirms neuraminidase inhibitors as established influenza antivirals.
+    evidence_source: HUMAN_CLINICAL
+  - reference: PMID:41760115
+    reference_title: Summary of WHO clinical practice guidelines for influenza.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;For seasonal influenza, WHO conditionally recommends treatment within 48 hours of symptom onset with oseltamivir for severe illness, and baloxavir for patients at high risk of progression from non-severe to severe illness.&#34;
+    explanation: The WHO influenza clinical practice guidelines conditionally recommend oseltamivir for severe illness within 48 hours of onset.
+- name: Cap-Dependent Endonuclease Inhibitor (Baloxavir Marboxil)
+  description: &gt;
+    Baloxavir marboxil inhibits the cap-dependent endonuclease of the influenza
+    polymerase complex, blocking viral mRNA synthesis. Single-dose oral therapy
+    that has shown faster symptom resolution compared to oseltamivir in real-world studies.
+  treatment_term:
+    preferred_term: baloxavir marboxil therapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+  evidence:
+  - reference: PMID:41760115
+    reference_title: Summary of WHO clinical practice guidelines for influenza.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;For seasonal influenza, WHO conditionally recommends treatment within 48 hours of symptom onset with oseltamivir for severe illness, and baloxavir for patients at high risk of progression from non-severe to severe illness.&#34;
+    explanation: The WHO influenza guidelines conditionally recommend baloxavir for patients at high risk of progression from non-severe to severe illness.
+- name: Annual Vaccination
+  description: &gt;
+    Seasonal influenza vaccination with inactivated, live-attenuated, recombinant,
+    or cell-based vaccines targeting predicted circulating strains is the primary
+    preventive measure.
+  therapeutic_modality: VACCINE
+  treatment_term:
+    preferred_term: influenza vaccination
+    term:
+      id: NCIT:C15346
+      label: Vaccination
+  evidence:
+  - reference: PMID:29955068
+    reference_title: &#34;Influenza.&#34;
+    supports: SUPPORT
+    snippet: &#34;Influenza vaccines are formulated every year to match the circulating strains, as they evolve antigenically owing to antigenic drift.&#34;
+    explanation: Describes the rationale for annual influenza vaccination.
+    evidence_source: HUMAN_CLINICAL
+- name: Supportive Care
+  description: &gt;
+    Antipyretics, hydration, and rest for mild cases. Mechanical ventilation and
+    intensive care for severe respiratory failure.
+  treatment_term:
+    preferred_term: Supportive Care
+    term:
+      id: NCIT:C15747
+      label: Supportive Care
 datasets:
 - accession: geo:GSE319516
   title: Obesity-associated meta-inflammation alters influenza A antiviral responses in Göttingen minipigs
@@ -6955,6 +8214,168 @@ datasets:
   title: Influenza vaccination in the elderly boosts antibodies against conserved viral proteins and egg-produced glycans
   description: Proteomic analysis of serum IgG antibody repertoire against influenza vaccine H1 (H1N1 A/California/7/2009) and H3 (H3N2 A/Texas/50/2012) in young, middle-aged, and elderly donors vaccinated with Fluzone 2013-14/14-15. Dataset consists of peak-response (days 21-28 post-vaccination) serum IgG samples eluted by affinity chromatography against H1 and H3 vaccine or hemagglutinin and the flow-throughs.
   notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Influenza&#34;). Retrieved 2026-08-02.
+
+experimental_models:
+- name: Immune-competent microvascularized lung-on-a-chip (IC-LOC) severe H1N1 model
+  description: &gt;-
+    A microvascularized human small-airway chip carrying both tissue-resident
+    (alveolar macrophage, dendritic cell, interstitial macrophage) and
+    circulating immune populations alongside airway epithelium and stromal
+    fibroblasts. Infection at high multiplicity reproduces the cytokine storm of
+    severe influenza, and single-cell RNA sequencing plus targeted inhibition
+    were used to separate the contributions of individual mediators. Its
+    distinctive result is a dissociation that a cytokine panel alone would not
+    reveal: IL-1beta and TNF-alpha, usually grouped together as pro-inflammatory
+    drivers, act in opposite directions on the storm.
+  experimental_model_type: ORGAN_ON_CHIP
+  namo_type: namo:OrganOnChip
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  tissue_term:
+    preferred_term: epithelium of bronchiole
+    term:
+      id: UBERON:0002051
+      label: epithelium of bronchiole
+  cell_types:
+  - preferred_term: Bronchial epithelial cell
+    term:
+      id: CL:0002328
+      label: bronchial epithelial cell
+  - preferred_term: Alveolar macrophage
+    term:
+      id: CL:0000583
+      label: alveolar macrophage
+  - preferred_term: Lung fibroblast
+    term:
+      id: CL:0002553
+      label: fibroblast of lung
+  conditions:
+  - influenza A H1N1 infection (MOI 10, severe)
+  - IL-1beta inhibition (canakinumab)
+  - TNF-alpha inhibition (infliximab)
+  - CXCR4 inhibition (AMD3100)
+  - oseltamivir
+  culture_system: Microvascularized immune-competent lung-on-a-chip with airway and interstitial compartments
+  publication: PMID:40987954
+  modeled_mechanisms:
+  - target: Inflammasome Activation and Cytokine Storm
+    relationship: RECAPITULATES
+    fidelity: HIGH
+    description: &gt;-
+      Severe H1N1 infection produced airway and interstitial cytokine profiles
+      matching those measured in bronchoalveolar lavage fluid from patients with
+      severe influenza. Selective inhibition then established directionality:
+      blocking IL-1beta abolished the storm, whereas blocking TNF-alpha worsened
+      it, identifying TNF-alpha as a regulator rather than a driver.
+    limitations: &gt;-
+      The full immune response required adding circulating immune cells to the
+      resident populations, so the model&#39;s fidelity depends on a reconstruction
+      choice rather than on intrinsic tissue composition. It carries no adaptive
+      memory, no systemic organ crosstalk, and a single donor genotype per
+      device, so it cannot address host-genetic variation in severity.
+    readouts:
+    - name: Airway and interstitial pro-inflammatory cytokine secretion
+      target: Inflammasome Activation and Cytokine Storm
+      direction: INCREASED
+      interpretation: &gt;-
+        Cytokine elevation matching patient lavage fluid is the primary evidence
+        that the chip reproduces the human storm.
+      evidence:
+      - reference: PMID:40987954
+        reference_title: An immune-competent lung-on-a-chip for modelling the human severe influenza infection response.
+        supports: SUPPORT
+        evidence_source: IN_VITRO
+        snippet: Here we develop an immune-competent, microvascularized, human lung-on-a-chip device to model the small airways, successfully demonstrating the cytokine storm, immune cell activation, epithelial cell damage, and other cellular- and tissue-level human immune responses to severe H1N1 infection.
+        explanation: Reports the cytokine storm and immune activation this readout measures.
+    - name: Cytokine response to IL-1beta versus TNF-alpha blockade
+      target: Inflammasome Activation and Cytokine Storm
+      direction: ALTERED
+      interpretation: &gt;-
+        Opposite responses to blocking two mediators usually treated together
+        distinguish a driver from a regulator of the storm.
+      evidence:
+      - reference: PMID:40987954
+        reference_title: An immune-competent lung-on-a-chip for modelling the human severe influenza infection response.
+        supports: SUPPORT
+        evidence_source: IN_VITRO
+        snippet: We find that inhibition of IL-1β completely ameliorates the observed cytokine storm, whereas TNF-α appears to be a critical regulator, as its inhibition results in a highly increased inflammatory response.
+        explanation: The inhibition experiment that establishes the opposing roles.
+    evidence:
+    - reference: PMID:40987954
+      reference_title: An immune-competent lung-on-a-chip for modelling the human severe influenza infection response.
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: We find that interleukin-1β and tumour necrosis factor-α play opposing roles in the initiation and regulation of the cytokine storm associated with severe influenza.
+      explanation: Supports the chip as informative for the mechanism of the influenza cytokine storm.
+  - target: Respiratory Epithelial Infection and Cytopathic Effect
+    relationship: RECAPITULATES
+    fidelity: MODERATE
+    description: &gt;-
+      H1N1 infection of the airway compartment produced epithelial cell damage
+      alongside viral replication, reproducing the cytopathic effect of severe
+      influenza on human airway epithelium.
+    limitations: &gt;-
+      The model is built on small-airway rather than alveolar epithelium, so it
+      does not capture the alveolar epithelial injury that characterizes fatal
+      influenza pneumonia, and infection is delivered as a single synchronized
+      high-multiplicity inoculum rather than as a spreading infection.
+    readouts:
+    - name: Epithelial cell damage after H1N1 infection
+      target: Respiratory Epithelial Infection and Cytopathic Effect
+      direction: INCREASED
+      interpretation: Epithelial damage is the direct cytopathic readout in the airway compartment.
+      evidence:
+      - reference: PMID:40987954
+        reference_title: An immune-competent lung-on-a-chip for modelling the human severe influenza infection response.
+        supports: SUPPORT
+        evidence_source: IN_VITRO
+        snippet: Here we develop an immune-competent, microvascularized, human lung-on-a-chip device to model the small airways, successfully demonstrating the cytokine storm, immune cell activation, epithelial cell damage, and other cellular- and tissue-level human immune responses to severe H1N1 infection.
+        explanation: Reports epithelial cell damage among the recapitulated responses.
+    evidence:
+    - reference: PMID:40987954
+      reference_title: An immune-competent lung-on-a-chip for modelling the human severe influenza infection response.
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: However, the full array of tissue-resident and circulatory immune cells is necessary to elicit a significant airway and interstitial cytokine storm in response to severe infection.
+      explanation: Records that the epithelial response is only fully realized with the complete immune reconstruction; PARTIAL reflects that dependence.
+  - target: Endothelial Dysfunction and Thromboinflammation
+    relationship: MEASURES
+    fidelity: MODERATE
+    description: &gt;-
+      The microvascularized interstitial compartment allowed stromal-immune
+      signalling to be measured directly, identifying a fibroblast-derived
+      CXCL12 to CXCR4 axis as the dominant ligand-receptor interaction in the
+      response, and CXCR4 inhibition as a candidate intervention that lowered
+      damage-associated cytokines while preserving antiviral ones.
+    limitations: &gt;-
+      The vascular compartment is a perfused microvascular network without
+      platelets or coagulation factors, so it can report endothelial and stromal
+      signalling but cannot model the thrombotic half of thromboinflammation
+      that this node describes.
+    readouts:
+    - name: CXCL12-CXCR4 ligand-receptor interaction in the interstitial compartment
+      target: Endothelial Dysfunction and Thromboinflammation
+      direction: INCREASED
+      interpretation: &gt;-
+        Fibroblast-derived CXCL12 signalling to immune CXCR4 is the dominant
+        stromal-immune interaction identified in infected devices.
+      evidence:
+      - reference: PMID:40987954
+        reference_title: An immune-competent lung-on-a-chip for modelling the human severe influenza infection response.
+        supports: SUPPORT
+        evidence_source: IN_VITRO
+        snippet: When considering the specific ligand–receptor (L–R) interactions, we found that the CXCL12–CXCR4 interaction had the largest relative contribution in the CXCL pathway, coming largely from fibroblast CXCL12
+        explanation: Identifies the specific stromal-immune interaction this readout measures.
+    evidence:
+    - reference: PMID:40987954
+      reference_title: An immune-competent lung-on-a-chip for modelling the human severe influenza infection response.
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: Furthermore, we discover the critical stromal-immune CXCL12-CXCR4 interaction and its role in immune response to infection.
+      explanation: Supports the chip as a system for measuring stromal-immune signalling in the infected lung interstitium.
 </pre>
             </div>
         </div>
@@ -6973,6 +8394,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7474,7 +8897,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Influenza", "mondoId": "MONDO:0005812", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Influenza", "yamlRevision": "6cc1e177b8f7"};
+        const OS_CONFIG = {"diseaseName": "Influenza", "mondoId": "MONDO:0005812", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Influenza", "yamlRevision": "d33df11a3292"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

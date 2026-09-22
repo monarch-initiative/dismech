@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4294,6 +4401,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-biliary-inflammation" data-dismech-node="Chronic Biliary Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Biliary Inflammation</div>
 
+
                 <div class="item-desc">Chronic inflammation of the gallbladder mucosa, most commonly driven by cholelithiasis (gallstones) and chronic cholecystitis, but also by porcelain gallbladder, anomalous pancreaticobiliary junction, and chronic Salmonella Typhi infection, produces repeated cycles of epithelial injury and repair. Persistent inflammation and bile-acid exposure cause oxidative stress and DNA damage in gallbladder epithelial cells, creating the selective pressure that initiates malignant transformation. Metabolic risk (obesity/high BMI) further shapes incidence.</div>
 
 
@@ -4472,6 +4580,8 @@ This pathophysiological event occurs in gallbladder (UBERON:0002110). UBERON:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4493,6 +4603,8 @@ This pathophysiological event occurs in gallbladder (UBERON:0002110). UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4517,6 +4629,7 @@ This pathophysiological event occurs in gallbladder (UBERON:0002110). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accumulation-of-oncogenic-driver-alterations" data-dismech-node="Accumulation of Oncogenic Driver Alterations" data-dismech-type="pathophysiology">
                 <div class="item-name">Accumulation of Oncogenic Driver Alterations</div>
+
 
                 <div class="item-desc">Whole-exome sequencing of gallbladder tumors identifies recurrent pathogenic and oncogenic alterations concentrated in a small set of driver genes and signaling programs. The eight most altered genes are TP53, SMAD4, ERBB3, KRAS, ARID1A, PIK3CA, RB1, and AXIN1, with pathogenic variants enriched in the RTK-RAS, WNT, and TP53 pathways. TP53 loss-of-function disables cell-cycle checkpoints and apoptotic responses, KRAS/ERBB-driven RTK-RAS signaling and PI3K-AKT activation drive proliferation and survival, and WNT/beta-catenin activation (CTNNB1, AXIN1) sustains the malignant phenotype. Mutational signatures link a subset of these alterations to patient age and tobacco exposure.</div>
 
@@ -4555,6 +4668,31 @@ This pathophysiological event involves gallbladder epithelial cell, annotated wi
 
 
                 </div>
+
+
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: SOMATIC</span>
+
+
+
+
+
+
+    </div>
+
 
 
 
@@ -4743,6 +4881,8 @@ This pathophysiological event involves decreased DNA damage response (GO:0006974
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4764,6 +4904,8 @@ This pathophysiological event involves decreased DNA damage response (GO:0006974
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4788,6 +4930,7 @@ This pathophysiological event involves decreased DNA damage response (GO:0006974
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immunosuppressive-microenvironment-and-immune-evasion" data-dismech-node="Immunosuppressive Microenvironment and Immune Evasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Immunosuppressive Microenvironment and Immune Evasion</div>
+
 
                 <div class="item-desc">Single-cell transcriptomic profiling of gallbladder cancer reveals a suppressive immune microenvironment with dysfunctional T cells and tumor-associated macrophage infiltration. The epithelial regulator olfactomedin 4 (OLFM4) is elevated in GBC epithelial cells and is associated with worse prognosis; mechanistically, OLFM4 upregulates programmed death-ligand 1 (PD-L1) expression through the MAPK-AP1 axis, enabling tumor cells to evade immune clearance. This immune-evasive state underlies the rationale for combining immune checkpoint inhibitors with chemotherapy.</div>
 
@@ -4991,6 +5134,8 @@ This pathophysiological event involves increased negative regulation of immune r
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5012,6 +5157,8 @@ This pathophysiological event involves increased negative regulation of immune r
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5036,6 +5183,7 @@ This pathophysiological event involves increased negative regulation of immune r
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-invasion-and-metastasis" data-dismech-node="Invasion and Metastasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Invasion and Metastasis</div>
+
 
                 <div class="item-desc">Gallbladder cancer progresses through loss of epithelial cell adhesion and acquisition of a migratory, invasive phenotype, with frequent early spread to adjacent liver segments and regional lymph nodes. Proteomic profiling identifies Carcinoembryonic Antigen-related Cell Adhesion Molecule 6 (CEACAM6) as significantly upregulated in GBC, where it decreases cell adhesion and promotes migration and invasion through integrin beta-1 (ITGB1) and protein kinase C delta (PRKCD) partners and downstream AKT/ERK signaling.</div>
 
@@ -5166,6 +5314,8 @@ This pathophysiological event occurs in gallbladder (UBERON:0002110). UBERON:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5187,6 +5337,8 @@ This pathophysiological event occurs in gallbladder (UBERON:0002110). UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5273,7 +5425,7 @@ This pathophysiological event occurs in gallbladder (UBERON:0002110). UBERON:000
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Oncogenic Driver Alterations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Whole-exome sequencing of gallbladder tumors identifies recurrent pathogenic and oncogenic alterations concentrated in a small set of driver genes and signaling programs. The eight most altered genes are TP53, SMAD4, ERBB3, KRAS, ARID1A, PIK3CA, RB1, and AXIN1, with pathogenic variants enriched in the RTK-RAS, WNT, and TP53 pathways. TP53 loss-of-function disables cell-cycle checkpoints and apoptotic responses, KRAS/ERBB-driven RTK-RAS signaling and PI3K-AKT activation drive proliferation and survival, and WNT/beta-catenin activation (CTNNB1, AXIN1) sustains the malignant phenotype. Mutational signatures link a subset of these alterations to patient age and tobacco exposure.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"gallbladder epithelial cell\"], \"biological_processes\": [\"ERBB/RTK-RAS signaling\", \"Ras protein signal transduction\", \"Wnt signaling pathway\", \"DNA damage response\"]}}, {\"id\": \"Chronic Biliary Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic inflammation of the gallbladder mucosa, most commonly driven by cholelithiasis (gallstones) and chronic cholecystitis, but also by porcelain gallbladder, anomalous pancreaticobiliary junction, and chronic Salmonella Typhi infection, produces repeated cycles of epithelial injury and repair. Persistent inflammation and bile-acid exposure cause oxidative stress and DNA damage in gallbladder epithelial cells, creating the selective pressure that initiates malignant transformation. Metabolic risk (obesity/high BMI) further shapes incidence.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"gallbladder epithelial cell\"], \"biological_processes\": [\"inflammatory response\", \"response to oxidative stress\"], \"locations\": [\"gallbladder\"]}}, {\"id\": \"Gemcitabine-Cisplatin plus Durvalumab (TOPAZ-1)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line immuno-chemotherapy combining gemcitabine and cisplatin with the anti-PD-L1 checkpoint inhibitor durvalumab for unresectable or metastatic biliary tract cancer, established by the TOPAZ-1 trial and FDA approved 2022-09-02. Gallbladder primaries appear to derive less benefit than other biliary tract sites.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"durvalumab\", \"gemcitabine\", \"cisplatin\"]}}, {\"id\": \"Gemcitabine-Cisplatin plus Pembrolizumab (KEYNOTE-966)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line immuno-chemotherapy combining gemcitabine and cisplatin with the anti-PD-1 checkpoint inhibitor pembrolizumab for unresectable or metastatic biliary tract cancer, established by the KEYNOTE-966 trial and FDA approved 2023-10-31.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"gemcitabine\", \"cisplatin\", \"pembrolizumab\"]}}, {\"id\": \"Immunosuppressive Microenvironment and Immune Evasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Single-cell transcriptomic profiling of gallbladder cancer reveals a suppressive immune microenvironment with dysfunctional T cells and tumor-associated macrophage infiltration. The epithelial regulator olfactomedin 4 (OLFM4) is elevated in GBC epithelial cells and is associated with worse prognosis; mechanistically, OLFM4 upregulates programmed death-ligand 1 (PD-L1) expression through the MAPK-AP1 axis, enabling tumor cells to evade immune clearance. This immune-evasive state underlies the rationale for combining immune checkpoint inhibitors with chemotherapy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"gallbladder epithelial cell\", \"tumor-associated macrophage\", \"T cell\"], \"biological_processes\": [\"MAPK cascade\", \"negative regulation of immune response (immune evasion)\"]}}], \"edges\": [{\"source\": \"Chronic Biliary Inflammation\", \"target\": \"Accumulation of Oncogenic Driver Alterations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated injury-repair cycles and oxidative DNA damage promote accumulation of somatic driver mutations in gallbladder epithelium.\"}, {\"source\": \"Accumulation of Oncogenic Driver Alterations\", \"target\": \"Immunosuppressive Microenvironment and Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oncogenic epithelial programs remodel the tumor microenvironment toward an immunosuppressive, immune-evasive state.\"}, {\"source\": \"Gemcitabine-Cisplatin plus Durvalumab (TOPAZ-1)\", \"target\": \"Immunosuppressive Microenvironment and Immune Evasion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gemcitabine-Cisplatin plus Pembrolizumab (KEYNOTE-966)\", \"target\": \"Immunosuppressive Microenvironment and Immune Evasion\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Oncogenic Driver Alterations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Whole-exome sequencing of gallbladder tumors identifies recurrent pathogenic and oncogenic alterations concentrated in a small set of driver genes and signaling programs. The eight most altered genes are TP53, SMAD4, ERBB3, KRAS, ARID1A, PIK3CA, RB1, and AXIN1, with pathogenic variants enriched in the RTK-RAS, WNT, and TP53 pathways. TP53 loss-of-function disables cell-cycle checkpoints and apoptotic responses, KRAS/ERBB-driven RTK-RAS signaling and PI3K-AKT activation drive proliferation and survival, and WNT/beta-catenin activation (CTNNB1, AXIN1) sustains the malignant phenotype. Mutational signatures link a subset of these alterations to patient age and tobacco exposure.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"gallbladder epithelial cell\"], \"biological_processes\": [\"ERBB/RTK-RAS signaling\", \"Ras protein signal transduction\", \"Wnt signaling pathway\", \"DNA damage response\"], \"genetic_context\": {\"variant_origin\": \"SOMATIC\"}}}, {\"id\": \"Chronic Biliary Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic inflammation of the gallbladder mucosa, most commonly driven by cholelithiasis (gallstones) and chronic cholecystitis, but also by porcelain gallbladder, anomalous pancreaticobiliary junction, and chronic Salmonella Typhi infection, produces repeated cycles of epithelial injury and repair. Persistent inflammation and bile-acid exposure cause oxidative stress and DNA damage in gallbladder epithelial cells, creating the selective pressure that initiates malignant transformation. Metabolic risk (obesity/high BMI) further shapes incidence.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"gallbladder epithelial cell\"], \"biological_processes\": [\"inflammatory response\", \"response to oxidative stress\"], \"locations\": [\"gallbladder\"]}}, {\"id\": \"Gemcitabine-Cisplatin plus Durvalumab (TOPAZ-1)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line immuno-chemotherapy combining gemcitabine and cisplatin with the anti-PD-L1 checkpoint inhibitor durvalumab for unresectable or metastatic biliary tract cancer, established by the TOPAZ-1 trial and FDA approved 2022-09-02. Gallbladder primaries appear to derive less benefit than other biliary tract sites.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"durvalumab\", \"gemcitabine\", \"cisplatin\"]}}, {\"id\": \"Gemcitabine-Cisplatin plus Pembrolizumab (KEYNOTE-966)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line immuno-chemotherapy combining gemcitabine and cisplatin with the anti-PD-1 checkpoint inhibitor pembrolizumab for unresectable or metastatic biliary tract cancer, established by the KEYNOTE-966 trial and FDA approved 2023-10-31.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"gemcitabine\", \"cisplatin\", \"pembrolizumab\"]}}, {\"id\": \"Immunosuppressive Microenvironment and Immune Evasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Single-cell transcriptomic profiling of gallbladder cancer reveals a suppressive immune microenvironment with dysfunctional T cells and tumor-associated macrophage infiltration. The epithelial regulator olfactomedin 4 (OLFM4) is elevated in GBC epithelial cells and is associated with worse prognosis; mechanistically, OLFM4 upregulates programmed death-ligand 1 (PD-L1) expression through the MAPK-AP1 axis, enabling tumor cells to evade immune clearance. This immune-evasive state underlies the rationale for combining immune checkpoint inhibitors with chemotherapy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"gallbladder epithelial cell\", \"tumor-associated macrophage\", \"T cell\"], \"biological_processes\": [\"MAPK cascade\", \"negative regulation of immune response (immune evasion)\"]}}], \"edges\": [{\"source\": \"Chronic Biliary Inflammation\", \"target\": \"Accumulation of Oncogenic Driver Alterations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated injury-repair cycles and oxidative DNA damage promote accumulation of somatic driver mutations in gallbladder epithelium.\"}, {\"source\": \"Accumulation of Oncogenic Driver Alterations\", \"target\": \"Immunosuppressive Microenvironment and Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oncogenic epithelial programs remodel the tumor microenvironment toward an immunosuppressive, immune-evasive state.\"}, {\"source\": \"Gemcitabine-Cisplatin plus Durvalumab (TOPAZ-1)\", \"target\": \"Immunosuppressive Microenvironment and Immune Evasion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gemcitabine-Cisplatin plus Pembrolizumab (KEYNOTE-966)\", \"target\": \"Immunosuppressive Microenvironment and Immune Evasion\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5337,6 +5489,9 @@ This clinical feature is Anorexia (HP:0002039). HP:0002039 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5351,6 +5506,8 @@ This clinical feature is Anorexia (HP:0002039). HP:0002039 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5404,6 +5561,9 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5418,6 +5578,8 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5471,6 +5633,9 @@ This clinical feature is Abdominal mass (HP:0031500). HP:0031500 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5485,6 +5650,8 @@ This clinical feature is Abdominal mass (HP:0031500). HP:0031500 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5538,6 +5705,9 @@ This clinical feature is Nausea and vomiting (HP:0002017). HP:0002017 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5552,6 +5722,8 @@ This clinical feature is Nausea and vomiting (HP:0002017). HP:0002017 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5605,6 +5777,9 @@ This clinical feature is Cholelithiasis (HP:0001081). HP:0001081 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5619,6 +5794,8 @@ This clinical feature is Cholelithiasis (HP:0001081). HP:0001081 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5681,6 +5858,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5695,6 +5875,8 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5757,6 +5939,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5771,6 +5956,8 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5866,6 +6053,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Somatic</span>
@@ -5888,6 +6078,8 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5942,6 +6134,9 @@ This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Somatic</span>
@@ -5964,6 +6159,8 @@ This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6018,6 +6215,9 @@ This disease-associated gene is ERBB2 (hgnc:3430). hgnc:3430 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Somatic</span>
@@ -6061,6 +6261,9 @@ This disease-associated gene is ERBB3 (hgnc:3431). hgnc:3431 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Somatic</span>
@@ -6083,6 +6286,8 @@ This disease-associated gene is ERBB3 (hgnc:3431). hgnc:3431 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6137,6 +6342,9 @@ This disease-associated gene is SMAD4 (hgnc:6770). hgnc:6770 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Somatic</span>
@@ -6159,6 +6367,8 @@ This disease-associated gene is SMAD4 (hgnc:6770). hgnc:6770 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6213,6 +6423,9 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Somatic</span>
@@ -6254,6 +6467,9 @@ This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6299,6 +6515,9 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Somatic</span>
@@ -6342,6 +6561,9 @@ This disease-associated gene is ARID1A (hgnc:11110). hgnc:11110 is a gene from t
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Somatic</span>
@@ -6364,6 +6586,8 @@ This disease-associated gene is ARID1A (hgnc:11110). hgnc:11110 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6418,6 +6642,9 @@ This disease-associated gene is RB1 (hgnc:9884). hgnc:9884 is a gene from the HU
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Somatic</span>
@@ -6440,6 +6667,8 @@ This disease-associated gene is RB1 (hgnc:9884). hgnc:9884 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6494,6 +6723,9 @@ This disease-associated gene is AXIN1 (hgnc:903). hgnc:903 is a gene from the HU
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Somatic</span>
@@ -6516,6 +6748,8 @@ This disease-associated gene is AXIN1 (hgnc:903). hgnc:903 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6593,6 +6827,31 @@ This treatment is cholecystectomy (NCIT:C51676). NCIT:C51676 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -6704,6 +6963,31 @@ This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">First-line immuno-chemotherapy combining gemcitabine and cisplatin with the anti-PD-L1 checkpoint inhibitor durvalumab for unresectable or metastatic biliary tract cancer, established by the TOPAZ-1 trial and FDA approved 2022-09-02. Gallbladder primaries appear to derive less benefit than other biliary tract sites.</div>
 
 
@@ -6745,6 +7029,8 @@ This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6768,6 +7054,8 @@ This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6781,14 +7069,16 @@ This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39301763" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39301763" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39301763" target="_blank">PMID:39301763</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6907,6 +7197,31 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">First-line immuno-chemotherapy combining gemcitabine and cisplatin with the anti-PD-1 checkpoint inhibitor pembrolizumab for unresectable or metastatic biliary tract cancer, established by the KEYNOTE-966 trial and FDA approved 2023-10-31.</div>
 
 
@@ -6948,6 +7263,8 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6969,6 +7286,8 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7050,6 +7369,31 @@ This treatment uses trastuzumab (CHEBI:231601). CHEBI:231601 is a therapeutic ag
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -7143,6 +7487,20 @@ This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Gemcitabine plus cisplatin has been the chemotherapy backbone for advanced biliary tract cancer for over a decade and remains the foundation upon which checkpoint inhibitors are added. Adjuvant chemotherapy is used in selected resected patients.</div>
 
 
@@ -7195,6 +7553,33 @@ This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent 
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7510,6 +7895,8 @@ pathophysiology:
       Repeated injury-repair cycles and oxidative DNA damage promote accumulation of
       somatic driver mutations in gallbladder epithelium.
 - name: Accumulation of Oncogenic Driver Alterations
+  genetic_context:
+    variant_origin: SOMATIC
   description: &gt;-
     Whole-exome sequencing of gallbladder tumors identifies recurrent pathogenic and
     oncogenic alterations concentrated in a small set of driver genes and signaling
@@ -8165,7 +8552,7 @@ treatments:
       inhibitor was added to gemcitabine-cisplatin.
   - reference: PMID:39301763
     reference_title: &#34;Efficacy, safety and differential outcomes of immune-chemotherapy with gemcitabine, cisplatin and durvalumab in patients with biliary tract cancers: A multicenter real world cohort.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       While extrahepatic and intrahepatic BTC showed similar outcomes, mOS was
@@ -8313,6 +8700,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8905,7 +9294,7 @@ Exploratory subgroup analyses suggest smaller or absent benefit in the gallbladd
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Gallbladder Cancer", "mondoId": "MONDO:0005411", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Gallbladder_Cancer", "yamlRevision": "c9880c2977da"};
+        const OS_CONFIG = {"diseaseName": "Gallbladder Cancer", "mondoId": "MONDO:0005411", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Gallbladder_Cancer", "yamlRevision": "31322db54f44"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

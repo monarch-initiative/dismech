@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3726,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3768,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Axenfeld-Rieger_syndrome"
@@ -3938,7 +4045,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">16</div>
+                <div class="stat-value">17</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4163,6 +4270,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4184,6 +4293,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4253,6 +4364,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4362,14 +4475,16 @@ This subtype is caused by variation in PITX2 (hgnc:9005). hgnc:9005 is a gene fr
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:22199394" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:22199394" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22199394" target="_blank">PMID:22199394</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4393,6 +4508,8 @@ This subtype is caused by variation in PITX2 (hgnc:9005). hgnc:9005 is a gene fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"The PITX2 gene may be responsible for a significant portion of ARS with additional systemic defects in the Chinese population."</div>
@@ -4412,6 +4529,8 @@ This subtype is caused by variation in PITX2 (hgnc:9005). hgnc:9005 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4477,6 +4596,8 @@ This subtype is caused by variation in PITX2 (hgnc:9005). hgnc:9005 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4565,6 +4686,8 @@ This subtype is caused by variation in FOXC1 (hgnc:3800). hgnc:3800 is a gene fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4586,6 +4709,8 @@ This subtype is caused by variation in FOXC1 (hgnc:3800). hgnc:3800 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4631,6 +4756,7 @@ This subtype is caused by variation in FOXC1 (hgnc:3800). hgnc:3800 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-neural-crest-derived-periocular-mesenchyme-development" data-dismech-node="Disrupted Neural Crest-Derived Periocular Mesenchyme Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Neural Crest-Derived Periocular Mesenchyme Development</div>
 
+
                 <div class="item-desc">PITX2 and FOXC1 haploinsufficiency in cranial neural crest-derived periocular mesenchyme disrupts signaling integration (retinoic acid-PITX2-DKK2 pathway, Hippo/YAP-TAZ-FOXC1 axis, TGF-beta/ECM interactions) leading to failure of normal regression of transient mesenchyme at the iridocorneal angle and maldevelopment of trabecular meshwork and Schlemm&#39;s canal.</div>
 
 
@@ -4671,6 +4797,88 @@ This pathophysiological event involves migratory neural crest cell (CL:0000333).
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PITX2
+
+
+    <a href="https://bioregistry.io/hgnc:9005" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:9005</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PITX2 (hgnc:9005). hgnc:9005 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        FOXC1
+
+
+    <a href="https://bioregistry.io/hgnc:3800" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:3800</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FOXC1 (hgnc:3800). hgnc:3800 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4686,11 +4894,11 @@ This pathophysiological event involves migratory neural crest cell (CL:0000333).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0001755</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0001755</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves neural crest cell migration (GO:0001755). GO:0001755 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4716,11 +4924,11 @@ This pathophysiological event involves neural crest cell migration (GO:0001755).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048592" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0048592</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048592" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0048592</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves eye morphogenesis (GO:0048592). GO:0048592 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4746,11 +4954,11 @@ This pathophysiological event involves eye morphogenesis (GO:0048592). GO:004859
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0060070</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0060070</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves canonical Wnt signaling pathway (GO:0060070). GO:0060070 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4783,11 +4991,11 @@ This pathophysiological event involves canonical Wnt signaling pathway (GO:00600
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005969" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0005969</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005969" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0005969</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in trabecular meshwork, annotated with eye trabecular meshwork (UBERON:0005969). UBERON:0005969 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -4800,11 +5008,11 @@ This pathophysiological event occurs in trabecular meshwork, annotated with eye 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001985" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0001985</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001985" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0001985</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in corneal endothelium (UBERON:0001985). UBERON:0001985 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -4817,11 +5025,11 @@ This pathophysiological event occurs in corneal endothelium (UBERON:0001985). UB
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001779" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0001779</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001779" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0001779</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in iris stroma (UBERON:0001779). UBERON:0001779 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -4856,14 +5064,16 @@ This pathophysiological event occurs in iris stroma (UBERON:0001779). UBERON:000
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:22199394" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:22199394" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22199394" target="_blank">PMID:22199394</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4887,11 +5097,55 @@ This pathophysiological event occurs in iris stroma (UBERON:0001779). UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-transcription-factor-activity" data-dismech-node="Dysregulated Transcription Factor Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Transcription Factor Activity</div>
 
+
                 <div class="item-desc">Mutations in the PITX2 gene disrupt its function as a transcription factor, impairing its ability to bind DNA and regulate gene expression critical for eye development. Most mutations cause defects in DNA binding or transcriptional activation, while some increase transactivation activity, leading to unregulated gene expression during embryogenesis.</div>
 
 
 
 
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PITX2
+
+
+    <a href="https://bioregistry.io/hgnc:9005" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:9005</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PITX2 (hgnc:9005). hgnc:9005 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -4908,11 +5162,11 @@ This pathophysiological event occurs in iris stroma (UBERON:0001779). UBERON:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006357</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0006357</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves regulation of transcription by RNA polymerase II (GO:0006357). GO:0006357 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4938,11 +5192,11 @@ This pathophysiological event involves regulation of transcription by RNA polyme
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0030198</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5012,6 +5266,8 @@ This pathophysiological event involves extracellular matrix organization (GO:003
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Two homeobox mutations, R43W and R90C, resulted in severely reduced DNA-binding and transcriptional activation despite normal nuclear localization."</div>
@@ -5033,6 +5289,8 @@ This pathophysiological event involves extracellular matrix organization (GO:003
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"It has been reported that some mutations in PITX2 increase transactivation, whereas most mutations cause defects in DNA binding or transactivation."</div>
@@ -5052,6 +5310,8 @@ This pathophysiological event involves extracellular matrix organization (GO:003
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5076,6 +5336,7 @@ This pathophysiological event involves extracellular matrix organization (GO:003
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ocular-anomalies" data-dismech-node="Ocular Anomalies" data-dismech-type="pathophysiology">
                 <div class="item-name">Ocular Anomalies</div>
+
 
                 <div class="item-desc">Improper development of the anterior segment of the eye, leading to issues such as iris defects and abnormal angle structures.</div>
 
@@ -5161,6 +5422,8 @@ This pathophysiological event involves extracellular matrix organization (GO:003
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Axenfeld-Rieger syndrome (ARS) is a rare congenital disease that is primarily characterized by ocular anterior segment anomalies but is also associated with craniofacial, dental, cardiac, and neurologic abnormalities."</div>
@@ -5182,6 +5445,8 @@ This pathophysiological event involves extracellular matrix organization (GO:003
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Individuals with malformations of structures of the anterior segment of the eye frequently develop elevated intraocular pressure and glaucoma."</div>
@@ -5201,6 +5466,8 @@ This pathophysiological event involves extracellular matrix organization (GO:003
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5225,6 +5492,7 @@ This pathophysiological event involves extracellular matrix organization (GO:003
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-anomalies" data-dismech-node="Systemic Anomalies" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Anomalies</div>
+
 
                 <div class="item-desc">Involves multiple systems, often including dental, craniofacial, and umbilical abnormalities.</div>
 
@@ -5309,6 +5577,8 @@ This pathophysiological event involves extracellular matrix organization (GO:003
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Axenfeld-Rieger syndrome is a rare autosomal dominant disorder characterized by various ocular and extraocular malformations. Dental abnormalities are considered as definitive features for the diagnosis and differentiation of Rieger syndrome from other anterior chamber of the eye malformations."</div>
@@ -5328,6 +5598,8 @@ This pathophysiological event involves extracellular matrix organization (GO:003
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5351,6 +5623,8 @@ This pathophysiological event involves extracellular matrix organization (GO:003
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"We will consider successively syndromic forms of amelogenesis imperfecta or enamel defects, dentinogenesis imperfecta (i.e. osteogenesis imperfecta) and other dentine anomalies."</div>
@@ -5371,6 +5645,7 @@ This pathophysiological event involves extracellular matrix organization (GO:003
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glaucoma-related-vision-loss" data-dismech-node="Glaucoma-related Vision Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Glaucoma-related Vision Loss</div>
+
 
                 <div class="item-desc">Loss of vision due to uncontrolled intraocular pressure.</div>
 
@@ -5408,6 +5683,8 @@ This pathophysiological event involves extracellular matrix organization (GO:003
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Treatment is predominantly the management of glaucoma and is mostly medical but can be surgical in refractory cases."</div>
@@ -5429,6 +5706,8 @@ This pathophysiological event involves extracellular matrix organization (GO:003
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Glaucoma is the main cause of visual morbidity in patients with ARS."</div>
@@ -5448,6 +5727,8 @@ This pathophysiological event involves extracellular matrix organization (GO:003
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5495,7 +5776,7 @@ This pathophysiological event involves extracellular matrix organization (GO:003
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cerebral White Matter Abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Axenfeld-Rieger Syndrome Type 3 (RIEG3)\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030890\"}}, {\"id\": \"Congenital Heart Defects\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Axenfeld-Rieger Syndrome Type 3 (RIEG3)\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Corectopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009918\"}}, {\"id\": \"Craniofacial Dysmorphism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000316\"}}, {\"id\": \"Dental Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006482\"}}, {\"id\": \"Disrupted Neural Crest-Derived Periocular Mesenchyme Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PITX2 and FOXC1 haploinsufficiency in cranial neural crest-derived periocular mesenchyme disrupts signaling integration (retinoic acid-PITX2-DKK2 pathway, Hippo/YAP-TAZ-FOXC1 axis, TGF-beta/ECM interactions) leading to failure of normal regression of transient mesenchyme at the iridocorneal angle and maldevelopment of trabecular meshwork and Schlemm\u0027s canal.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"migratory neural crest cell\"], \"biological_processes\": [\"neural crest cell migration\", \"eye morphogenesis\", \"canonical Wnt signaling pathway\"], \"locations\": [\"trabecular meshwork\", \"corneal endothelium\", \"iris stroma\"]}}, {\"id\": \"Dysregulated Transcription Factor Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in the PITX2 gene disrupt its function as a transcription factor, impairing its ability to bind DNA and regulate gene expression critical for eye development. Most mutations cause defects in DNA binding or transcriptional activation, while some increase transactivation activity, leading to unregulated gene expression during embryogenesis.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"regulation of transcription by RNA polymerase II\", \"extracellular matrix organization\"]}}, {\"id\": \"Glaucoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 7, \"frequency\": \"VERY_FREQUENT\", \"severity\": \"Severe\", \"term_id\": \"HP:0000501\"}}, {\"id\": \"Glaucoma-related Vision Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of vision due to uncontrolled intraocular pressure.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Axenfeld-Rieger Syndrome Type 3 (RIEG3)\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Iris Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007676\"}}, {\"id\": \"Ocular Anomalies\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Improper development of the anterior segment of the eye, leading to issues such as iris defects and abnormal angle structures.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"PITX2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"PITX2\"], \"gene_terms\": [{\"label\": \"PITX2\", \"id\": \"hgnc:9005\"}], \"subtypes\": [\"Axenfeld-Rieger Syndrome Type 1 (RIEG1)\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Posterior Embryotoxon\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"severity\": \"Mild\", \"term_id\": \"HP:0000627\"}}, {\"id\": \"Systemic Anomalies\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Involves multiple systems, often including dental, craniofacial, and umbilical abnormalities.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"p.Val136Leu\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PITX2\"], \"gene_terms\": [{\"label\": \"PITX2\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"Disrupted Neural Crest-Derived Periocular Mesenchyme Development\", \"target\": \"Ocular Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of the periocular mesenchyme programme is what leaves the anterior segment tissues incompletely differentiated and incompletely separated, which is the anatomical bundle recorded as the ocular anomalies of this syndrome.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Transcription Factor Activity\", \"target\": \"Disrupted Neural Crest-Derived Periocular Mesenchyme Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PITX2 and FOXC1 are dose-sensitive transcription factors acting within the periocular mesenchyme, so a heterozygous loss-of-function lesion is expressed as a failure of that population\u0027s migration and differentiation rather than as a defect of any finished tissue.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Transcription Factor Activity\", \"target\": \"Systemic Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same transcription factors act outside the eye, which is why Axenfeld-Rieger syndrome carries a recurring extraocular bundle. This edge is drawn from the transcription-factor node rather than from the periocular mesenchyme node because not every systemic feature - the umbilical defect in particular - is a periocular mesenchyme derivative.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular Anomalies\", \"target\": \"Glaucoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anterior segment maldevelopment elevates glaucoma risk.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Maldevelopment of the anterior segment impairs aqueous humor drainage.\"]}, {\"source\": \"Ocular Anomalies\", \"target\": \"Posterior Embryotoxon\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anterior segment dysgenesis manifests with posterior embryotoxon.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular Anomalies\", \"target\": \"Iris Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anterior segment dysgenesis includes hypoplasia of the iris.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular Anomalies\", \"target\": \"Corectopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anterior segment dysgenesis includes displacement of the pupil.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular Anomalies\", \"target\": \"Glaucoma-related Vision Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The dysgenetic iridocorneal angle and its iridocorneal adhesions obstruct aqueous outflow, and the resulting juvenile-onset glaucoma is the route by which this syndrome actually costs sight.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Anomalies\", \"target\": \"Dental Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic ARS involvement includes diagnostic dental abnormalities.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Anomalies\", \"target\": \"Craniofacial Dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic ARS involvement includes craniofacial abnormalities.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Anomalies\", \"target\": \"Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FOXC1-related systemic ARS can include hearing loss.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Anomalies\", \"target\": \"Congenital Heart Defects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FOXC1-related systemic ARS can include structural cardiac defects.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Anomalies\", \"target\": \"Cerebral White Matter Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FOXC1-related systemic ARS includes central nervous system involvement, with highly penetrant white matter hyperintensities and colpocephaly/ventriculomegaly on brain imaging (an expanded FOXC1opathy phenotype overlapping De Hauwere syndrome).\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"p.Val136Leu\", \"target\": \"PITX2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cerebral White Matter Abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Axenfeld-Rieger Syndrome Type 3 (RIEG3)\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030890\"}}, {\"id\": \"Congenital Heart Defects\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Axenfeld-Rieger Syndrome Type 3 (RIEG3)\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Corectopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009918\"}}, {\"id\": \"Craniofacial Dysmorphism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000316\"}}, {\"id\": \"Dental Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006482\"}}, {\"id\": \"Disrupted Neural Crest-Derived Periocular Mesenchyme Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PITX2 and FOXC1 haploinsufficiency in cranial neural crest-derived periocular mesenchyme disrupts signaling integration (retinoic acid-PITX2-DKK2 pathway, Hippo/YAP-TAZ-FOXC1 axis, TGF-beta/ECM interactions) leading to failure of normal regression of transient mesenchyme at the iridocorneal angle and maldevelopment of trabecular meshwork and Schlemm\u0027s canal.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"migratory neural crest cell\"], \"biological_processes\": [\"neural crest cell migration\", \"eye morphogenesis\", \"canonical Wnt signaling pathway\"], \"genes\": [\"PITX2\", \"FOXC1\"], \"gene_terms\": [{\"label\": \"PITX2\", \"id\": \"hgnc:9005\"}, {\"label\": \"FOXC1\", \"id\": \"hgnc:3800\"}], \"locations\": [\"trabecular meshwork\", \"corneal endothelium\", \"iris stroma\"]}}, {\"id\": \"Dysregulated Transcription Factor Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in the PITX2 gene disrupt its function as a transcription factor, impairing its ability to bind DNA and regulate gene expression critical for eye development. Most mutations cause defects in DNA binding or transcriptional activation, while some increase transactivation activity, leading to unregulated gene expression during embryogenesis.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"regulation of transcription by RNA polymerase II\", \"extracellular matrix organization\"], \"genes\": [\"PITX2\"], \"gene_terms\": [{\"label\": \"PITX2\", \"id\": \"hgnc:9005\"}]}}, {\"id\": \"FOXC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"FOXC1\"], \"gene_terms\": [{\"label\": \"FOXC1\", \"id\": \"hgnc:3800\"}], \"subtypes\": [\"Axenfeld-Rieger Syndrome Type 3 (RIEG3)\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Glaucoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 7, \"frequency\": \"VERY_FREQUENT\", \"severity\": \"Severe\", \"term_id\": \"HP:0000501\"}}, {\"id\": \"Glaucoma-related Vision Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of vision due to uncontrolled intraocular pressure.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Axenfeld-Rieger Syndrome Type 3 (RIEG3)\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Iris Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007676\"}}, {\"id\": \"Ocular Anomalies\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Improper development of the anterior segment of the eye, leading to issues such as iris defects and abnormal angle structures.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"PITX2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"PITX2\"], \"gene_terms\": [{\"label\": \"PITX2\", \"id\": \"hgnc:9005\"}], \"subtypes\": [\"Axenfeld-Rieger Syndrome Type 1 (RIEG1)\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Posterior Embryotoxon\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"severity\": \"Mild\", \"term_id\": \"HP:0000627\"}}, {\"id\": \"Systemic Anomalies\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Involves multiple systems, often including dental, craniofacial, and umbilical abnormalities.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"p.Val136Leu\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PITX2\"], \"gene_terms\": [{\"label\": \"PITX2\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"Disrupted Neural Crest-Derived Periocular Mesenchyme Development\", \"target\": \"Ocular Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of the periocular mesenchyme programme is what leaves the anterior segment tissues incompletely differentiated and incompletely separated, which is the anatomical bundle recorded as the ocular anomalies of this syndrome.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Transcription Factor Activity\", \"target\": \"Disrupted Neural Crest-Derived Periocular Mesenchyme Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PITX2 and FOXC1 are dose-sensitive transcription factors acting within the periocular mesenchyme, so a heterozygous loss-of-function lesion is expressed as a failure of that population\u0027s migration and differentiation rather than as a defect of any finished tissue.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Transcription Factor Activity\", \"target\": \"Systemic Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same transcription factors act outside the eye, which is why Axenfeld-Rieger syndrome carries a recurring extraocular bundle. This edge is drawn from the transcription-factor node rather than from the periocular mesenchyme node because not every systemic feature - the umbilical defect in particular - is a periocular mesenchyme derivative.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular Anomalies\", \"target\": \"Glaucoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anterior segment maldevelopment elevates glaucoma risk.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Maldevelopment of the anterior segment impairs aqueous humor drainage.\"]}, {\"source\": \"Ocular Anomalies\", \"target\": \"Posterior Embryotoxon\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anterior segment dysgenesis manifests with posterior embryotoxon.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular Anomalies\", \"target\": \"Iris Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anterior segment dysgenesis includes hypoplasia of the iris.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular Anomalies\", \"target\": \"Corectopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anterior segment dysgenesis includes displacement of the pupil.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular Anomalies\", \"target\": \"Glaucoma-related Vision Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The dysgenetic iridocorneal angle and its iridocorneal adhesions obstruct aqueous outflow, and the resulting juvenile-onset glaucoma is the route by which this syndrome actually costs sight.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Anomalies\", \"target\": \"Dental Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic ARS involvement includes diagnostic dental abnormalities.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Anomalies\", \"target\": \"Craniofacial Dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic ARS involvement includes craniofacial abnormalities.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Anomalies\", \"target\": \"Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FOXC1-related systemic ARS can include hearing loss.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Anomalies\", \"target\": \"Congenital Heart Defects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FOXC1-related systemic ARS can include structural cardiac defects.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Anomalies\", \"target\": \"Cerebral White Matter Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FOXC1-related systemic ARS includes central nervous system involvement, with highly penetrant white matter hyperintensities and colpocephaly/ventriculomegaly on brain imaging (an expanded FOXC1opathy phenotype overlapping De Hauwere syndrome).\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PITX2\", \"target\": \"Disrupted Neural Crest-Derived Periocular Mesenchyme Development\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PITX2\", \"target\": \"Dysregulated Transcription Factor Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FOXC1\", \"target\": \"Disrupted Neural Crest-Derived Periocular Mesenchyme Development\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"p.Val136Leu\", \"target\": \"PITX2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5518,7 +5799,7 @@ This pathophysiological event involves extracellular matrix organization (GO:003
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(5)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(1)</span></button>
 
@@ -5526,7 +5807,7 @@ This pathophysiological event involves extracellular matrix organization (GO:003
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5557,15 +5838,18 @@ This pathophysiological event involves extracellular matrix organization (GO:003
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001627</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001627</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Congenital heart defect, annotated with Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Cardiac anomalies including endocardial cushion defects and other structural heart malformations. More prevalent in FOXC1-related cases.</div>
@@ -5589,6 +5873,8 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Axenfeld-Rieger syndrome (ARS) type 3 is a rare autosomal dominant disease, characterized by anterior segment dysgenesis of the eye, hearing loss, and cardiac defects."</div>
@@ -5608,6 +5894,8 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5658,15 +5946,18 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000365</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Sensorineural hearing loss observed in some patients, particularly those with FOXC1 variants.</div>
@@ -5690,6 +5981,8 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Key clinical features comprise facial dysmorphism including mid-face and dental hypoplasia, hearing loss, cardiac anomalies, and involuted periumbilical skin."</div>
@@ -5709,6 +6002,8 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5738,7 +6033,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-glaucoma" data-dismech-node="Glaucoma" data-dismech-type="phenotype">
@@ -5757,15 +6052,18 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000501</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000501</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Early onset, often leading to vision loss if untreated. Abnormal development of the anterior segment due to defective PITX2 function leads to poor aqueous humor drainage, resulting in elevated intraocular pressure and glaucoma.</div>
@@ -5789,6 +6087,8 @@ This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"In the eye, this condition manifests with varying degrees of anterior segment dysgenesis and carries a high risk of glaucoma."</div>
@@ -5810,6 +6110,8 @@ This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Individuals with malformations of structures of the anterior segment of the eye frequently develop elevated intraocular pressure and glaucoma."</div>
@@ -5829,6 +6131,8 @@ This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5870,15 +6174,18 @@ This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000627</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000627</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Posterior Embryotoxon (HP:0000627). HP:0000627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">A prominent, anteriorly displaced Schwalbe&#39;s line seen on eye examination.</div>
@@ -5892,14 +6199,16 @@ This clinical feature is Posterior Embryotoxon (HP:0000627). HP:0000627 is a phe
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:15492748" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:15492748" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15492748" target="_blank">PMID:15492748</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5923,6 +6232,8 @@ This clinical feature is Posterior Embryotoxon (HP:0000627). HP:0000627 is a phe
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"The patient had megalocornea with Haab&#39;s striae in the right eye and posterior embryotoxon in both the eyes."</div>
@@ -5944,6 +6255,8 @@ This clinical feature is Posterior Embryotoxon (HP:0000627). HP:0000627 is a phe
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Posterior embryotoxon, an anteriorly displaced Schwalbe&#39;s line, is the most common feature of Axenfeld Rieger syndrome."</div>
@@ -5957,6 +6270,204 @@ This clinical feature is Posterior Embryotoxon (HP:0000627). HP:0000627 is a phe
 
 
             <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-iris-hypoplasia" data-dismech-node="Iris Hypoplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Iris Hypoplasia
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hypoplasia of the iris</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007676" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0007676</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Iris Hypoplasia, annotated with Hypoplasia of the iris (HP:0007676). HP:0007676 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Underdevelopment of the iris, may include corectopia (displacement of the pupil). Mutations like the V45L variant cause reduced DNA-binding with increased transactivation, disrupting iris development due to unregulated gene expression during embryogenesis.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30860739" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30860739" target="_blank">PMID:30860739</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"This anomaly encompasses posterior embryotoxon, iris hypoplasia, polycoria, and corectopia."</div>
+
+
+                <div class="evidence-explanation">The literature clearly states that iris hypoplasia is a component of the Rieger anomaly, which is part of Axenfeld-Rieger syndrome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35327965" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35327965" target="_blank">PMID:35327965</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Anterior segment dysgenesis (ASD) encompasses a wide spectrum of developmental abnormalities of the anterior ocular segment, including congenital cataract, iris hypoplasia, aniridia, iridocorneal synechiae, as well as Peters, Axenfeld, and Rieger anomalies."</div>
+
+
+                <div class="evidence-explanation">The literature confirms that iris hypoplasia is a frequent feature of anterior segment dysgenesis, which includes Axenfeld-Rieger anomalies.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11740218" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11740218" target="_blank">PMID:11740218</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"In pedigrees 1,2, and 4, younger generations had iris hypoplasia with severe early-onset glaucoma, whereas their parents had posterior embryotoxon without glaucoma."</div>
+
+
+                <div class="evidence-explanation">The literature identifies iris hypoplasia as a clinical feature in multiple pedigrees with Axenfeld-Rieger syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-corectopia" data-dismech-node="Corectopia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Corectopia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Ectopia pupillae</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009918" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0009918</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Corectopia, annotated with Ectopia pupillae (HP:0009918). HP:0009918 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Displacement of the pupil from its normal central position, often observed alongside iris hypoplasia and other anterior segment abnormalities.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30860739" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30860739" target="_blank">PMID:30860739</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"This anomaly encompasses posterior embryotoxon, iris hypoplasia, polycoria, and corectopia."</div>
+
+
+                <div class="evidence-explanation">The literature explicitly lists corectopia as a component of Rieger anomaly in Axenfeld-Rieger syndrome.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -5985,15 +6496,18 @@ This clinical feature is Posterior Embryotoxon (HP:0000627). HP:0000627 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000316</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000316</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Includes features such as an underdeveloped maxilla, broad nasal bridge, and hypertelorism (increased distance between the eyes). Hypertelorism is significantly more prevalent in FOXC1 variants (81.8%) compared to PITX2 variants (25.0%).</div>
@@ -6017,6 +6531,8 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Axenfeld-Rieger syndrome is a rare autosomal dominant disorder characterized by various ocular and extraocular malformations. ... Significant cranio-dento-facial findings that have been observed are, teeth with short and dilacerated roots, hyperplastic frenums and underdeveloped maxilla."</div>
@@ -6036,6 +6552,8 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6086,15 +6604,18 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0006482</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0006482</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal dental morphology (HP:0006482). HP:0006482 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Includes missing teeth (hypodontia), small teeth (microdontia), and enamel hypoplasia. Highly penetrant in PITX2-related cases.</div>
@@ -6118,6 +6639,8 @@ This clinical feature is Abnormal dental morphology (HP:0006482). HP:0006482 is 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Axenfeld-Rieger syndrome is a rare autosomal dominant disorder characterized by various ocular and extraocular malformations. Dental abnormalities are considered as definitive features for the diagnosis and differentiation of Rieger syndrome from other anterior chamber of the eye malformations."</div>
@@ -6129,14 +6652,16 @@ This clinical feature is Abnormal dental morphology (HP:0006482). HP:0006482 is 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35836351" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:35836351" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35836351" target="_blank">PMID:35836351</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6187,15 +6712,18 @@ This clinical feature is Abnormal dental morphology (HP:0006482). HP:0006482 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001290</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001290</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia, annotated with Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Hypotonia reported in FOXC1-related ARS.</div>
@@ -6217,6 +6745,8 @@ This clinical feature is Hypotonia, annotated with Generalized hypotonia (HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6269,15 +6799,18 @@ This clinical feature is Hypotonia, annotated with Generalized hypotonia (HP:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030890" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0030890</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030890" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0030890</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is White matter hyperintensities, annotated with Hyperintensity of cerebral white matter on MRI (HP:0030890). HP:0030890 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Highly penetrant white matter hyperintensities identified on brain imaging in FOXC1-related ARS, part of the expanded FOXC1opathy phenotype that overlaps De Hauwere syndrome.</div>
@@ -6299,6 +6832,8 @@ This clinical feature is White matter hyperintensities, annotated with Hyperinte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6340,15 +6875,18 @@ This clinical feature is White matter hyperintensities, annotated with Hyperinte
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002119</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002119</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Colpocephaly/ventriculomegaly seen on brain imaging in FOXC1-related ARS, part of the previously under-recognized CNS involvement in this subtype.</div>
@@ -6370,6 +6908,8 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6413,15 +6953,18 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Early developmental delay reported in FOXC1-related ARS.</div>
@@ -6443,6 +6986,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6474,192 +7019,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-iris-hypoplasia" data-dismech-node="Iris Hypoplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Iris Hypoplasia
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Hypoplasia of the iris</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007676" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0007676</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Iris Hypoplasia, annotated with Hypoplasia of the iris (HP:0007676). HP:0007676 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Underdevelopment of the iris, may include corectopia (displacement of the pupil). Mutations like the V45L variant cause reduced DNA-binding with increased transactivation, disrupting iris development due to unregulated gene expression during embryogenesis.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (3 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30860739" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30860739" target="_blank">PMID:30860739</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"This anomaly encompasses posterior embryotoxon, iris hypoplasia, polycoria, and corectopia."</div>
-
-
-                <div class="evidence-explanation">The literature clearly states that iris hypoplasia is a component of the Rieger anomaly, which is part of Axenfeld-Rieger syndrome.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35327965" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35327965" target="_blank">PMID:35327965</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"Anterior segment dysgenesis (ASD) encompasses a wide spectrum of developmental abnormalities of the anterior ocular segment, including congenital cataract, iris hypoplasia, aniridia, iridocorneal synechiae, as well as Peters, Axenfeld, and Rieger anomalies."</div>
-
-
-                <div class="evidence-explanation">The literature confirms that iris hypoplasia is a frequent feature of anterior segment dysgenesis, which includes Axenfeld-Rieger anomalies.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:11740218" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11740218" target="_blank">PMID:11740218</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"In pedigrees 1,2, and 4, younger generations had iris hypoplasia with severe early-onset glaucoma, whereas their parents had posterior embryotoxon without glaucoma."</div>
-
-
-                <div class="evidence-explanation">The literature identifies iris hypoplasia as a clinical feature in multiple pedigrees with Axenfeld-Rieger syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-corectopia" data-dismech-node="Corectopia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Corectopia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Ectopia pupillae</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009918" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0009918</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Corectopia, annotated with Ectopia pupillae (HP:0009918). HP:0009918 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Displacement of the pupil from its normal central position, often observed alongside iris hypoplasia and other anterior segment abnormalities.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30860739" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30860739" target="_blank">PMID:30860739</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"This anomaly encompasses posterior embryotoxon, iris hypoplasia, polycoria, and corectopia."</div>
-
-
-                <div class="evidence-explanation">The literature explicitly lists corectopia as a component of Rieger anomaly in Axenfeld-Rieger syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-redundant-periumbilical-skin" data-dismech-node="Redundant Periumbilical Skin" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6669,6 +7030,9 @@ This clinical feature is Corectopia, annotated with Ectopia pupillae (HP:0009918
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Extra fold of skin around the belly button. Often considered a diagnostic feature. Highly penetrant in PITX2-related cases.</div>
@@ -6690,6 +7054,8 @@ This clinical feature is Corectopia, annotated with Ectopia pupillae (HP:0009918
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6770,10 +7136,10 @@ This clinical feature is Corectopia, annotated with Ectopia pupillae (HP:0009918
                         Gene: PITX2
 
 
-    <a href="https://bioregistry.io/hgnc:9005" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:9005</a>
+    <a href="https://bioregistry.io/hgnc:9005" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:9005</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PITX2 (hgnc:9005). hgnc:9005 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6781,6 +7147,9 @@ This disease-associated gene is PITX2 (hgnc:9005). hgnc:9005 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -6799,6 +7168,8 @@ This disease-associated gene is PITX2 (hgnc:9005). hgnc:9005 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6822,6 +7193,8 @@ This disease-associated gene is PITX2 (hgnc:9005). hgnc:9005 is a gene from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Mutations in the transcription factors FOXC1 or PITX2 are the most well-studied genetic manifestations of this syndrome."</div>
@@ -6841,6 +7214,8 @@ This disease-associated gene is PITX2 (hgnc:9005). hgnc:9005 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6882,10 +7257,10 @@ This disease-associated gene is PITX2 (hgnc:9005). hgnc:9005 is a gene from the 
                         Gene: FOXC1
 
 
-    <a href="https://bioregistry.io/hgnc:3800" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:3800</a>
+    <a href="https://bioregistry.io/hgnc:3800" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:3800</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is FOXC1 (hgnc:3800). hgnc:3800 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6893,6 +7268,9 @@ This disease-associated gene is FOXC1 (hgnc:3800). hgnc:3800 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -6911,6 +7289,8 @@ This disease-associated gene is FOXC1 (hgnc:3800). hgnc:3800 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6934,6 +7314,8 @@ This disease-associated gene is FOXC1 (hgnc:3800). hgnc:3800 is a gene from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Mutations in the transcription factors FOXC1 or PITX2 are the most well-studied genetic manifestations of this syndrome."</div>
@@ -6953,6 +7335,8 @@ This disease-associated gene is FOXC1 (hgnc:3800). hgnc:3800 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6998,6 +7382,7 @@ This disease-associated gene is FOXC1 (hgnc:3800). hgnc:3800 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7006,9 +7391,10 @@ This disease-associated gene is FOXC1 (hgnc:3800). hgnc:3800 is a gene from the 
 
         <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: PITX2
-            <span class="pill-tip" role="tooltip" id="pill-tip-26">Relation: this variant is in this gene
+            <span class="pill-tip" role="tooltip" id="pill-tip-29">Relation: this variant is in this gene
 This variant is in PITX2.</span>
         </span>
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">single nucleotide variant</span>
@@ -7018,6 +7404,11 @@ This variant is in PITX2.</span>
         <span class="tag" style="background: #f1f5f9; color: #475569;">1 bp</span>
 
     </div>
+
+
+
+
+
 
 
 
@@ -7115,6 +7506,8 @@ This variant is in PITX2.</span>
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7136,6 +7529,8 @@ This variant is in PITX2.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7183,7 +7578,7 @@ This variant is in PITX2.</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7215,6 +7610,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Topical medications to reduce intraocular pressure, including prostaglandin analogs, beta-blockers, alpha-agonists, and carbonic anhydrase inhibitors. First-line treatment for glaucoma management.</div>
 
 
@@ -7236,6 +7645,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -7264,7 +7675,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7292,6 +7703,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7320,6 +7756,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"The goal of this study is to compare the effectiveness of various glaucoma surgeries on intraocular pressure (IOP) management in ARS."</div>
@@ -7341,6 +7779,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"The article describes a case of 7-year-old child with rare Axenfeld-Rieger syndrome demonstrating the effectiveness and safety of combined laser reconstructive surgeries."</div>
@@ -7360,6 +7800,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -7388,7 +7830,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7421,6 +7863,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Orthodontic and dental treatments to address dental anomalies including hypodontia, microdontia, and enamel hypoplasia. May include prosthetic reconstruction, dental implants, and orthodontic correction.</div>
 
 
@@ -7444,6 +7911,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"The patient showed severe hypodontia, microdontia, and short roots. Different treatment options are discussed. Early diagnosis and an interdisciplinary approach are necessary to provide the best short- and long-term treatment plans, as well as treatment and follow-up for individuals with the syndrome."</div>
@@ -7463,6 +7932,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -7492,6 +7963,20 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Frequent eye exams to monitor intraocular pressure, visual acuity, and anterior segment changes. Essential for early detection and management of glaucoma progression, particularly in pediatric patients.</div>
 
 
@@ -7515,6 +8000,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"A multi-disciplinary approach including glaucoma specialists and pediatric ophthalmologists produces optimal outcomes as vision is dependent on many factors including glaucoma, refractive error, amblyopia and strabismus."</div>
@@ -7534,6 +8021,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -7595,6 +8084,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Axenfeld-Rieger syndrome."</div>
@@ -7616,6 +8107,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Axenfeld-Rieger Syndrome is a disorder of morphogenesis which is autosomal dominantly inherited."</div>
@@ -7635,6 +8128,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
 
 
                 </div>
@@ -7662,6 +8157,413 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-genetic-testing">
+                <div class="item-name">
+                    Genetic Testing
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">Identifies mutations in PITX2, FOXC1 or other associated genes.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (6 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11821690" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11821690" target="_blank">PMID:11821690</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"This study examined the two genes known to cause Rieger syndrome, PITX2 and FOXC1, for mutations in five Brazilian families with Axenfeld-Rieger syndrome."</div>
+
+
+                <div class="evidence-explanation">The study confirms that genetic testing identifies mutations in PITX2 and FOXC1 in patients with Axenfeld-Rieger syndrome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25893250" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25893250" target="_blank">PMID:25893250</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"A novel heterozygous PITX2 mutation... was identified in a family with endocardial cushion defect (ECD) and Axenfeld-Rieger syndrome (ARS)."</div>
+
+
+                <div class="evidence-explanation">The study identifies a PITX2 mutation in a family with Axenfeld-Rieger syndrome, supporting the statement.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28730073" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28730073" target="_blank">PMID:28730073</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Genome-wide linkage and exome sequencing analyses showed PITX2 as the disease candidate gene."</div>
+
+
+                <div class="evidence-explanation">The study identifies PITX2 as the gene responsible for the disease in a Chinese family with Axenfeld-Rieger syndrome.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 3 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-slit-lamp-examination">
+                <div class="item-name">
+                    Slit-lamp Examination
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">Used to observe anterior segment anomalies such as posterior embryotoxon and iris defects.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15492748" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15492748" target="_blank">PMID:15492748</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"One of the main ocular features associated with Axenfeld-Rieger is posterior embryotoxon, which is a prominent anteriorly displaced Schwalbe&#39;s line."</div>
+
+
+                <div class="evidence-explanation">The abstract mentions that posterior embryotoxon is a key feature observed in Axenfeld-Rieger syndrome, which can be detected using slit-lamp examination.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:808872" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/808872" target="_blank">PMID:808872</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The peripheral anomalies consist of a prominent Schwalbe&#39;s ring, iris strands to Schwalbe&#39;s ring, and hypoplasia of the anterior iris stroma."</div>
+
+
+                <div class="evidence-explanation">The study classifies anterior segment anomalies, including posterior embryotoxon and iris defects, which can be observed using slit-lamp examination.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36255854" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36255854" target="_blank">PMID:36255854</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Patients with AXA, RGA, and Axenfeld-Rieger anomaly/syndrome have lower ECD and increased MCA compared with normal eyes."</div>
+
+
+                <div class="evidence-explanation">The study discusses various features of Axenfeld-Rieger syndrome, including anterior segment anomalies that can be observed via slit-lamp examination.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-intraocular-pressure-measurement">
+                <div class="item-name">
+                    Intraocular Pressure Measurement
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">Elevated pressure indicating glaucoma, which is common in these patients.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33367186" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33367186" target="_blank">PMID:33367186</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Glaucoma is the main cause of visual morbidity in patients with ARS, therefore a complete periodic ophthalmological exam is a priority."</div>
+
+
+                <div class="evidence-explanation">The literature confirms that glaucoma, which is associated with elevated intraocular pressure, is a common issue in patients with Axenfeld-Rieger Syndrome (ARS).</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:5467709" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/5467709" target="_blank">PMID:5467709</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Glaucoma and Rieger&#39;s syndrome."</div>
+
+
+                <div class="evidence-explanation">The title of the reference directly links glaucoma, which involves elevated intraocular pressure, with Rieger&#39;s syndrome (a component of Axenfeld-Rieger Syndrome).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        0.5 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 1,000,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Commonly cited estimate of approximately 1 in 200,000 live births (equivalent to 0.5 per 100,000). ARS is a rare disorder and precise population-based prevalence data are limited.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32357855" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32357855" target="_blank">PMID:32357855</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Axenfeld-Rieger Syndrome (ARS), a rare congenital disease that affects approximately 1 in 200,000 live births, is characterized by eye and craniofacial defects"</div>
+
+
+                <div class="evidence-explanation">Provides the widely cited ~1 in 200,000 live-birth prevalence estimate for ARS.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35733478" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35733478" target="_blank">PMID:35733478</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Its incidence is thought to be 1 in 200,000. Treatment is predominantly the management of glaucoma and is mostly medical but can be surgical in refractory cases."</div>
+
+
+                <div class="evidence-explanation">Independently corroborates the ~1 in 200,000 prevalence estimate for ARS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7741,7 +8643,7 @@ has_subtypes:
   evidence:
   - reference: PMID:22199394
     reference_title: &#34;Axenfeld-Rieger syndrome: new perspectives.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Recent advances in molecular genetics have identified two major genes, PITX2 and FOXC1, demonstrating a wide spectrum of mutations, which aids in the molecular diagnosis of the disease.
     explanation: The literature confirms that Axenfeld-Rieger syndrome is associated with mutations in the PITX2 gene and is characterized by ocular abnormalities and extra-ocular symptoms.
   - reference: PMID:31341655
@@ -7888,6 +8790,15 @@ prevalence:
     explanation: Independently corroborates the ~1 in 200,000 prevalence estimate for ARS.
 pathophysiology:
 - name: Disrupted Neural Crest-Derived Periocular Mesenchyme Development
+  genes:
+  - preferred_term: PITX2
+    term:
+      id: hgnc:9005
+      label: PITX2
+  - preferred_term: FOXC1
+    term:
+      id: hgnc:3800
+      label: FOXC1
   conforms_to: &#34;anterior_segment_dysgenesis#Disrupted Periocular Mesenchyme Migration and Differentiation&#34;
   biological_scale: CELLULAR
   description: PITX2 and FOXC1 haploinsufficiency in cranial neural crest-derived periocular mesenchyme disrupts signaling integration (retinoic acid-PITX2-DKK2 pathway, Hippo/YAP-TAZ-FOXC1 axis, TGF-beta/ECM interactions) leading to failure of normal regression of transient mesenchyme at the iridocorneal angle and maldevelopment of trabecular meshwork and Schlemm&#39;s canal.
@@ -7925,7 +8836,7 @@ pathophysiology:
   evidence:
   - reference: PMID:22199394
     reference_title: &#34;Axenfeld-Rieger syndrome: new perspectives.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Recent advances in molecular genetics have identified two major genes, PITX2 and FOXC1, demonstrating a wide spectrum of mutations, which aids in the molecular diagnosis of the disease.
     explanation: Confirms PITX2 and FOXC1 as the primary genes involved in ARS pathogenesis.
   downstream:
@@ -7949,6 +8860,11 @@ pathophysiology:
         source is OTHER because this is a review.
 
 - name: Dysregulated Transcription Factor Activity
+  genes:
+  - preferred_term: PITX2
+    term:
+      id: hgnc:9005
+      label: PITX2
   conforms_to: &#34;anterior_segment_dysgenesis#Anterior Segment Developmental Regulator Defect&#34;
   biological_scale: MOLECULAR
   description: Mutations in the PITX2 gene disrupt its function as a transcription factor, impairing its ability to bind DNA and regulate gene expression critical for eye development. Most mutations cause defects in DNA binding or transcriptional activation, while some increase transactivation activity, leading to unregulated gene expression during embryogenesis.
@@ -8197,7 +9113,7 @@ pathophysiology:
     explanation: The reference mentions that glaucomas associated with Axenfeld-Rieger syndrome can lead to visual disability, supporting the statement.
   - reference: PMID:5467709
     reference_title: &#34;Glaucoma and Rieger&#39;s syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Glaucoma and Rieger&#39;s syndrome.
     explanation: The title suggests a direct relationship between glaucoma and Axenfeld-Rieger syndrome, implying that vision loss due to glaucoma is a concern.
 phenotypes:
@@ -8235,7 +9151,7 @@ phenotypes:
     explanation: The literature states that glaucoma is a major cause of visual morbidity in Axenfeld-Rieger syndrome, supporting the statement.
   - reference: PMID:21666320
     reference_title: &#34;Unusual presentation in Axenfeld-Rieger syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: The patient had megalocornea with Haab&#39;s striae in the right eye and posterior embryotoxon in both the eyes. In the left eye, there was a white cord-like structure traversing the anterior chamber with adhesions to iris tissue along its course.
     explanation: The literature describes ocular abnormalities consistent with glaucoma in Axenfeld-Rieger syndrome, supporting the statement.
   - reference: PMID:15509533
@@ -8257,7 +9173,7 @@ phenotypes:
   evidence:
   - reference: PMID:15492748
     reference_title: &#34;Posterior embryotoxon may not be a forme fruste of Axenfeld-Rieger&#39;s Syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: One of the main ocular features associated with Axenfeld-Rieger is posterior embryotoxon, which is a prominent anteriorly displaced Schwalbe&#39;s line. This can be found in up to 15% of normal eyes, without any clinical significance or may represent a forme fruste of an anterior segment dysgenesis.
     explanation: The literature supports that posterior embryotoxon is a common feature of Axenfeld-Rieger syndrome but does not confirm it as &#39;VERY_FREQUENT&#39;. Additionally, it may be present without clinical significance.
   - reference: PMID:21666320
@@ -8337,7 +9253,7 @@ phenotypes:
     explanation: The abstract confirms dental abnormalities are definitive features of Rieger syndrome.
   - reference: PMID:35836351
     reference_title: &#34;Enamel defects of Axenfeld-Rieger syndrome and the role of PITX2 in its pathogenesis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Enamel formation is disturbed in some patients with ARS. Pitx2 knockdown can influence the proliferation and ameloblast differentiation of inner enamel epithelial cells, and PITX2 may regulate cell proliferation via Wnt/beta-catenin signaling pathway.
     explanation: This study provides evidence for enamel hypoplasia in some patients with Axenfeld-Rieger syndrome but does not provide information on the frequency or other dental anomalies such as hypodontia or microdontia.
 - category: Craniofacial
@@ -8802,6 +9718,19 @@ disease_term:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Augment Axenfeld-Rieger syndrome: inheritance, classifications, prevalence, FOXC1 CNS phenotypes, variant evidence</strong> · 2026-07-31T00:13:58Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Axenfeld-Rieger_syndrome/2026-07-31T001358Z-claude-code-7f98e4.yaml">View source</a></p>
+                        <p class="research-review-text">Augmented existing ARS umbrella entry. Added inheritance block: autosomal dominant HP:0000006 for both RIEG1/RIEG3, and digenic HP:0010984 citing the Kelberman 2011 double-heterozygote report PMID:21837767. Added classifications block with Harrison&#39;s GENETICS_ENVIRONMENT_DISEASE. Rewrote prevalence to the well-cited ~1:200,000 birth-prevalence estimate BAND_1_9_PER_1000000 rate 0.5 per 100000, sourced to PMID:32357855 and PMID:35733478, removing the deprecated percentage field and several unrelated-disease NO_EVIDENCE references. Replaced the three NO_EVIDENCE items on the PITX2 V45L p.Val136Leu variant with the correct primary functional source Priston 2001 PMID:11487566. Added FOXC1-related CNS/neurodevelopmental phenotypes white matter HP:0002500, ventriculomegaly HP:0002119, hypotonia HP:0001290, plus a Systemic Anomalies CNS downstream edge, and gene-specific genotype-phenotype evidence on the PITX2 and FOXC1 genetic blocks, all from the landmark Reis 2023 cohort PMID:35882526. Tagged pathophysiology nodes with biological_scale. Research base: existing Falcon deep-research report; a fresh Falcon run failed 402 out of credits. All snippets verified as exact substrings of just-fetched caches; passes just validate schema, terms, references.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9172,7 +10101,7 @@ disease_term:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Axenfeld-Rieger_syndrome", "mondoId": "MONDO:0019187", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Axenfeld-Rieger_syndrome", "yamlRevision": "25107cd958fd"};
+        const OS_CONFIG = {"diseaseName": "Axenfeld-Rieger_syndrome", "mondoId": "MONDO:0019187", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Axenfeld-Rieger_syndrome", "yamlRevision": "739491f5456f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

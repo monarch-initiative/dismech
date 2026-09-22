@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3726,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3992,7 +4099,7 @@
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">13</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -4228,6 +4335,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4249,6 +4358,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4317,6 +4428,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                GALNS
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:4122" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:4122</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in GALNS (hgnc:4122). hgnc:4122 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">GALNS-related Morquio syndrome with deficiency of N-acetylgalactosamine-6-sulfatase. Type A stores both keratan sulfate and chondroitin-6-sulfate and is the Morquio subtype for which elosulfase alfa enzyme replacement therapy is approved.</div>
@@ -4327,9 +4457,36 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23844448" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23844448" target="_blank">PMID:23844448</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of MPS IVA is established in a proband by identification of low N-acetylgalactosamine 6-sulfatase (GALNS) enzyme activity in cultured fibroblasts or leukocytes or by identification of biallelic pathogenic variants in GALNS on molecular genetic testing."</div>
+
+
+                <div class="evidence-explanation">The GeneReviews chapter for MPS IVA makes biallelic GALNS variants (or the corresponding enzyme deficiency) diagnostic of this subtype, supporting the GALNS gene binding on this row.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:32905071" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -4339,6 +4496,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4362,6 +4521,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4403,6 +4564,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                GLB1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:4298" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:4298</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in GLB1 (hgnc:4298). hgnc:4298 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">GLB1-related Morquio syndrome with beta-galactosidase deficiency and keratan-sulfate-dominant storage. Type B is usually attenuated relative to Type A, although intermediate GLB1 phenotypes bridging GM1 gangliosidosis and Morquio B have been reported.</div>
@@ -4427,6 +4607,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4448,6 +4630,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4495,6 +4679,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-type-a-galns-deficiency" data-dismech-node="Type A GALNS deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Type A GALNS deficiency</div>
 
+
                 <div class="item-desc">In Morquio type A, GALNS deficiency blocks lysosomal degradation of keratan sulfate and chondroitin-6-sulfate.</div>
 
 
@@ -4517,11 +4702,11 @@
         GALNS
 
 
-    <a href="https://bioregistry.io/hgnc:4122" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:4122</a>
+    <a href="https://bioregistry.io/hgnc:4122" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:4122</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves GALNS (hgnc:4122). hgnc:4122 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4559,11 +4744,11 @@ This pathophysiological event involves GALNS (hgnc:4122). hgnc:4122 is a gene fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006027" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006027</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006027" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006027</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased glycosaminoglycan catabolic process (GO:0006027). GO:0006027 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4627,6 +4812,8 @@ This pathophysiological event involves decreased glycosaminoglycan catabolic pro
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4650,6 +4837,7 @@ This pathophysiological event involves decreased glycosaminoglycan catabolic pro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-type-b-glb1-deficiency-with-keratan-sulfate-biased-catalytic-loss" data-dismech-node="Type B GLB1 deficiency with keratan sulfate-biased catalytic loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Type B GLB1 deficiency with keratan sulfate-biased catalytic loss</div>
 
+
                 <div class="item-desc">In Morquio type B, GLB1 mutations create a beta-galactosidase deficiency phenotype in which keratan sulfate handling is disproportionately impaired, producing a skeletal/connective-tissue presentation rather than classic GM1 gangliosidosis.</div>
 
 
@@ -4672,11 +4860,11 @@ This pathophysiological event involves decreased glycosaminoglycan catabolic pro
         GLB1
 
 
-    <a href="https://bioregistry.io/hgnc:4298" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:4298</a>
+    <a href="https://bioregistry.io/hgnc:4298" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:4298</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves GLB1 (hgnc:4298). hgnc:4298 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4715,11 +4903,11 @@ This pathophysiological event involves GLB1 (hgnc:4298). hgnc:4298 is a gene fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004565" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0004565</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004565" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0004565</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves decreased beta-galactosidase activity (GO:0004565). GO:0004565 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -4782,6 +4970,8 @@ This pathophysiological event involves decreased beta-galactosidase activity (GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4803,6 +4993,8 @@ This pathophysiological event involves decreased beta-galactosidase activity (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4828,6 +5020,7 @@ This pathophysiological event involves decreased beta-galactosidase activity (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-keratan-sulfate-dominant-lysosomal-storage-in-cartilage-and-connective-tissue" data-dismech-node="Keratan sulfate-dominant lysosomal storage in cartilage and connective tissue" data-dismech-type="pathophysiology">
                 <div class="item-name">Keratan sulfate-dominant lysosomal storage in cartilage and connective tissue</div>
 
+
                 <div class="item-desc">Keratan sulfate accumulates in both Morquio subtypes; Type A also stores chondroitin-6-sulfate. Storage is concentrated in cartilage and other connective tissues, where distended lysosomes initiate downstream tissue injury.</div>
 
 
@@ -4842,11 +5035,11 @@ This pathophysiological event involves decreased beta-galactosidase activity (GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000138</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4872,11 +5065,11 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000057</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4915,11 +5108,11 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0005764</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0005764</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this cellular component
 This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a cellular component from the Gene Ontology.</span>
                     </span>
@@ -4937,11 +5130,11 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002418" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0002418</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002418" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002418</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in cartilage tissue (UBERON:0002418). UBERON:0002418 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -4993,6 +5186,8 @@ This pathophysiological event occurs in cartilage tissue (UBERON:0002418). UBERO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5014,6 +5209,8 @@ This pathophysiological event occurs in cartilage tissue (UBERON:0002418). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5039,6 +5236,7 @@ This pathophysiological event occurs in cartilage tissue (UBERON:0002418). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cartilage-matrix-dysfunction-and-impaired-endochondral-ossification" data-dismech-node="Cartilage matrix dysfunction and impaired endochondral ossification" data-dismech-type="pathophysiology">
                 <div class="item-name">Cartilage matrix dysfunction and impaired endochondral ossification</div>
 
+
                 <div class="item-desc">Glycosaminoglycan storage in cartilage, ligaments, and their extracellular matrix balloons chondrocytes and impedes endochondral ossification and chondrogenesis.</div>
 
 
@@ -5053,11 +5251,11 @@ This pathophysiological event occurs in cartilage tissue (UBERON:0002418). UBERO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:1000217</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:1000217</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves growth plate cartilage chondrocyte (CL:1000217). CL:1000217 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5094,11 +5292,11 @@ This pathophysiological event involves growth plate cartilage chondrocyte (CL:10
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0001958</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0001958</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased endochondral ossification (GO:0001958). GO:0001958 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5128,11 +5326,11 @@ This pathophysiological event involves decreased endochondral ossification (GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051216" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0051216</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051216" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0051216</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased cartilage development (GO:0051216). GO:0051216 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5162,11 +5360,11 @@ This pathophysiological event involves decreased cartilage development (GO:00512
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0030198</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5199,11 +5397,11 @@ This pathophysiological event involves extracellular matrix organization (GO:003
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004129" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0004129</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004129" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0004129</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in growth plate cartilage (UBERON:0004129). UBERON:0004129 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5216,11 +5414,11 @@ This pathophysiological event occurs in growth plate cartilage (UBERON:0004129).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0008846" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0008846</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0008846" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0008846</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in skeletal ligament (UBERON:0008846). UBERON:0008846 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5264,6 +5462,8 @@ This pathophysiological event occurs in skeletal ligament (UBERON:0008846). UBER
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5285,6 +5485,8 @@ This pathophysiological event occurs in skeletal ligament (UBERON:0008846). UBER
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5309,6 +5511,7 @@ This pathophysiological event occurs in skeletal ligament (UBERON:0008846). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-skeletal-dysplasia-and-joint-laxity" data-dismech-node="Progressive skeletal dysplasia and joint laxity" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive skeletal dysplasia and joint laxity</div>
+
 
                 <div class="item-desc">Morquio syndrome expresses its core phenotype as progressive dysostosis multiplex, short stature, kyphoscoliosis, limb deformity, and joint laxity.</div>
 
@@ -5417,6 +5620,8 @@ This pathophysiological event occurs in skeletal ligament (UBERON:0008846). UBER
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5438,6 +5643,8 @@ This pathophysiological event occurs in skeletal ligament (UBERON:0008846). UBER
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5463,6 +5670,7 @@ This pathophysiological event occurs in skeletal ligament (UBERON:0008846). UBER
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-craniovertebral-instability" data-dismech-node="Craniovertebral instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Craniovertebral instability</div>
 
+
                 <div class="item-desc">Odontoid hypoplasia, atlantoaxial instability, and cervical canal narrowing destabilize the craniovertebral junction.</div>
 
 
@@ -5487,11 +5695,11 @@ This pathophysiological event occurs in skeletal ligament (UBERON:0008846). UBER
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003694" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0003694</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003694" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0003694</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in atlanto-axial joint (UBERON:0003694). UBERON:0003694 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5535,6 +5743,8 @@ This pathophysiological event occurs in atlanto-axial joint (UBERON:0003694). UB
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5557,6 +5767,7 @@ This pathophysiological event occurs in atlanto-axial joint (UBERON:0003694). UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cervical-spinal-cord-compression" data-dismech-node="Cervical spinal cord compression" data-dismech-type="pathophysiology">
                 <div class="item-name">Cervical spinal cord compression</div>
+
 
                 <div class="item-desc">Craniovertebral instability and cervical canal compromise can compress the cervical spinal cord and produce myelopathy.</div>
 
@@ -5609,6 +5820,8 @@ This pathophysiological event occurs in atlanto-axial joint (UBERON:0003694). UB
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5622,14 +5835,16 @@ This pathophysiological event occurs in atlanto-axial joint (UBERON:0003694). UB
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32071837" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32071837" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32071837" target="_blank">PMID:32071837</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5655,6 +5870,7 @@ This pathophysiological event occurs in atlanto-axial joint (UBERON:0003694). UB
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-structural-airway-narrowing" data-dismech-node="Structural airway narrowing" data-dismech-type="pathophysiology">
                 <div class="item-name">Structural airway narrowing</div>
 
+
                 <div class="item-desc">Glycosaminoglycan-loaded tracheal cartilage together with thoracic and cervicothoracic skeletal distortion produces fixed upper-airway and tracheal narrowing.</div>
 
 
@@ -5679,11 +5895,11 @@ This pathophysiological event occurs in atlanto-axial joint (UBERON:0003694). UB
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003126" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0003126</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003126" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0003126</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in trachea (UBERON:0003126). UBERON:0003126 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5735,6 +5951,8 @@ This pathophysiological event occurs in trachea (UBERON:0003126). UBERON:0003126
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5756,6 +5974,8 @@ This pathophysiological event occurs in trachea (UBERON:0003126). UBERON:0003126
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5780,6 +6000,7 @@ This pathophysiological event occurs in trachea (UBERON:0003126). UBERON:0003126
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-respiratory-compromise" data-dismech-node="Respiratory compromise" data-dismech-type="pathophysiology">
                 <div class="item-name">Respiratory compromise</div>
+
 
                 <div class="item-desc">Progressive upper-airway and tracheal narrowing reduce ventilation and can lead to respiratory distress, chronic respiratory disease, and mortality.</div>
 
@@ -5817,6 +6038,8 @@ This pathophysiological event occurs in trachea (UBERON:0003126). UBERON:0003126
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5838,6 +6061,8 @@ This pathophysiological event occurs in trachea (UBERON:0003126). UBERON:0003126
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5863,6 +6088,7 @@ This pathophysiological event occurs in trachea (UBERON:0003126). UBERON:0003126
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-corneal-and-valvular-connective-tissue-involvement" data-dismech-node="Corneal and valvular connective tissue involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Corneal and valvular connective tissue involvement</div>
 
+
                 <div class="item-desc">Storage outside cartilage affects cornea and cardiac valves, contributing to corneal clouding, impaired vision, hearing loss, and valve disease.</div>
 
 
@@ -5887,11 +6113,11 @@ This pathophysiological event occurs in trachea (UBERON:0003126). UBERON:0003126
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0000964</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5904,11 +6130,11 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000946" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0000946</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000946" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-20">UBERON:0000946</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in cardiac valve (UBERON:0000946). UBERON:0000946 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5968,6 +6194,8 @@ This pathophysiological event occurs in cardiac valve (UBERON:0000946). UBERON:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5989,6 +6217,8 @@ This pathophysiological event occurs in cardiac valve (UBERON:0000946). UBERON:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6057,17 +6287,19 @@ This pathophysiological event occurs in cardiac valve (UBERON:0000946). UBERON:0
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6094,15 +6326,18 @@ This pathophysiological event occurs in cardiac valve (UBERON:0000946). UBERON:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001654" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001654</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001654" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001654</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:0001654 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6122,6 +6357,8 @@ This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:000165
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6145,6 +6382,8 @@ This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:000165
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6175,6 +6414,112 @@ This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:000165
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Ear
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hearing-abnormality" data-dismech-node="Hearing abnormality" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hearing abnormality
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000364" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000364</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hearing abnormality (HP:0000364). HP:0000364 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25346323" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25346323" target="_blank">PMID:25346323</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Morquio A syndrome (mucopolysaccharidosis IVA) is a lysosomal storage disorder associated with skeletal and joint abnormalities and significant non-skeletal manifestations including respiratory disease, spinal cord compression, cardiac disease, impaired vision, hearing loss, and dental problems."</div>
+
+
+                <div class="evidence-explanation">Guidelines explicitly include hearing loss among the significant non-skeletal manifestations of Morquio A.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8233358" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8233358" target="_blank">PMID:8233358</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition to the characteristic dwarfism with skeletal deformities, odontoid anomalies, hearing loss and corneal clouding, the authors found almost identical lens opacities in all three patients."</div>
+
+
+                <div class="evidence-explanation">This provides direct patient-level support for hearing loss in Morquio syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">1</span>
                 </summary>
@@ -6193,15 +6538,18 @@ This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:000165
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0007957</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0007957</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6221,6 +6569,8 @@ This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6244,6 +6594,8 @@ This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6271,7 +6623,7 @@ This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
@@ -6292,15 +6644,18 @@ This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002857" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002857</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002857" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002857</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6320,6 +6675,8 @@ This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6347,7 +6704,7 @@ This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype fro
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -6368,15 +6725,18 @@ This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000943" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000943</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000943" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000943</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dysostosis multiplex (HP:0000943). HP:0000943 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6396,6 +6756,8 @@ This clinical feature is Dysostosis multiplex (HP:0000943). HP:0000943 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6435,15 +6797,18 @@ This clinical feature is Dysostosis multiplex (HP:0000943). HP:0000943 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000768" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000768</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000768" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000768</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pectus carinatum (HP:0000768). HP:0000768 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6463,6 +6828,8 @@ This clinical feature is Pectus carinatum (HP:0000768). HP:0000768 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6504,15 +6871,18 @@ This clinical feature is Pectus carinatum (HP:0000768). HP:0000768 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001382</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001382</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Joint laxity, annotated with Joint hypermobility (HP:0001382). HP:0001382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6532,6 +6902,8 @@ This clinical feature is Joint laxity, annotated with Joint hypermobility (HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6555,6 +6927,8 @@ This clinical feature is Joint laxity, annotated with Joint hypermobility (HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6594,15 +6968,18 @@ This clinical feature is Joint laxity, annotated with Joint hypermobility (HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003311" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0003311</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003311" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0003311</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoplasia of the odontoid process (HP:0003311). HP:0003311 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6622,6 +6999,8 @@ This clinical feature is Hypoplasia of the odontoid process (HP:0003311). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6645,6 +7024,8 @@ This clinical feature is Hypoplasia of the odontoid process (HP:0003311). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6672,7 +7053,88 @@ This clinical feature is Hypoplasia of the odontoid process (HP:0003311). HP:000
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-spinal-cord-compression" data-dismech-node="Spinal cord compression" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Spinal cord compression
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002176" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002176</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spinal cord compression (HP:0002176). HP:0002176 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29326877" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29326877" target="_blank">PMID:29326877</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Individuals with MPS IVA, particularly with the severe form, often do not survive past their twenties, as the most attributed causes of mortality and morbidity are spinal cord compression, instability of the C1-C2 joint, and airway compromise including tracheal obstruction"</div>
+
+
+                <div class="evidence-explanation">This directly supports spinal cord compression as a severe Type A complication.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
@@ -6693,15 +7155,18 @@ This clinical feature is Hypoplasia of the odontoid process (HP:0003311). HP:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002781" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002781</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002781" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002781</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Upper airway obstruction (HP:0002781). HP:0002781 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6721,6 +7186,8 @@ This clinical feature is Upper airway obstruction (HP:0002781). HP:0002781 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6748,7 +7215,7 @@ This clinical feature is Upper airway obstruction (HP:0002781). HP:0002781 is a 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -6769,10 +7236,10 @@ This clinical feature is Upper airway obstruction (HP:0002781). HP:0002781 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6783,6 +7250,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6797,6 +7267,8 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6807,172 +7279,6 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                 <div class="evidence-explanation">Disproportionate dwarfism directly supports short stature as a core Morquio phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-spinal-cord-compression" data-dismech-node="Spinal cord compression" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Spinal cord compression
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002176" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002176</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Spinal cord compression (HP:0002176). HP:0002176 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29326877" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29326877" target="_blank">PMID:29326877</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Individuals with MPS IVA, particularly with the severe form, often do not survive past their twenties, as the most attributed causes of mortality and morbidity are spinal cord compression, instability of the C1-C2 joint, and airway compromise including tracheal obstruction"</div>
-
-
-                <div class="evidence-explanation">This directly supports spinal cord compression as a severe Type A complication.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hearing-abnormality" data-dismech-node="Hearing abnormality" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hearing abnormality
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000364" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000364</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hearing abnormality (HP:0000364). HP:0000364 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25346323" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25346323" target="_blank">PMID:25346323</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Morquio A syndrome (mucopolysaccharidosis IVA) is a lysosomal storage disorder associated with skeletal and joint abnormalities and significant non-skeletal manifestations including respiratory disease, spinal cord compression, cardiac disease, impaired vision, hearing loss, and dental problems."</div>
-
-
-                <div class="evidence-explanation">Guidelines explicitly include hearing loss among the significant non-skeletal manifestations of Morquio A.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:8233358" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8233358" target="_blank">PMID:8233358</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In addition to the characteristic dwarfism with skeletal deformities, odontoid anomalies, hearing loss and corneal clouding, the authors found almost identical lens opacities in all three patients."</div>
-
-
-                <div class="evidence-explanation">This provides direct patient-level support for hearing loss in Morquio syndrome.</div>
 
 
 
@@ -7045,10 +7351,10 @@ This clinical feature is Hearing abnormality (HP:0000364). HP:0000364 is a pheno
                         Gene: GALNS
 
 
-    <a href="https://bioregistry.io/hgnc:4122" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:4122</a>
+    <a href="https://bioregistry.io/hgnc:4122" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:4122</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is GALNS (hgnc:4122). hgnc:4122 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7060,6 +7366,9 @@ This disease-associated gene is GALNS (hgnc:4122). hgnc:4122 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7078,6 +7387,8 @@ This disease-associated gene is GALNS (hgnc:4122). hgnc:4122 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7119,10 +7430,10 @@ This disease-associated gene is GALNS (hgnc:4122). hgnc:4122 is a gene from the 
                         Gene: GLB1
 
 
-    <a href="https://bioregistry.io/hgnc:4298" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:4298</a>
+    <a href="https://bioregistry.io/hgnc:4298" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:4298</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is GLB1 (hgnc:4298). hgnc:4298 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7134,6 +7445,9 @@ This disease-associated gene is GLB1 (hgnc:4298). hgnc:4298 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7152,6 +7466,8 @@ This disease-associated gene is GLB1 (hgnc:4298). hgnc:4298 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7175,6 +7491,8 @@ This disease-associated gene is GLB1 (hgnc:4298). hgnc:4298 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7224,7 +7542,7 @@ This disease-associated gene is GLB1 (hgnc:4298). hgnc:4298 is a gene from the H
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">enzyme replacement therapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">enzyme replacement therapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is enzyme replacement therapy, annotated with Protein Replacement Therapy (NCIT:C16221). NCIT:C16221 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7252,6 +7570,20 @@ This treatment is enzyme replacement therapy, annotated with Protein Replacement
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7287,6 +7619,8 @@ This treatment is enzyme replacement therapy, annotated with Protein Replacement
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7335,6 +7669,8 @@ This treatment is enzyme replacement therapy, annotated with Protein Replacement
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7377,6 +7713,8 @@ This treatment is enzyme replacement therapy, annotated with Protein Replacement
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7400,6 +7738,8 @@ This treatment is enzyme replacement therapy, annotated with Protein Replacement
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7421,6 +7761,8 @@ This treatment is enzyme replacement therapy, annotated with Protein Replacement
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7453,7 +7795,7 @@ This treatment is enzyme replacement therapy, annotated with Protein Replacement
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">cervical decompression and fusion<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">cervical decompression and fusion<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is cervical decompression and fusion, annotated with Spinal Fusion (NCIT:C157986). NCIT:C157986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7481,6 +7823,20 @@ This treatment is cervical decompression and fusion, annotated with Spinal Fusio
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7516,6 +7872,8 @@ This treatment is cervical decompression and fusion, annotated with Spinal Fusio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7564,6 +7922,8 @@ This treatment is cervical decompression and fusion, annotated with Spinal Fusio
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7606,6 +7966,8 @@ This treatment is cervical decompression and fusion, annotated with Spinal Fusio
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7634,7 +7996,7 @@ This treatment is cervical decompression and fusion, annotated with Spinal Fusio
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">airway surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">airway surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is airway surgical procedure, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7662,6 +8024,31 @@ This treatment is airway surgical procedure, annotated with Surgical Procedure (
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7699,6 +8086,8 @@ This treatment is airway surgical procedure, annotated with Surgical Procedure (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7720,6 +8109,8 @@ This treatment is airway surgical procedure, annotated with Surgical Procedure (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7764,6 +8155,8 @@ This treatment is airway surgical procedure, annotated with Surgical Procedure (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7787,6 +8180,8 @@ This treatment is airway surgical procedure, annotated with Surgical Procedure (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7808,6 +8203,8 @@ This treatment is airway surgical procedure, annotated with Surgical Procedure (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7838,7 +8235,7 @@ This treatment is airway surgical procedure, annotated with Surgical Procedure (
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7866,6 +8263,31 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7901,6 +8323,8 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7943,6 +8367,8 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8010,6 +8436,8 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8060,6 +8488,8 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8081,6 +8511,777 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-radiographic-dysostosis-multiplex-evaluation">
+                <div class="item-name">
+                    Radiographic Dysostosis Multiplex Evaluation
+
+                </div>
+
+                <div class="item-desc">Skeletal radiographs support Morquio suspicion when progressive clinical findings are accompanied by dysostosis multiplex, including vertebral beaking or platyspondyly, dens hypoplasia, hip and pelvic dysplasia, genu valgum, pectus carinatum, and characteristic hand changes.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        radiograph imaging procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38101" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-38">NCIT:C38101</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25346323" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25346323" target="_blank">PMID:25346323</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients with the disease generally gain clinical attention due to a cluster of progressive, multisystemic clinical and/or radiographic findings"</div>
+
+
+                <div class="evidence-explanation">Supports using the combined clinical and radiographic pattern to trigger Morquio diagnostic evaluation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25346323" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25346323" target="_blank">PMID:25346323</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Radiographic findings (dysostosis multiplex) suggesting Morquio A syndrome include abnormally shaped vertebral bodies with anterior beaking, posterior scalloping, platyspondyly and dens hypoplasia, thoracolumbar kyphosis, short, broad metacarpals with proximal rounding, irregular carpal bones,..."</div>
+
+
+                <div class="evidence-explanation">Specifies the radiographic dysostosis multiplex features that support Morquio A diagnostic suspicion.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29054894" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29054894" target="_blank">PMID:29054894</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Healthcare providers across specialties should have a high degree of suspicion for MPS IVA in all patients with suspected spondylo-epiphyseal dysplasia"</div>
+
+
+                <div class="evidence-explanation">Supports considering Morquio A when the skeletal-radiographic differential initially resembles primary spondyloepiphyseal dysplasia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-enzyme-activity-confirmation">
+                <div class="item-name">
+                    Enzyme Activity Confirmation
+
+                </div>
+
+                <div class="item-desc">Biochemical confirmation of Morquio A usually requires reduced GALNS activity in leukocytes or fibroblasts; beta-galactosidase and other lysosomal enzyme activity testing helps separate Morquio B and secondary enzyme deficiencies when the presentation overlaps.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25346323" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25346323" target="_blank">PMID:25346323</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a definite diagnosis usually entails demonstration of reduced GALNS activity in leukocytes or fibroblasts."</div>
+
+
+                <div class="evidence-explanation">Directly supports leukocyte or fibroblast GALNS activity testing as the usual confirmatory procedure for Morquio A.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25346323" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25346323" target="_blank">PMID:25346323</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"it is recommended to proceed to enzyme activity testing in leukocytes or fibroblasts not only when screening is positive or doubtful, but even when it is negative and the clinical-radiological data are suggestive of Morquio A."</div>
+
+
+                <div class="evidence-explanation">Shows that enzyme confirmation remains indicated despite negative screening when the clinical-radiographic pattern is suggestive.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32071837" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32071837" target="_blank">PMID:32071837</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Residual β-galactosidase activities measured against synthetic substrates were 0%-17%."</div>
+
+
+                <div class="evidence-explanation">Supports beta-galactosidase activity measurement as part of Morquio B biochemical confirmation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-urinary-gag-and-keratan-sulfate-biomarker-screening">
+                <div class="item-name">
+                    Urinary GAG and Keratan-Sulfate Biomarker Screening
+
+                </div>
+
+                <div class="item-desc">Urine chemistry can support Morquio evaluation by detecting GAG, keratan sulfate, or newer chondroitin-sulfate disaccharide biomarkers, but normal urinary GAG or nonspecific KS results do not exclude Morquio A and should be followed by enzyme or molecular confirmation when suspicion remains high.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        urine chemistry measurement
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C61044" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-40">NCIT:C61044</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32905071" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32905071" target="_blank">PMID:32905071</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Excessive urinary excretion of these GAG is often used as the initial biochemical parameter to inform a laboratory diagnosis."</div>
+
+
+                <div class="evidence-explanation">Supports urine GAG testing as an initial biochemical diagnostic parameter for Morquio A.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32905071" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32905071" target="_blank">PMID:32905071</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HNAc-UA (1S) is a reliable, sensitive and specific biomarker for the diagnosis of MPS IVA"</div>
+
+
+                <div class="evidence-explanation">Supports the newer urine chondroitin-sulfate disaccharide biomarker for Morquio A diagnosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25346323" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25346323" target="_blank">PMID:25346323</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Total urinary GAG may not be elevated in Morquio A patients, especially as patients grow older, because KS levels decrease naturally with age and can reach levels consistent with the upper range reported in unaffected individuals."</div>
+
+
+                <div class="evidence-explanation">Documents the false-negative limitation of urine screening and why normal urine GAG should not end evaluation when suspicion is high.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-confirmation-and-subtyping">
+                <div class="item-name">
+                    Molecular Genetic Confirmation and Subtyping
+
+                </div>
+
+                <div class="item-desc">Molecular testing confirms and subtypes Morquio syndrome by identifying biallelic GALNS variants in Type A or GLB1 variants in Type B, especially when enzyme results are inconclusive or phenotype overlaps other skeletal dysplasias and lysosomal disorders.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-41">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25346323" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25346323" target="_blank">PMID:25346323</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Molecular analysis can be performed as a further confirmation of the diagnosis."</div>
+
+
+                <div class="evidence-explanation">Directly supports molecular confirmation for Morquio A after biochemical evaluation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25346323" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25346323" target="_blank">PMID:25346323</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"identification of two known pathogenic mutations on separate alleles is required for definitive diagnosis"</div>
+
+
+                <div class="evidence-explanation">Supports biallelic pathogenic-variant identification when enzyme results are inconclusive.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33558080" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33558080" target="_blank">PMID:33558080</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We propose a diagnostic plan, setting out the specific clinical- biochemical and molecular features of Morquio B"</div>
+
+
+                <div class="evidence-explanation">Supports molecular diagnosis as part of Morquio B-specific subtyping and differential diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-birth-to-early-childhood">
+                <div class="item-name">Birth to early childhood</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-subtype">Type A</span>
+
+
+                    <span class="tag">Age: Birth to first years of life</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Infants usually appear normal at birth, then progressively develop profound skeletal and joint abnormalities with additional non-skeletal involvement as storage accumulates.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25346323" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25346323" target="_blank">PMID:25346323</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Infants with Morquio A syndrome usually appear normal at birth. However, due to the accumulation of storage material in tissues and organs, leading to cellular dysfunction, they progressively develop profound skeletal and joint abnormalities and an array of non-skeletal manifestations"</div>
+
+
+                <div class="evidence-explanation">This directly supports the typical normal-at-birth but progressive early-childhood natural history of Morquio A syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-reported-incidence-range">
+                <div class="item-name">Reported incidence range</div>
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag tag-subtype">Type A</span>
+
+                </div>
+
+                <div class="item-notes">Published incidence estimates for Type A range from approximately 1 in 640,000 live births in Western Australia to 1 in 76,000 in Northern Ireland.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25346323" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25346323" target="_blank">PMID:25346323</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The disease is extremely rare, with incidence rates ranging from 1 in 640,000 live births in Western Australia to 1 in 76,000 live births in Northern Ireland"</div>
+
+
+                <div class="evidence-explanation">International guidelines summarize the published incidence range for Morquio A syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-reported-incidence-range-2">
+                <div class="item-name">Reported incidence range</div>
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag tag-subtype">Type B</span>
+
+                </div>
+
+                <div class="item-notes">Type B is ultra-rare, with published incidence around 1:250,000 to 1:1,000,000 live births.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33558080" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33558080" target="_blank">PMID:33558080</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Morquio B disease, with an incidence of 1:250.000 to 1:1.000.000 live births, is very rare."</div>
+
+
+                <div class="evidence-explanation">This review/case series summarizes the reported incidence range for Morquio B disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8169,7 +9370,22 @@ has_subtypes:
     N-acetylgalactosamine-6-sulfatase. Type A stores both keratan sulfate and
     chondroitin-6-sulfate and is the Morquio subtype for which elosulfase alfa
     enzyme replacement therapy is approved.
+  genes:
+  - preferred_term: GALNS
+    term:
+      id: hgnc:4122
+      label: GALNS
   evidence:
+  - reference: PMID:23844448
+    reference_title: Mucopolysaccharidosis Type IVA.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;The diagnosis of MPS IVA is established in a proband by identification of low N-acetylgalactosamine 6-sulfatase (GALNS) enzyme activity in cultured fibroblasts or leukocytes or by identification of biallelic pathogenic variants in GALNS on molecular genetic testing.&#34;
+    explanation: &gt;-
+      The GeneReviews chapter for MPS IVA makes biallelic GALNS variants (or the
+      corresponding enzyme deficiency) diagnostic of this subtype, supporting the
+      GALNS gene binding on this row.
   - reference: PMID:32905071
     reference_title: Chondroitin sulfate disaccharide is a specific and sensitive biomarker for mucopolysaccharidosis type IVA.
     supports: SUPPORT
@@ -8197,6 +9413,11 @@ has_subtypes:
     keratan-sulfate-dominant storage. Type B is usually attenuated relative to
     Type A, although intermediate GLB1 phenotypes bridging GM1 gangliosidosis
     and Morquio B have been reported.
+  genes:
+  - preferred_term: GLB1
+    term:
+      id: hgnc:4298
+      label: GLB1
   evidence:
   - reference: PMID:33558080
     reference_title: &#34;Morquio B disease: From pathophysiology towards diagnosis.&#34;
@@ -8612,7 +9833,7 @@ pathophysiology:
     explanation: This directly supports cervical spinal cord compression as a terminal high-risk Morquio mechanism.
   - reference: PMID:32071837
     reference_title: &#34;Morquio-B disease: Clinical and genetic characteristics of a distinct GLB1-related dysostosis multiplex.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Corneal clouding, cardiac valve pathology, hepatosplenomegaly, spinal cord compression were infrequent&#34;
     explanation: This shows that spinal cord compression can occur in Type B, but should be framed as infrequent rather than core.
@@ -9400,6 +10621,11 @@ treatments:
       snippet: &#34;Physical therapy and pain medication can be beneficial to manage musculoskeletal manifestations in some patients.&#34;
       explanation: This supports physical therapy as a symptomatic intervention for the skeletal disease branch.
 references:
+- reference: PMID:23844448
+  title: Mucopolysaccharidosis Type IVA.
+  tags:
+  - GeneReviews
+  findings: []
 - reference: DOI:10.1016/j.omtm.2024.101313
   title: A GLB1 transgene with enhanced therapeutic potential for the preclinical development of ex-vivo gene therapy to treat mucopolysaccharidosis type IVB
   found_in:
@@ -9597,7 +10823,24 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">13</span>
+                    <span class="card-count">14</span>
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/23844448" target="_blank">PMID:23844448</a>
+                            </div>
+
+                            <div class="reference-title">Mucopolysaccharidosis Type IVA.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
                 </div>
 
                 <div class="reference-entry">
@@ -9642,6 +10885,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9714,6 +10959,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9782,6 +11029,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9854,6 +11103,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9922,6 +11173,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9994,6 +11247,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10062,6 +11317,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10134,6 +11391,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10202,6 +11461,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10274,6 +11535,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10342,6 +11605,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10414,6 +11679,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10484,6 +11751,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10518,6 +11787,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Manual claim-vs-evidence review: clean, DR-provenance cleanup noted</strong> · 2026-07-11T18:31:54Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Morquio_syndrome/2026-07-11T183154Z-claude-code-9c03fc.yaml">View source</a></p>
+                        <p class="research-review-text">Manual review of all 123 evidence references (31 unique: 17 PMID, 12 DOI, 2 CGGV) against caches. Result: every snippet an exact whitespace-normalized substring, subtype-gene pairing correct (IVA=GALNS, IVB=GLB1), NEC clean, all conforms_to foreign keys resolve. The NBSP-vs-space concern at the 30-months ERT snippet (PMID:33256811) was checked and is a non-issue: the validator normalizes \s+ (which folds U+00A0) so it validates. No file changes made. Follow-ups (filed as issue): the Falcon DR-provenance block carries a meaningless bibliographic-citation snippet (PMID:35046639), a quoted source that itself misnames the MPS IVA enzyme (DOI:10.3390/ijms21041517), and two review articles tagged HUMAN_CLINICAL that would be better as OTHER.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11522,7 +12804,7 @@ A 2024 mechanistic review highlights receptor‑mediated BBB transport (“molec
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Morquio syndrome", "mondoId": "MONDO:0018938", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Morquio_syndrome", "yamlRevision": "57446216e380"};
+        const OS_CONFIG = {"diseaseName": "Morquio syndrome", "mondoId": "MONDO:0018938", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Morquio_syndrome", "yamlRevision": "3d57d3d0820b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

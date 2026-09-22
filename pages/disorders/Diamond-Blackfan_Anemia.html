@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3726,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3902,7 +4009,19 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
+
+            <a class="stat-link" href="#mappings">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔗</div>
+                <div class="stat-value">4</div>
+                <div class="stat-label">Mappings</div>
+            </div>
+            </a>
 
 
 
@@ -4003,6 +4122,183 @@
 
         <!-- Mappings -->
 
+        <div class="card" id="mappings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
+                <h2 class="card-title">Mappings</h2>
+            </div>
+
+            <div class="mapping-section">
+                <div class="classification-category">MONDO</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0007110" target="_blank" class="missing-ontology-link">MONDO:0007110</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">Diamond-Blackfan anemia 1</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">MONDO:0007110 (DBA1) is a direct MONDO subclass of MONDO:0015253 for the RPS19-caused form; RPS19 is modeled in this entry&#39;s `genetic:` section as the original and most common DBA gene. narrowMatch because MONDO models the gene-specific numbered subtype as a child of the general DBA class rather than as an equivalent term.</div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0012529" target="_blank" class="missing-ontology-link">MONDO:0012529</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">Diamond-Blackfan anemia 3</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">MONDO:0012529 (DBA3) is a direct MONDO subclass of MONDO:0015253 for the RPS24-caused form; RPS24 is modeled in this entry&#39;s `genetic:` section. narrowMatch for the same reason as the other numbered DBA subtypes.</div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0012938" target="_blank" class="missing-ontology-link">MONDO:0012938</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">Diamond-Blackfan anemia 7</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">MONDO:0012938 (DBA7) is a direct MONDO subclass of MONDO:0015253 for the RPL11-caused form; RPL11 is modeled in this entry&#39;s `genetic:` section, including the RPL11-specific hand-malformation genotype-phenotype correlation. narrowMatch for the same reason as the other numbered DBA subtypes.</div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0013217" target="_blank" class="missing-ontology-link">MONDO:0013217</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">Diamond-Blackfan anemia 10</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">MONDO:0013217 (DBA10) is a direct MONDO subclass of MONDO:0015253 for the RPS26-caused form; RPS26 is modeled in this entry&#39;s `genetic:` section. narrowMatch for the same reason as the other numbered DBA subtypes.</div>
+
+                </div>
+
+            </div>
+
+
+
+
+
+        </div>
+
 
         <!-- Definitions -->
 
@@ -4063,6 +4359,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4109,6 +4407,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ribosomal-protein-haploinsufficiency" data-dismech-node="Ribosomal Protein Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Ribosomal Protein Haploinsufficiency</div>
+
 
                 <div class="item-desc">Heterozygous loss-of-function mutations in ribosomal protein genes reduce ribosome assembly and protein synthesis capacity. Erythroid progenitors are exquisitely sensitive to ribosomal stress due to their high proliferative and translational demands. RPS19 mutations account for ~25% of cases, with RPL5, RPL11, and other RP genes collectively explaining ~65-70% of DBA.
 </div>
@@ -4706,6 +5005,8 @@ This pathophysiological event involves decreased translational initiation (GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4727,6 +5028,8 @@ This pathophysiological event involves decreased translational initiation (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4751,6 +5054,7 @@ This pathophysiological event involves decreased translational initiation (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-p53-mediated-erythroid-apoptosis" data-dismech-node="p53-Mediated Erythroid Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">p53-Mediated Erythroid Apoptosis</div>
+
 
                 <div class="item-desc">Ribosomal stress from RP haploinsufficiency leads to accumulation of free ribosomal proteins that bind MDM2, stabilizing p53. Activated p53 triggers cell cycle arrest and apoptosis preferentially in erythroid progenitors, resulting in selective red cell aplasia.
 </div>
@@ -4918,6 +5222,8 @@ This pathophysiological event involves abnormal erythrocyte differentiation (GO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4940,6 +5246,7 @@ This pathophysiological event involves abnormal erythrocyte differentiation (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gata1-translational-insufficiency" data-dismech-node="GATA1 Translational Insufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">GATA1 Translational Insufficiency</div>
+
 
                 <div class="item-desc">A distinct non-ribosomal mechanism causing DBA. GATA1 is an X-linked erythroid transcription factor essential for erythroid differentiation. Mutations in GATA1 (including splice site variants) reduce functional GATA1 protein levels, impairing erythroid gene expression. Unlike ribosomal protein mutations, GATA1 mutations directly affect erythroid transcription rather than global translation, but converge on the same erythroid differentiation failure.
 </div>
@@ -5127,6 +5434,8 @@ This pathophysiological event involves abnormal erythrocyte differentiation (GO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5242,6 +5551,9 @@ This clinical feature is macrocytic anemia (HP:0001972). HP:0001972 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5256,6 +5568,8 @@ This clinical feature is macrocytic anemia (HP:0001972). HP:0001972 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5311,6 +5625,9 @@ This clinical feature is pure red cell aplasia (HP:0012410). HP:0012410 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5325,6 +5642,8 @@ This clinical feature is pure red cell aplasia (HP:0012410). HP:0012410 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5380,6 +5699,9 @@ This clinical feature is acute myeloid leukemia (HP:0004808). HP:0004808 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5394,6 +5716,8 @@ This clinical feature is acute myeloid leukemia (HP:0004808). HP:0004808 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5449,6 +5773,9 @@ This clinical feature is myelodysplasia (HP:0002863). HP:0002863 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5463,6 +5790,8 @@ This clinical feature is myelodysplasia (HP:0002863). HP:0002863 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5529,6 +5858,9 @@ This clinical feature is craniofacial dysostosis (HP:0004439). HP:0004439 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5543,6 +5875,8 @@ This clinical feature is craniofacial dysostosis (HP:0004439). HP:0004439 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5607,6 +5941,9 @@ This clinical feature is triphalangeal thumb (HP:0001199). HP:0001199 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5621,6 +5958,8 @@ This clinical feature is triphalangeal thumb (HP:0001199). HP:0001199 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5685,6 +6024,9 @@ This clinical feature is osteosarcoma (HP:0002669). HP:0002669 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5699,6 +6041,8 @@ This clinical feature is osteosarcoma (HP:0002669). HP:0002669 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5763,6 +6107,9 @@ This clinical feature is short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5777,6 +6124,8 @@ This clinical feature is short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5872,6 +6221,9 @@ This disease-associated gene is RPS19 (hgnc:10402). hgnc:10402 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -5896,6 +6248,8 @@ This disease-associated gene is RPS19 (hgnc:10402). hgnc:10402 is a gene from th
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5917,6 +6271,8 @@ This disease-associated gene is RPS19 (hgnc:10402). hgnc:10402 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5971,6 +6327,9 @@ This disease-associated gene is RPL5 (hgnc:10360). hgnc:10360 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -5995,6 +6354,8 @@ This disease-associated gene is RPL5 (hgnc:10360). hgnc:10360 is a gene from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6016,6 +6377,8 @@ This disease-associated gene is RPL5 (hgnc:10360). hgnc:10360 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6070,6 +6433,9 @@ This disease-associated gene is RPL11 (hgnc:10301). hgnc:10301 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6094,6 +6460,8 @@ This disease-associated gene is RPL11 (hgnc:10301). hgnc:10301 is a gene from th
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6115,6 +6483,8 @@ This disease-associated gene is RPL11 (hgnc:10301). hgnc:10301 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6169,6 +6539,9 @@ This disease-associated gene is RPL35A (hgnc:10345). hgnc:10345 is a gene from t
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6191,6 +6564,8 @@ This disease-associated gene is RPL35A (hgnc:10345). hgnc:10345 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6245,6 +6620,9 @@ This disease-associated gene is RPS26 (hgnc:10414). hgnc:10414 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6286,6 +6664,9 @@ This disease-associated gene is RPS24 (hgnc:10411). hgnc:10411 is a gene from th
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6331,6 +6712,9 @@ This disease-associated gene is RPS10 (hgnc:10383). hgnc:10383 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6372,6 +6756,9 @@ This disease-associated gene is RPS17 (hgnc:10397). hgnc:10397 is a gene from th
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6417,6 +6804,9 @@ This disease-associated gene is RPS7 (hgnc:10440). hgnc:10440 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6460,6 +6850,9 @@ This disease-associated gene is GATA1 (hgnc:4170). hgnc:4170 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked recessive</span>
@@ -6482,6 +6875,8 @@ This disease-associated gene is GATA1 (hgnc:4170). hgnc:4170 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6507,6 +6902,8 @@ This disease-associated gene is GATA1 (hgnc:4170). hgnc:4170 is a gene from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6528,6 +6925,8 @@ This disease-associated gene is GATA1 (hgnc:4170). hgnc:4170 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6610,6 +7009,20 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">First-line treatment. Improves the red blood cell count in approximately 60-80% of affected individuals. Recommended to start at age 12 months or older to minimize growth effects.
 </div>
 
@@ -6632,6 +7045,8 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6695,6 +7110,20 @@ This treatment is blood transfusion (NCIT:C15192). NCIT:C15192 is a clinical int
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Necessary during the first year of life and for steroid-nonresponders. Iron chelation therapy is required after 10-12 transfusions to prevent transfusion-related iron overload.
 </div>
 
@@ -6717,6 +7146,8 @@ This treatment is blood transfusion (NCIT:C15192). NCIT:C15192 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6780,6 +7211,31 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Cell therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The only curative therapy for the hematologic manifestations of DBA. Recommended for transfusion-dependent patients or those developing other cytopenias.
 </div>
 
@@ -6802,6 +7258,8 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6865,6 +7323,20 @@ This treatment is iron chelation therapy, annotated with Pharmacotherapy (NCIT:C
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Required for transfusion-dependent patients after 10-12 transfusions. Deferasirox (oral) or deferoxamine (subcutaneous) are preferred.
 </div>
 
@@ -6911,6 +7383,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6968,6 +7454,20 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">As an inherited bone marrow failure syndrome, Diamond-Blackfan anemia carries an elevated risk of myelodysplastic neoplasm, acute myeloid leukemia, and solid tumors. Long-term surveillance includes periodic marrow evaluation with cytogenetic monitoring for acquired clonal abnormalities and disease-specific late-effects screening, especially after hematopoietic cell transplantation.</div>
 
 
@@ -6991,6 +7491,8 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7012,6 +7514,8 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7135,6 +7639,102 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-global">
+                <div class="item-name">Global</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        0.7 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 1,000,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Approximately seven per million live births. Incidence is consistent across ethnicities. No sex predilection.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18671700" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18671700" target="_blank">PMID:18671700</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Classical DBA affects about seven per million live births and presents during the first year of life"</div>
+
+
+                <div class="evidence-explanation">Confirms the incidence of DBA at approximately seven per million live births.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7270,6 +7870,49 @@ disease_term:
   term:
     id: MONDO:0015253
     label: Diamond-Blackfan anemia
+mappings:
+  mondo_mappings:
+  - term:
+      id: MONDO:0007110
+      label: Diamond-Blackfan anemia 1
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      MONDO:0007110 (DBA1) is a direct MONDO subclass of MONDO:0015253 for the
+      RPS19-caused form; RPS19 is modeled in this entry&#39;s `genetic:` section as
+      the original and most common DBA gene. narrowMatch because MONDO models
+      the gene-specific numbered subtype as a child of the general DBA class
+      rather than as an equivalent term.
+  - term:
+      id: MONDO:0012529
+      label: Diamond-Blackfan anemia 3
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      MONDO:0012529 (DBA3) is a direct MONDO subclass of MONDO:0015253 for the
+      RPS24-caused form; RPS24 is modeled in this entry&#39;s `genetic:` section.
+      narrowMatch for the same reason as the other numbered DBA subtypes.
+  - term:
+      id: MONDO:0012938
+      label: Diamond-Blackfan anemia 7
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      MONDO:0012938 (DBA7) is a direct MONDO subclass of MONDO:0015253 for the
+      RPL11-caused form; RPL11 is modeled in this entry&#39;s `genetic:` section,
+      including the RPL11-specific hand-malformation genotype-phenotype
+      correlation. narrowMatch for the same reason as the other numbered DBA
+      subtypes.
+  - term:
+      id: MONDO:0013217
+      label: Diamond-Blackfan anemia 10
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      MONDO:0013217 (DBA10) is a direct MONDO subclass of MONDO:0015253 for
+      the RPS26-caused form; RPS26 is modeled in this entry&#39;s `genetic:`
+      section. narrowMatch for the same reason as the other numbered DBA
+      subtypes.
 prevalence:
 - population: Global
   measure_type: BIRTH_PREVALENCE
@@ -7889,7 +8532,7 @@ treatments:
     snippet: &#34;Bone marrow failure syndromes are at risk of secondary progression towards myeloid neoplasms in the form of myelodysplastic neoplasms or acute myeloid leukemia.&#34;
     explanation: The GFCH cytogenetics guideline establishes the myeloid-neoplasm progression risk in bone marrow failure syndromes (including Diamond-Blackfan anemia) that cytogenetic surveillance monitors.
   - reference: PMID:28533057
-    reference_title: &#34;Late Effects Screening Guidelines after Hematopoietic Cell Transplantation for Inherited Bone Marrow Failure Syndromes.&#34;
+    reference_title: &#34;Late Effects Screening Guidelines after Hematopoietic Cell Transplantation for Inherited Bone Marrow Failure Syndromes: Consensus Statement From the Second Pediatric Blood and Marrow Transplant Consortium International Conference on Late Effects After Pediatric HCT.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;This companion article outlines consensus disease-specific long-term follow-up screening guidelines for patients with IMBFS.&#34;
@@ -8122,6 +8765,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8571,7 +9216,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Diamond-Blackfan Anemia", "mondoId": "MONDO:0015253", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Diamond-Blackfan_Anemia", "yamlRevision": "fa9e959f531c"};
+        const OS_CONFIG = {"diseaseName": "Diamond-Blackfan Anemia", "mondoId": "MONDO:0015253", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Diamond-Blackfan_Anemia", "yamlRevision": "f46d34005900"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

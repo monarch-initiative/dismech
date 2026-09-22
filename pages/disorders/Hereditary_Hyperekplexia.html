@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2892,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2940,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2955,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3064,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3077,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3281,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3291,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3327,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3348,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3661,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4048,6 +4155,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Autosomal dominant"</div>
@@ -4113,6 +4222,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Autosomal recessive"</div>
@@ -4157,6 +4268,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-postsynaptic-glycine-receptor-chloride-channel-dysfunction" data-dismech-node="Postsynaptic Glycine Receptor Chloride Channel Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Postsynaptic Glycine Receptor Chloride Channel Dysfunction</div>
+
 
                 <div class="item-desc">GLRA1 and GLRB variants impair the postsynaptic inhibitory glycine receptor, a ligand-gated chloride channel that normally mediates rapid inhibitory signaling in the brainstem and spinal cord.</div>
 
@@ -4393,6 +4505,8 @@ This pathophysiological event involves extracellularly glycine-gated chloride ch
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4414,6 +4528,8 @@ This pathophysiological event involves extracellularly glycine-gated chloride ch
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4439,6 +4555,8 @@ This pathophysiological event involves extracellularly glycine-gated chloride ch
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4461,6 +4579,7 @@ This pathophysiological event involves extracellularly glycine-gated chloride ch
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-presynaptic-glycine-transporter-dysfunction" data-dismech-node="Presynaptic Glycine Transporter Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Presynaptic Glycine Transporter Dysfunction</div>
+
 
                 <div class="item-desc">SLC6A5 encodes the presynaptic glycine transporter GlyT2. Pathogenic variants reduce transporter localization or glycine uptake, limiting presynaptic glycine recycling needed for inhibitory synaptic transmission.</div>
 
@@ -4658,6 +4777,8 @@ This pathophysiological event involves glycine transmembrane transporter activit
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4679,6 +4800,8 @@ This pathophysiological event involves glycine transmembrane transporter activit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4704,6 +4827,8 @@ This pathophysiological event involves glycine transmembrane transporter activit
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4726,6 +4851,7 @@ This pathophysiological event involves glycine transmembrane transporter activit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glycinergic-inhibitory-neurotransmission-failure" data-dismech-node="Glycinergic Inhibitory Neurotransmission Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Glycinergic Inhibitory Neurotransmission Failure</div>
+
 
                 <div class="item-desc">Failure of glycinergic inhibition in brainstem and spinal startle circuits leaves excitatory startle reflex pathways insufficiently suppressed, producing excessive startle, stiffness, and related neuromotor features.</div>
 
@@ -4934,6 +5060,8 @@ This pathophysiological event involves chemical synaptic transmission (GO:000726
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4955,6 +5083,8 @@ This pathophysiological event involves chemical synaptic transmission (GO:000726
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5021,15 +5151,15 @@ This pathophysiological event involves chemical synaptic transmission (GO:000726
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(12)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(7)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(12)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5039,14 +5169,14 @@ This pathophysiological event involves chemical synaptic transmission (GO:000726
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-gastroesophageal-reflux" data-dismech-node="Gastroesophageal Reflux" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-umbilical-hernia" data-dismech-node="Umbilical Hernia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Gastroesophageal Reflux
+                        Umbilical Hernia
 
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
 
@@ -5058,15 +5188,18 @@ This pathophysiological event involves chemical synaptic transmission (GO:000726
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002020</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001537" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001537</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Umbilical hernia (HP:0001537). HP:0001537 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5086,6 +5219,80 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001537 | Umbilical hernia | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists umbilical hernia as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gastroesophageal-reflux" data-dismech-node="Gastroesophageal Reflux" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Gastroesophageal Reflux
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002020</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:3197" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:3197" target="_blank">ORPHA:3197</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5109,18 +5316,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">6</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-spasticity" data-dismech-node="Spasticity" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hiatus-hernia" data-dismech-node="Hiatus Hernia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Spasticity
+                        Hiatus Hernia
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
@@ -5134,15 +5332,18 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001257</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002036" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002036</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Hiatus hernia (HP:0002036). HP:0002036 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5162,6 +5363,242 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002036 | Hiatus hernia | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists hiatus hernia as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-esophagitis" data-dismech-node="Esophagitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Esophagitis
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100633" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0100633</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Esophagitis (HP:0100633). HP:0100633 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:3197" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:3197" target="_blank">ORPHA:3197</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0100633 | Esophagitis | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists esophagitis as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hip-dislocation" data-dismech-node="Hip Dislocation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hip Dislocation
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002827" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002827</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hip dislocation (HP:0002827). HP:0002827 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:3197" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:3197" target="_blank">ORPHA:3197</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002827 | Hip dislocation | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists hip dislocation as occasional.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">7</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-spasticity" data-dismech-node="Spasticity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Spasticity
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001257</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:3197" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:3197" target="_blank">ORPHA:3197</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5201,15 +5638,18 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001276" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001276</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001276" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001276</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5231,6 +5671,8 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0001276 | Hypertonia | Very frequent (99-80%)"</div>
@@ -5250,6 +5692,8 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5291,15 +5735,18 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001373" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001373</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001373" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001373</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Joint dislocation (HP:0001373). HP:0001373 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5319,6 +5766,8 @@ This clinical feature is Joint dislocation (HP:0001373). HP:0001373 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5358,15 +5807,18 @@ This clinical feature is Joint dislocation (HP:0001373). HP:0001373 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001387</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001387</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5386,6 +5838,8 @@ This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5425,15 +5879,18 @@ This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002063" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002063</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002063" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002063</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5453,6 +5910,8 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5492,15 +5951,18 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003552" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003552</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003552" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0003552</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Muscle stiffness (HP:0003552). HP:0003552 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5522,6 +5984,8 @@ This clinical feature is Muscle stiffness (HP:0003552). HP:0003552 is a phenotyp
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0003552 | Muscle stiffness | Very frequent (99-80%)"</div>
@@ -5541,6 +6005,8 @@ This clinical feature is Muscle stiffness (HP:0003552). HP:0003552 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5566,9 +6032,81 @@ This clinical feature is Muscle stiffness (HP:0003552). HP:0003552 is a phenotyp
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hernia" data-dismech-node="Hernia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hernia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100790" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0100790</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hernia (HP:0100790). HP:0100790 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:3197" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:3197" target="_blank">ORPHA:3197</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0100790 | Hernia | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists hernia as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -5589,15 +6127,18 @@ This clinical feature is Muscle stiffness (HP:0003552). HP:0003552 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002267" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002267</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002267" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002267</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Exaggerated startle response (HP:0002267). HP:0002267 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5619,6 +6160,8 @@ This clinical feature is Exaggerated startle response (HP:0002267). HP:0002267 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Hereditary hyperekplexia is a hereditary neurological disorder characterized by excessive startle responses."</div>
@@ -5638,6 +6181,8 @@ This clinical feature is Exaggerated startle response (HP:0002267). HP:0002267 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5679,15 +6224,18 @@ This clinical feature is Exaggerated startle response (HP:0002267). HP:0002267 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001251</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5707,6 +6255,8 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5746,15 +6296,18 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001288</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001288</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5774,6 +6327,8 @@ This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5813,15 +6368,18 @@ This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001336</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001336</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5841,6 +6399,8 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5880,15 +6440,18 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001347</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001347</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5908,6 +6471,8 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5949,15 +6514,18 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002360</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002360</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sleep abnormality, annotated with Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5977,6 +6545,8 @@ This clinical feature is Sleep abnormality, annotated with Sleep disturbance (HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6016,15 +6586,18 @@ This clinical feature is Sleep abnormality, annotated with Sleep disturbance (HP
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002380" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002380</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002380" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002380</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fasciculations (HP:0002380). HP:0002380 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6044,6 +6617,8 @@ This clinical feature is Fasciculations (HP:0002380). HP:0002380 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6083,15 +6658,18 @@ This clinical feature is Fasciculations (HP:0002380). HP:0002380 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100022" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0100022</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100022" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0100022</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormality of movement (HP:0100022). HP:0100022 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6111,6 +6689,8 @@ This clinical feature is Abnormality of movement (HP:0100022). HP:0100022 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6152,15 +6732,18 @@ This clinical feature is Abnormality of movement (HP:0100022). HP:0100022 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6180,6 +6763,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6205,6 +6790,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6226,6 +6813,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6269,15 +6858,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000750</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6297,6 +6889,8 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6320,6 +6914,8 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6361,15 +6957,18 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6389,6 +6988,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6428,15 +7029,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6456,6 +7060,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6481,7 +7087,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
@@ -6504,10 +7110,10 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002104" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002104</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002104" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002104</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Apnea (HP:0002104), qualified as neonatal onset. HP:0002104 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6547,6 +7153,9 @@ This clinical feature is Apnea (HP:0002104), qualified as neonatal onset. HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6561,6 +7170,8 @@ This clinical feature is Apnea (HP:0002104), qualified as neonatal onset. HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6586,6 +7197,8 @@ This clinical feature is Apnea (HP:0002104), qualified as neonatal onset. HP:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6594,350 +7207,6 @@ This clinical feature is Apnea (HP:0002104), qualified as neonatal onset. HP:000
 
 
                 <div class="evidence-explanation">SLC6A5 cases directly support neonatal apnea episodes.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-umbilical-hernia" data-dismech-node="Umbilical Hernia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Umbilical Hernia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001537" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001537</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Umbilical hernia (HP:0001537). HP:0001537 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:3197" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:3197" target="_blank">ORPHA:3197</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001537 | Umbilical hernia | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists umbilical hernia as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hiatus-hernia" data-dismech-node="Hiatus Hernia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hiatus Hernia
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002036" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002036</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hiatus hernia (HP:0002036). HP:0002036 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:3197" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:3197" target="_blank">ORPHA:3197</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002036 | Hiatus hernia | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists hiatus hernia as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hip-dislocation" data-dismech-node="Hip Dislocation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hip Dislocation
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002827" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002827</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hip dislocation (HP:0002827). HP:0002827 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:3197" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:3197" target="_blank">ORPHA:3197</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002827 | Hip dislocation | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists hip dislocation as occasional.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-esophagitis" data-dismech-node="Esophagitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Esophagitis
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100633" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0100633</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Esophagitis (HP:0100633). HP:0100633 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:3197" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:3197" target="_blank">ORPHA:3197</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0100633 | Esophagitis | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists esophagitis as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hernia" data-dismech-node="Hernia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hernia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100790" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0100790</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hernia (HP:0100790). HP:0100790 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:3197" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:3197" target="_blank">ORPHA:3197</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0100790 | Hernia | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists hernia as frequent.</div>
 
 
 
@@ -7023,6 +7292,9 @@ This disease-associated gene is GLRA1 (hgnc:4326). hgnc:4326 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -7049,6 +7321,8 @@ This disease-associated gene is GLRA1 (hgnc:4326). hgnc:4326 is a gene from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"GLRA1 | glycine receptor alpha 1 | hgnc:4326 | Disease-causing germline mutation(s) in"</div>
@@ -7068,6 +7342,8 @@ This disease-associated gene is GLRA1 (hgnc:4326). hgnc:4326 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7091,6 +7367,8 @@ This disease-associated gene is GLRA1 (hgnc:4326). hgnc:4326 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7145,6 +7423,9 @@ This disease-associated gene is GLRB (hgnc:4329). hgnc:4329 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -7171,6 +7452,8 @@ This disease-associated gene is GLRB (hgnc:4329). hgnc:4329 is a gene from the H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"GLRB | glycine receptor beta | hgnc:4329 | Disease-causing germline mutation(s) in"</div>
@@ -7190,6 +7473,8 @@ This disease-associated gene is GLRB (hgnc:4329). hgnc:4329 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7244,6 +7529,9 @@ This disease-associated gene is SLC6A5 (hgnc:11051). hgnc:11051 is a gene from t
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -7270,6 +7558,8 @@ This disease-associated gene is SLC6A5 (hgnc:11051). hgnc:11051 is a gene from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"SLC6A5 | solute carrier family 6 member 5 | hgnc:11051 | Disease-causing germline mutation(s) in"</div>
@@ -7289,6 +7579,8 @@ This disease-associated gene is SLC6A5 (hgnc:11051). hgnc:11051 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7312,6 +7604,8 @@ This disease-associated gene is SLC6A5 (hgnc:11051). hgnc:11051 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7368,6 +7662,9 @@ This disease-associated gene is GPHN (hgnc:15465). hgnc:15465 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7382,6 +7679,8 @@ This disease-associated gene is GPHN (hgnc:15465). hgnc:15465 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -7436,6 +7735,9 @@ This disease-associated gene is ATAD1 (hgnc:25903). hgnc:25903 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7450,6 +7752,8 @@ This disease-associated gene is ATAD1 (hgnc:25903). hgnc:25903 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -7551,6 +7855,20 @@ This treatment uses clonazepam (CHEBI:3756). CHEBI:3756 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Clonazepam is the standard symptomatic pharmacotherapy for hyperekplexia, reducing excessive startle and stiffness in most treated genetically confirmed patients.</div>
 
 
@@ -7592,6 +7910,8 @@ This treatment uses clonazepam (CHEBI:3756). CHEBI:3756 is a therapeutic agent f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7619,6 +7939,327 @@ This treatment uses clonazepam (CHEBI:3756). CHEBI:3756 is a therapeutic agent f
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-testing">
+                <div class="item-name">
+                    Molecular Genetic Testing
+
+                </div>
+
+                <div class="item-desc">Molecular genetic testing confirms the diagnosis in symptomatic neonates and supports counseling for families at risk, especially where GLRB or SLC6A5 variants are suspected.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-44">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24030948" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24030948" target="_blank">PMID:24030948</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ninety-seven individuals had a clinical diagnosis of hyperekplexia confirmed by genetic testing"</div>
+
+
+                <div class="evidence-explanation">The cohort used genetic testing to confirm clinical hyperekplexia diagnoses.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24030948" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24030948" target="_blank">PMID:24030948</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We recommend early genetic testing for symptomatic neonates and possibly preconception counselling for those at risk for GLRB and SLC6A5 mutations"</div>
+
+
+                <div class="evidence-explanation">The authors recommend early genetic testing for symptomatic neonates.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-neonatal-or-infantile-onset">
+                <div class="item-name">Neonatal or infantile onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Neonatal period to infancy</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Symptoms typically begin in the neonatal period or infancy, and gene-positive cohorts can have recurrent apnea and developmental delay.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:3197" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:3197" target="_blank">ORPHA:3197</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Age of onset: Neonatal"</div>
+
+
+                <div class="evidence-explanation">Orphanet records neonatal onset.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:3197" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:3197" target="_blank">ORPHA:3197</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Age of onset: Infancy"</div>
+
+
+                <div class="evidence-explanation">Orphanet records infantile onset.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24030948" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24030948" target="_blank">PMID:24030948</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"all gene-positive cases present in the neonatal period (occasionally prenatally)"</div>
+
+
+                <div class="evidence-explanation">The 97-person genetically confirmed cohort supports neonatal presentation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">&le;0.1 per 100,000
+                    </span>
+
+                    <span class="tag">&lt;1 in 1,000,000</span>
+
+                </div>
+
+                <div class="item-notes">Orphanet reports hereditary hyperekplexia as an ultra-rare disorder.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:3197" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:3197" target="_blank">ORPHA:3197</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"&lt;1 / 1 000 000 | Worldwide | Point prevalence | ORPHANET"</div>
+
+
+                <div class="evidence-explanation">Orphanet provides a worldwide point-prevalence estimate below one per million.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7685,7 +8326,7 @@ prevalence:
   notes: Orphanet reports hereditary hyperekplexia as an ultra-rare disorder.
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;&lt;1 / 1 000 000 | Worldwide | Point prevalence | ORPHANET&#34;
     explanation: Orphanet provides a worldwide point-prevalence estimate below one per million.
@@ -7698,7 +8339,7 @@ inheritance:
       label: Autosomal dominant inheritance
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;Autosomal dominant&#34;
     explanation: Orphanet lists autosomal dominant inheritance for hereditary hyperekplexia.
@@ -7710,7 +8351,7 @@ inheritance:
       label: Autosomal recessive inheritance
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;Autosomal recessive&#34;
     explanation: Orphanet lists autosomal recessive inheritance for hereditary hyperekplexia.
@@ -7722,12 +8363,12 @@ progression:
     cohorts can have recurrent apnea and developmental delay.
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;Age of onset: Neonatal&#34;
     explanation: Orphanet records neonatal onset.
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;Age of onset: Infancy&#34;
     explanation: Orphanet records infantile onset.
@@ -7924,7 +8565,7 @@ phenotypes:
       label: Exaggerated startle response
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;Hereditary hyperekplexia is a hereditary neurological disorder characterized by excessive startle responses.&#34;
     explanation: Orphanet defines hereditary hyperekplexia by excessive startle responses.
@@ -7945,7 +8586,7 @@ phenotypes:
       label: Ataxia
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001251 | Ataxia | Very frequent (99-80%)&#34;
     explanation: Orphanet lists ataxia as very frequent in hereditary hyperekplexia.
@@ -7960,7 +8601,7 @@ phenotypes:
       label: Spasticity
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001257 | Spasticity | Very frequent (99-80%)&#34;
     explanation: Orphanet lists spasticity as very frequent.
@@ -7975,7 +8616,7 @@ phenotypes:
       label: Hypertonia
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001276 | Hypertonia | Very frequent (99-80%)&#34;
     explanation: Orphanet lists hypertonia as very frequent.
@@ -7996,7 +8637,7 @@ phenotypes:
       label: Gait disturbance
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001288 | Gait disturbance | Frequent (79-30%)&#34;
     explanation: Orphanet lists gait disturbance as frequent.
@@ -8011,7 +8652,7 @@ phenotypes:
       label: Myoclonus
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001336 | Myoclonus | Very frequent (99-80%)&#34;
     explanation: Orphanet lists myoclonus as very frequent.
@@ -8026,7 +8667,7 @@ phenotypes:
       label: Hyperreflexia
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001347 | Hyperreflexia | Very frequent (99-80%)&#34;
     explanation: Orphanet lists hyperreflexia as very frequent.
@@ -8041,7 +8682,7 @@ phenotypes:
       label: Joint dislocation
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001373 | Joint dislocation | Occasional (29-5%)&#34;
     explanation: Orphanet lists joint dislocation as occasional.
@@ -8056,7 +8697,7 @@ phenotypes:
       label: Joint stiffness
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001387 | Joint stiffness | Very frequent (99-80%)&#34;
     explanation: Orphanet lists joint stiffness as very frequent.
@@ -8071,7 +8712,7 @@ phenotypes:
       label: Umbilical hernia
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001537 | Umbilical hernia | Frequent (79-30%)&#34;
     explanation: Orphanet lists umbilical hernia as frequent.
@@ -8086,7 +8727,7 @@ phenotypes:
       label: Gastroesophageal reflux
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;HP:0002020 | Gastroesophageal reflux | Very frequent (99-80%)&#34;
     explanation: Orphanet lists gastroesophageal reflux as very frequent.
@@ -8101,7 +8742,7 @@ phenotypes:
       label: Hiatus hernia
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;HP:0002036 | Hiatus hernia | Very frequent (99-80%)&#34;
     explanation: Orphanet lists hiatus hernia as very frequent.
@@ -8116,7 +8757,7 @@ phenotypes:
       label: Rigidity
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;HP:0002063 | Rigidity | Very frequent (99-80%)&#34;
     explanation: Orphanet lists rigidity as very frequent.
@@ -8131,7 +8772,7 @@ phenotypes:
       label: Sleep disturbance
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;HP:0002360 | Sleep abnormality | Frequent (79-30%)&#34;
     explanation: Orphanet lists sleep abnormality as frequent.
@@ -8146,7 +8787,7 @@ phenotypes:
       label: Fasciculations
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;HP:0002380 | Fasciculations | Very frequent (99-80%)&#34;
     explanation: Orphanet lists fasciculations as very frequent.
@@ -8161,7 +8802,7 @@ phenotypes:
       label: Hip dislocation
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;HP:0002827 | Hip dislocation | Occasional (29-5%)&#34;
     explanation: Orphanet lists hip dislocation as occasional.
@@ -8176,7 +8817,7 @@ phenotypes:
       label: Muscle stiffness
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;HP:0003552 | Muscle stiffness | Very frequent (99-80%)&#34;
     explanation: Orphanet lists muscle stiffness as very frequent.
@@ -8197,7 +8838,7 @@ phenotypes:
       label: Abnormality of movement
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;HP:0100022 | Abnormality of movement | Very frequent (99-80%)&#34;
     explanation: Orphanet lists abnormality of movement as very frequent.
@@ -8212,7 +8853,7 @@ phenotypes:
       label: Esophagitis
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;HP:0100633 | Esophagitis | Very frequent (99-80%)&#34;
     explanation: Orphanet lists esophagitis as very frequent.
@@ -8227,7 +8868,7 @@ phenotypes:
       label: Hernia
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;HP:0100790 | Hernia | Frequent (79-30%)&#34;
     explanation: Orphanet lists hernia as frequent.
@@ -8318,7 +8959,7 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001250 | Seizure | Occasional (29-5%)&#34;
     explanation: Orphanet lists seizure as occasional.
@@ -8333,7 +8974,7 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001249 | Intellectual disability | Occasional (29-5%)&#34;
     explanation: Orphanet lists intellectual disability as occasional.
@@ -8364,7 +9005,7 @@ genetic:
     reported in hereditary hyperekplexia.
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;GLRA1 | glycine receptor alpha 1 | hgnc:4326 | Disease-causing germline mutation(s) in&#34;
     explanation: Orphanet lists GLRA1 as a disease-causing gene for hereditary hyperekplexia.
@@ -8406,7 +9047,7 @@ genetic:
     long-term additive outcomes including apnea and developmental delay.
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;GLRB | glycine receptor beta | hgnc:4329 | Disease-causing germline mutation(s) in&#34;
     explanation: Orphanet lists GLRB as a disease-causing gene for hereditary hyperekplexia.
@@ -8443,7 +9084,7 @@ genetic:
     recurrent neonatal apnea and developmental delay.
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;SLC6A5 | solute carrier family 6 member 5 | hgnc:11051 | Disease-causing germline mutation(s) in&#34;
     explanation: Orphanet lists SLC6A5 as a disease-causing gene for hereditary hyperekplexia.
@@ -8472,7 +9113,7 @@ genetic:
     hyperekplexia.
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;GPHN | gephyrin | hgnc:15465 | Disease-causing germline mutation(s) in&#34;
     explanation: Orphanet lists GPHN as a disease-causing gene for hereditary hyperekplexia.
@@ -8489,7 +9130,7 @@ genetic:
     pending additional curated mechanism evidence.
   evidence:
   - reference: ORPHA:3197
-    reference_title: &#34;Hereditary hyperekplexia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hereditary hyperekplexia&#34;
     supports: SUPPORT
     snippet: &#34;ATAD1 | ATPase family AAA domain containing 1 | hgnc:25903 | Disease-causing germline mutation(s) in&#34;
     explanation: Orphanet lists ATAD1 as a disease-causing gene for hereditary hyperekplexia.
@@ -8562,6 +9203,8 @@ treatments:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8988,7 +9631,7 @@ treatments:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hereditary Hyperekplexia", "mondoId": "MONDO:0021022", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Hyperekplexia", "yamlRevision": "b348c5bceb50"};
+        const OS_CONFIG = {"diseaseName": "Hereditary Hyperekplexia", "mondoId": "MONDO:0021022", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Hyperekplexia", "yamlRevision": "cb7319e7d785"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
