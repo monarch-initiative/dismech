@@ -143,7 +143,7 @@ Three band disagreements:
 
 | Term | A | B | Assessment |
 |---|---|---|---|
-| `HP:0001166` Arachnodactyly | `FREQUENT` | *(none)* | Divergent banding aggressiveness on shared qualitative literature |
+| `HP:0001166` Arachnodactyly | `FREQUENT` | *(none)* | Divergent source selection within a shared reference set: A anchored on the cohort paper, B on a case report |
 | `HP:0001382` Joint hypermobility | `FREQUENT` | *(none)* | Same |
 | `HP:0002647` Aortic dissection | *(none)* | `OCCASIONAL` | B recovers a band A left unbanded |
 
@@ -172,6 +172,12 @@ that both curators independently chose beta-blocker + ARB pharmacotherapy, proph
 aortic surgery, imaging surveillance, pregnancy management, and genetic counseling /
 cascade testing.
 
+**Neither curator chose these NCIT ids.** B's were mechanically remapped from MAXO for
+this study, and A's are *also* derived from A's original MAXO choices by the same
+project map (#7228). The 0.667 is therefore MAXO-level agreement projected through a
+lossy many-to-one map, which strengthens rather than weakens the point above: id-level
+Jaccard here measures the map's collapsing behaviour as much as the curators'.
+
 ### Reference set (partly scaffolded by GeneReviews)
 
 Jaccard **0.412**; 7 shared of 17 union.
@@ -194,6 +200,14 @@ Jaccard **0.412**; 7 shared of 17 union.
 A's unique set is smaller and older (`15639475`, `29392890`, `32603777`). As in FG,
 **source selection** drives much of the residual divergence: B's modern-cohort PMIDs
 support extra-aortic aneurysm / tortuosity phenotype depth that A lacks as named terms.
+
+**Snippet reproducibility.** Both snapshots now verify completely against the in-tree
+cache: **A 100/100** and **B 83/83** (`just count-verified-snippets` on each file). B
+initially verified only 55/83, because B's PR #7322 was closed and its cache additions
+never landed, leaving all seven B-only PMIDs uncached; they were fetched with
+`just fetch-reference` and are committed alongside this study so that the reference-set
+story above — the study's strongest finding about curator B — is checkable by a reader
+rather than asserted.
 
 ### Pathophysiology graph (partly module-scaffolded — interpret cautiously)
 
@@ -237,10 +251,23 @@ This study does **not** patch the live KB; items are recorded for follow-up.
 ### 1. Frequency bands without a shared quantitative anchor
 
 On the three shared terms where bands disagree, neither entry's banding is backed by a
-denominator both curators extracted. A's `FREQUENT` on arachnodactyly and joint
-hypermobility, and B's `OCCASIONAL` on aortic dissection, sit in the qualitative-prose
-zone the frequency SOP warns about. **Follow-up:** re-check each band against the cited
-snippet; drop bands that lack a count or an explicit qualitative→enum mapping.
+denominator both curators extracted. Each band is individually well-anchored, though —
+A's `FREQUENT` on arachnodactyly quotes 63% and on joint hypermobility 52%
+(PMID:31898322), both with an explicit "mapping to FREQUENT (30-79%)" explanation, and
+B's `OCCASIONAL` on aortic dissection records "2 of 34 individuals, 6%"
+(PMID:39653386). Both curators followed the frequency SOP. **Follow-up:** none on the
+bands themselves; acting on an earlier draft of this item would have stripped
+correctly-evidenced bands from the live entry.
+
+What actually diverges is **which source each curator anchored the phenotype on**. B
+evidenced arachnodactyly only from the single-patient case report PMID:23824657 and
+joint hypermobility from two case reports (PMID:34549088, PMID:23824657), correctly
+omitting a band in both cases — one index patient supports no denominator. A anchored
+both on the cohort paper and correctly banded. Symmetrically, B banded dissection off
+the Montalcino cohort A never cited. B *does* cite PMID:31898322, so the percentages
+were within reach and B still anchored the phenotype elsewhere. That makes this source
+selection within a shared reference set — an instance of Conclusion 4 rather than an
+independent normative defect.
 
 ### 2. Aortic phenotype granularity without a stated strategy
 
@@ -303,7 +330,9 @@ myogenesis branches).
    concept coverage ~0.83–0.84). Residual disagreement is mostly aortic granularity and
    a handful of true one-sided terms.
 2. **Band agreement is mostly agreement not to band** (0/17 shared terms banded by
-   both). The three disagreements sit where the literature is qualitative.
+   both). The three disagreements sit where the curators anchored the phenotype on
+   different sources — cohort paper vs case report — not where the literature is
+   qualitative; all three bands carry an explicit denominator.
 3. **Treatment id Jaccard (0.667) again overstates content agreement** because
    Supportive Care / Pharmacotherapy / Surgical Procedure catch-alls absorb multiple
    interventions — same lesson as FG.

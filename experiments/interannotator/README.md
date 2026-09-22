@@ -9,7 +9,7 @@ where the two versions agree.
 | Study | Disease | Curators | Phenotype agreement (strict / subsumption-aware) | Band agreement |
 |---|---|---|---|---|
 | [`FG_Syndrome_1/`](FG_Syndrome_1/) | FG syndrome 1 (`MONDO:0010590`) | A: merged [#7254](https://github.com/monarch-initiative/dismech/pull/7254) · B: independent | 0.484 / 0.766–0.812 | 25/31 = 0.806 |
-| [`Rienhoff_Syndrome/`](Rienhoff_Syndrome/) | Rienhoff syndrome (`MONDO:0014262`) | A: merged [#7345](https://github.com/monarch-initiative/dismech/pull/7345) post-#7228 · B: closed [#7322](https://github.com/monarch-initiative/dismech/pull/7322) (MAXO→NCIT remapped for metrics) | 0.531 / 0.840–0.833 | 14/17 = 0.824 |
+| [`Rienhoff_Syndrome/`](Rienhoff_Syndrome/) | Rienhoff syndrome (`MONDO:0014262`) | A: merged [#7345](https://github.com/monarch-initiative/dismech/pull/7345) post-#7228 · B: closed [#7322](https://github.com/monarch-initiative/dismech/pull/7322) (MAXO→NCIT remapped for metrics) | 0.531 / A 0.840 · B 0.833 | 14/17 = 0.824 |
 
 ## Layout
 
@@ -71,9 +71,14 @@ Findings that generalise beyond a single disease. Add to this as studies accumul
   subsumption-aware agreement was 0.766–0.812; the gap is entirely
   parent/child pairs (`Hypotonia`↔`Neonatal hypotonia`) and roll-up-vs-split
   choices (`Abnormality of the eye` ↔ four specific ocular terms).
-- **Agreement tracks the source, not the curator.** Divergence concentrates where
-  the literature says "were frequent" without a count, and collapses wherever a
-  denominator is stated.
+- **Agreement tracks the source, not the curator.** In FG syndrome 1, divergence
+  concentrated where the literature says "were frequent" without a count, and
+  collapsed wherever a denominator is stated. Rienhoff sharpens this: there the
+  denominators existed and both curators banded correctly against them, but they
+  anchored the same phenotype on *different* sources within a shared reference set
+  (cohort paper vs single-patient case report), which is enough to produce a band
+  disagreement on its own. Check which source a curator anchored on before reading a
+  band disagreement as a banding-discipline problem.
 - **A coarse action vocabulary hides disagreement.** Agreement measured at the
   ontology-term level can overstate agreement about the underlying content, because
   two curators can bind the same catch-all term to different things. In the FG
