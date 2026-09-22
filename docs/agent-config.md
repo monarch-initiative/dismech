@@ -6,22 +6,70 @@ Change model selections in that one file (issue #5218). The resolver passes the
 configured strings through; it does not discover new releases or test whether
 the account can access a model.
 
-**New Opus releases are not picked up automatically by the current config.**
-For example, `claude-opus-5` selects Opus 5, not the newest Opus. The scanner
-selects a separate model for each of its three effort tiers, and changing
-`default_model` does not change any of those selections.
+**Policy: follow the latest model in each task's family, without release-bump
+PRs.** Use `opus`, `sonnet`, and `haiku` in the config. Every managed workflow
+installs the latest Claude Code at the start of its agent job through
+[the shared setup action](https://github.com/monarch-initiative/dismech/tree/main/.github/actions/setup-claude-code)
+and explicitly passes that executable to `claude-code-action`.
+
+## What does “latest” mean?
+
+| Value passed to Claude Code | Meaning |
+|---|---|
+| `opus` | Moving Opus family alias, resolved by Claude Code |
+| `sonnet` | Moving Sonnet family alias |
+| `haiku` | Moving Haiku family alias |
+| `claude-opus-5` | Fixed original Opus 5 release (5.0), not “latest 5.x” |
+| `claude-opus-5-5` | Fixed Opus 5.5 release |
+
+`claude-opus-5` is **not an alias**. It will not turn into 5.4 or 5.5. Anthropic
+omits the minor segment for a major release, and newer releases get separate
+IDs. See [model IDs and versioning](https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions).
+
+The family aliases do move. As of 2026-09-22, Anthropic documents `opus` as
+Opus 5.5 on the Anthropic API. Subsequent mappings belong to
+[Claude Code's model configuration](https://code.claude.com/docs/en/model-config#model-aliases),
+so this repository does not maintain a second release registry. “Latest” means
+the family version Claude Code selects for the provider/account, not a promise
+that every newly announced model is available immediately. Access restrictions
+or provider rollout can delay it.
+
+## Keeping current with minimal churn
+
+- **Models:** keep family aliases in `agent-config.yaml`. Normal model releases
+  require no YAML, test, or documentation version bumps. Keep tier assignments
+  explicit so a new release does not change which jobs use Haiku versus Opus.
+- **Claude Code:** `setup-claude-code` installs the `latest` release channel on
+  each fresh agent runner, logs `claude --version`, and adds it to the run
+  summary. No committed CLI version or cache can strand an old alias mapping.
+- **Workflow action:** retain the upstream action references and their existing
+  monthly Dependabot maintenance. The action's orchestration code/SDK is a
+  separate dependency from the CLI; its bundled runtime is bypassed through
+  `path_to_claude_code_executable`.
+- **Troubleshooting:** compare the recorded CLI version and actual model in run
+  output. If a release regresses, temporarily pin the affected config model to
+  a known-good full ID. For a CLI regression, change the shared setup action's
+  `version` default to a known-good version (or `stable`). Record the reason and
+  a date to revisit the pin in the PR, then return to aliases/`latest` when fixed.
+
+This fixes an earlier inconsistency: the reviewer explicitly installed
+`2.1.129`, while the scanner relied on the runtime bundled with its pinned
+upstream action. Neither path guaranteed the latest CLI. Merely switching
+model strings to aliases would have left that gap in place. The shared setup
+uses Anthropic's documented [native release-channel installer](https://code.claude.com/docs/en/setup#install-a-specific-version).
+An installation failure stops the job; it does not silently use an older CLI.
 
 ## The curation-scanner matrix
 
 Every scheduled or manual run of
 [`curation-scanner.yml`](https://github.com/monarch-initiative/dismech/blob/main/.github/workflows/curation-scanner.yml)
-launches all three configured rows as parallel jobs:
+launches all configured rows as parallel jobs:
 
 | Effort tier | Requested model | Candidate routing |
 |---|---|---|
-| `low_effort` | `claude-haiku-4-5-20251001` | Items labelled `curation` and `low_effort` |
-| `medium_effort` | `claude-sonnet-5` | Items labelled `curation` and `medium_effort`, excluding `low_effort` |
-| `high_effort` | `claude-opus-5` | Items labelled `curation`, excluding both `low_effort` and `medium_effort` |
+| `low_effort` | `haiku` | Items labelled `curation` and `low_effort` |
+| `medium_effort` | `sonnet` | Items labelled `curation` and `medium_effort`, excluding `low_effort` |
+| `high_effort` | `opus` | Items labelled `curation`, excluding both `low_effort` and `medium_effort` |
 
 The high tier includes items with **no effort label**; it does not require a
 `high_effort` label. All tiers search for open, unassigned issues and PRs. The
@@ -29,6 +77,8 @@ prompt additionally tells the agent to skip items with multiple effort labels
 and choose only one item to work on **per tier job**. The low tier must route
 new disease creation to the high tier. These effort names describe the task
 queue and prompt; they do not set Claude Code's reasoning `--effort` option.
+Concurrency is per tier with `cancel-in-progress: true`: a new manual or
+scheduled run cancels an older in-flight job of the same tier.
 
 The model reaches Claude Code in four steps:
 
@@ -65,70 +115,24 @@ Resolution order (highest priority first):
 Scheduled runs use the config. Where a workflow exposes a manual `model` input,
 it is an optional **text field**: leave it blank to use the config or enter a
 model ID/alias for that run. Not every workflow exposes this input. In
-particular, neither `curation-scanner` nor `claude-code-review` does.
+particular, neither `curation-scanner` nor `claude-code-review` does, and the
+`claude.yml` mention responder has no manual dispatch trigger.
 
 Every currently configured workflow has explicit model values, including every
 scanner row. **Changing `default_model` alone therefore changes none of the
 current workflows.** It is a fallback for a single-model entry with no `model:`.
 
-## Do new model releases take effect automatically?
+## Changing a task's model family
 
-There are two different kinds of model selection:
+Edit the workflow's `model:` in `.github/agent-config.yaml`, or the relevant
+scanner matrix row. For example, `model: opus` selects the Opus family for that
+task. A temporary fixed ID in the same slot opts that task out of upgrades.
+Merge to `main` for future scheduled runs; manual runs read the config from the
+branch/ref selected for the dispatch.
 
-| Config value | Meaning | Follows future releases? |
-|---|---|---|
-| `claude-opus-5` | The Opus 5 release | No |
-| `claude-opus-5-5` | The Opus 5.5 release | No |
-| `claude-haiku-4-5-20251001` | A dated Haiku 4.5 snapshot | No |
-| `opus` | Claude Code's Opus family alias | As Claude Code updates its mapping, subject to provider and account restrictions |
-
-An ID without a date can still be pinned: Anthropic's
-[model versioning documentation](https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions)
-specifies that IDs from the 4.6 generation onward identify fixed releases.
-
-As of **2026-09-22**, Anthropic lists
-[Opus 5.5](https://platform.claude.com/docs/en/models/opus-5-5/overview) as released
-under `claude-opus-5-5`. This repository still requests `claude-opus-5` for its
-Opus jobs. Anthropic's
-[Claude Code model configuration](https://code.claude.com/docs/en/model-config#model-aliases)
-documents the `opus` alias's updated mapping and requires Claude Code
-**v2.1.280 or later** for Opus 5.5. Verify the runtime version when upgrading;
-changing the model string does not upgrade the installed runtime.
-
-The `anthropics/claude-code-action@<commit>` reference pins the action code,
-while `--model` selects the requested model. Updating the action alone does not
-replace a versioned model ID in our config. Likewise, API-key versus OAuth
-authentication determines credentials and access, not the configured model
-string. The scanner prefers `ANTHROPIC_API_KEY` when set and otherwise uses
-`CLAUDE_CODE_OAUTH_TOKEN`.
-
-## Changing a model
-
-To change only the scanner's high tier, edit the `model:` on the `high_effort`
-row in `.github/agent-config.yaml`. For example, adopting Opus 5.5 explicitly
-would change that row to:
-
-```yaml
-workflows:
-  curation-scanner:
-    matrix:
-      # Keep the existing low_effort and medium_effort rows.
-      - effort: high_effort
-        model: claude-opus-5-5
-        selector: "label:curation -label:low_effort -label:medium_effort"
-```
-
-For a repository-wide Opus upgrade, change every intended Opus value in the
-config, including the default, the scanner row, and explicit per-workflow
-models. Update config-specific expectations in `tests/test_agent_config.py`
-and model examples in this page. Merge the config change to `main` for future
-scheduled runs; manual runs read the config from the branch/ref selected for
-the dispatch.
-
-To deliberately follow Claude Code's Opus alias instead, use `model: opus` at
-the relevant config locations. That trades an explicit release choice for a
-mapping that can change with the runtime/provider. It is an opt-in change;
-none of the current entries uses a family alias.
+Authentication is separate: the scanner prefers `ANTHROPIC_API_KEY` when set,
+otherwise `CLAUDE_CODE_OAUTH_TOKEN`. This selects credentials and access, not
+the configured model family.
 
 ## Checking what a run requests and uses
 
@@ -156,7 +160,9 @@ Those lines establish the **requested** model. To confirm what actually ran,
 inspect the Claude execution output in `Run Curation Scanner` (full output is
 enabled), especially the result event's `modelUsage` keys. A family alias, a
 runtime fallback, or a subagent can make that differ from the config string.
-The final prose report alone is not a model/version record.
+Workflows using `agent-run-summary` also print these keys as `Models used:`
+below the report. Missing usage data is left unreported, not inferred from the
+requested alias. The final prose report alone is not a model/version record.
 
 ## Adding a workflow
 
@@ -171,14 +177,23 @@ For a single-model workflow:
        workflow: <stem>
        model-override: ${{ inputs.model }}   # omit if no model input
    ```
-3. Use `--model ${{ env.AGENT_MODEL }}` in the agent invocation.
+3. Before the agent step, add the shared CLI setup:
+   ```yaml
+   - name: Set up latest Claude Code
+     id: setup-claude-code
+     uses: ./.github/actions/setup-claude-code
+   ```
+4. On `anthropics/claude-code-action`, set
+   `path_to_claude_code_executable: ${{ steps.setup-claude-code.outputs.executable }}`
+   and use `--model ${{ env.AGENT_MODEL }}` in `claude_args`.
 
 For a matrix workflow, follow the scanner's `setup` job pattern instead: add a
 `matrix:` list, call the resolver with `--matrix`, and pass `matrix.model`.
 
 `tests/test_agent_config.py` enforces the contract: every `workflows:` key maps
 to a real workflow file that uses the composite action or matrix resolver, and
-no workflow hardcodes a `--model claude-*` inline.
+no workflow hardcodes a model inline. It also checks that every managed agent
+uses the shared CLI setup and explicitly selects its executable.
 
 ## Scope and relationship to cron-profiles
 
@@ -189,6 +204,6 @@ abstraction (`provider:` is reserved but not yet consumed) are planned follow-up
 under issue #5218.
 
 `claude.yml` (the `@claude` mention responder) is also managed here (`claude:`
-key → `claude-opus-5`); it resolves `AGENT_MODEL` via the same
+key → `opus`); it resolves `AGENT_MODEL` via the same
 `resolve-agent-config` step and passes `--model ${{ env.AGENT_MODEL }}` in
 `claude_args`, so its model lives in this file like every other agentic workflow.

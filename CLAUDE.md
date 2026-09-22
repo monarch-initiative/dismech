@@ -206,7 +206,7 @@ config instead. Page/build crons are intentionally unmanaged. See
 
 ### Agent Model Config (`.github/agent-config.yaml`)
 The Claude **model** backing each agentic workflow (curation-scanner,
-discussion-scanner, knowledge-gap-scan, literature-scan, preprint-scan,
+discussion-scanner, claude-dedupe-issues, knowledge-gap-scan, literature-scan, preprint-scan,
 post-review-agent, pr-shepherd, weekly-compliance, claude-code-review, claude)
 is centralized in `.github/agent-config.yaml` — one source of truth instead of a
 `--model` hardcoded per workflow. For single-model workflows, the `Resolve agent
@@ -219,8 +219,11 @@ test enforces this). `curation-scanner`'s per-effort-tier models live in the sam
 file as a `matrix:` and drive its strategy matrix via a `setup` job, which calls
 the resolver's `--matrix` mode directly. Each row requires its own `model:`;
 there is no `default_model` fallback or manual model override for the scanner.
-The configured versioned IDs do not automatically follow new releases; upgrading
-requires editing the relevant model values, including matrix rows. This
+Use the `opus`, `sonnet`, and `haiku` family aliases to follow new releases
+without model-bump PRs. Every managed workflow installs the latest CLI via
+`.github/actions/setup-claude-code` and passes its executable explicitly to the
+upstream action; the action's SDK bundle does not select the CLI version.
+Exact model IDs are for temporary rollbacks. This
 complements — and is separate from — cron cadence (cron-profiles.yaml); it covers
 the model only. See [`docs/agent-config.md`](docs/agent-config.md) and issue #5218.
 
