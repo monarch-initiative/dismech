@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3836,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 21</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 25</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Classic%20Familial%20Adenomatous%20Polyposis"
@@ -3983,7 +4022,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">10</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -4004,7 +4043,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">21</div>
+                <div class="stat-value">25</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4018,6 +4057,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#genetic">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Variants</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#treatments">
@@ -4062,7 +4109,7 @@
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">25</div>
+                <div class="stat-value">27</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -4295,11 +4342,328 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">10</span>
+                <span class="card-count">12</span>
             </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-apc-promoter-1b-deletion" data-dismech-node="APC promoter 1B deletion" data-dismech-type="pathophysiology">
+                <div class="item-name">APC promoter 1B deletion</div>
+
+
+                <div class="item-desc">Germline deletions encompassing promoter 1B provide a regulatory route to classic FAP. The approximately 11 kb allele also removes exon 1B; transcript-relative overlap of the 6858 bp allele is not specified in the available abstract, so UTR overlap is recorded only on the individual 11 kb variant.</div>
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+        <span class="tag tag-classification">Variant type: deletion</span>
+
+
+
+
+        <span class="tag tag-classification">variant_origin: GERMLINE</span>
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">APC promoter 1B-dependent allelic silencing</span>
+
+	                            <span class="crosslink-desc">Promoter 1B deletion is associated with loss of expression from one APC allele. The approximately 11 kb allele was assayed in blood-derived RNA.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25941542" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25941542" target="_blank">PMID:25941542</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"encompasses the APC 1B promoter and exon."</div>
+
+
+                <div class="evidence-explanation">Identifies the promoter and first-exon overlap of the approximately 11 kb deletion.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28791770" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28791770" target="_blank">PMID:28791770</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified a novel deletion encompassing promoter 1B in a large Italian family"</div>
+
+
+                <div class="evidence-explanation">Establishes a second promoter 1B deletion associated with familial polyposis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-apc-promoter-1b-dependent-allelic-silencing" data-dismech-node="APC promoter 1B-dependent allelic silencing" data-dismech-type="pathophysiology">
+                <div class="item-name">APC promoter 1B-dependent allelic silencing</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
+                <div class="item-desc">Expression from one APC allele is reduced to undetectable levels in blood-derived RNA from carriers of the approximately 11 kb deletion. Allelic silencing was also reported for the 6858 bp deletion. These observations establish the expression defect in the assayed samples; alternative promoter use in other tissues leaves LOE versus mLOE unresolved.</div>
+
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        APC
+
+
+    <a href="https://bioregistry.io/hgnc:583" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:583</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves APC (hgnc:583). hgnc:583 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        Expression from the silenced APC allele
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0010467" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0010467</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Expression from the silenced APC allele, annotated with gene expression (GO:0010467). GO:0010467 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Germline APC loss-of-function predisposition</span>
+
+	                            <span class="crosslink-desc">Promoter-dependent loss of expression provides a regulatory route to the inherited APC deficit in these families.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25941542" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25941542" target="_blank">PMID:25941542</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"this ~11 kb deletion was accompanied by silencing of one of the APC alleles in blood-derived RNA of affected individuals."</div>
+
+
+                <div class="evidence-explanation">Patient RNA establishes allelic silencing in the assayed tissue. The discussion leaves expression from promoter 1A in other tissues open.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28791770" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28791770" target="_blank">PMID:28791770</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we precisely mapped this deletion (6858 bp in length) that proved to be associated with APC allele silencing."</div>
+
+
+                <div class="evidence-explanation">Independent DNA and RNA studies associate the second promoter deletion with allelic silencing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germline-apc-loss-of-function-predisposition" data-dismech-node="Germline APC loss-of-function predisposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Germline APC loss-of-function predisposition</div>
+
 
                 <div class="item-desc">Germline pathogenic APC variation establishes a constitutional tumor suppressor deficit that predisposes colonic and rectal epithelium to adenoma development.</div>
 
@@ -4315,11 +4679,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002563</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0002563</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4355,11 +4719,11 @@ This pathophysiological event involves intestinal epithelial cell (CL:0002563). 
         APC
 
 
-    <a href="https://bioregistry.io/hgnc:583" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:583</a>
+    <a href="https://bioregistry.io/hgnc:583" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:583</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves APC (hgnc:583). hgnc:583 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4400,11 +4764,11 @@ This pathophysiological event involves APC (hgnc:583). hgnc:583 is a gene from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001155" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0001155</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001155" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-5">UBERON:0001155</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -4417,11 +4781,11 @@ This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001052" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0001052</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001052" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0001052</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in rectum (UBERON:0001052). UBERON:0001052 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -4571,6 +4935,7 @@ This pathophysiological event occurs in rectum (UBERON:0001052). UBERON:0001052 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-apc-second-hit-inactivation-knudson-two-hit" data-dismech-node="Somatic APC Second-Hit Inactivation (Knudson Two-Hit)" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic APC Second-Hit Inactivation (Knudson Two-Hit)</div>
 
+
                 <div class="item-desc">A somatic second mutation inactivates the residual wild-type APC allele, completing biallelic APC loss in agreement with Knudson&#39;s two-hit model. Germline mutations preferentially affect the functional domains responsible for beta-catenin interaction, while somatic second hits cluster in the downstream region of the gene.</div>
 
 
@@ -4591,11 +4956,11 @@ This pathophysiological event occurs in rectum (UBERON:0001052). UBERON:0001052 
         APC
 
 
-    <a href="https://bioregistry.io/hgnc:583" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:583</a>
+    <a href="https://bioregistry.io/hgnc:583" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:583</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves APC (hgnc:583). hgnc:583 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4688,6 +5053,7 @@ This pathophysiological event involves APC (hgnc:583). hgnc:583 is a gene from t
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-apc-initiated-wnt-pathway-activation" data-dismech-node="APC-initiated WNT pathway activation" data-dismech-type="pathophysiology">
                 <div class="item-name">APC-initiated WNT pathway activation</div>
 
+
                 <div class="item-desc">APC-initiated tumorigenesis proceeds through activation of canonical WNT signaling as an early mechanistic axis in FAP carcinogenesis.</div>
 
 
@@ -4709,11 +5075,11 @@ This pathophysiological event involves APC (hgnc:583). hgnc:583 is a gene from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0016055</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0016055</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased Wnt signaling pathway (GO:0016055). GO:0016055 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4802,6 +5168,7 @@ This pathophysiological event involves increased Wnt signaling pathway (GO:00160
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epithelial-hyperproliferation" data-dismech-node="Epithelial hyperproliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Epithelial hyperproliferation</div>
 
+
                 <div class="item-desc">Precancer transitions in classic FAP involve strong pro-growth molecular remodeling and expanded epithelial proliferative signaling.</div>
 
 
@@ -4816,11 +5183,11 @@ This pathophysiological event involves increased Wnt signaling pathway (GO:00160
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0002563</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002563</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4857,11 +5224,11 @@ This pathophysiological event involves intestinal epithelial cell (CL:0002563). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0008283</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4950,6 +5317,7 @@ This pathophysiological event involves increased cell population proliferation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adenoma-initiation" data-dismech-node="Adenoma initiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Adenoma initiation</div>
 
+
                 <div class="item-desc">Early adenomatous lesions arise in colorectal mucosa and provide the substrate for subsequent lesion expansion and malignant progression.</div>
 
 
@@ -4974,11 +5342,11 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001155" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0001155</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001155" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0001155</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -4991,11 +5359,11 @@ This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001052" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0001052</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001052" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0001052</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in rectum (UBERON:0001052). UBERON:0001052 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5072,6 +5440,7 @@ This pathophysiological event occurs in rectum (UBERON:0001052). UBERON:0001052 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pi3k-mtor-co-activation-in-adenomatous-lesions" data-dismech-node="PI3K/mTOR co-activation in adenomatous lesions" data-dismech-type="pathophysiology">
                 <div class="item-name">PI3K/mTOR co-activation in adenomatous lesions</div>
 
+
                 <div class="item-desc">FAP lesions demonstrate PI3K/mTOR pathway co-activation alongside WNT dysregulation, consistent with pathway cooperation during progression.</div>
 
 
@@ -5093,11 +5462,11 @@ This pathophysiological event occurs in rectum (UBERON:0001052). UBERON:0001052 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0031929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0031929</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased TOR signaling (GO:0031929). GO:0031929 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5127,11 +5496,11 @@ This pathophysiological event involves increased TOR signaling (GO:0031929). GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0043491</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0043491</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased phosphatidylinositol 3-kinase/protein kinase B signal transduction (GO:0043491). GO:0043491 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5228,6 +5597,7 @@ This pathophysiological event involves increased phosphatidylinositol 3-kinase/p
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-microbiome-associated-pathway-modulation" data-dismech-node="Microbiome-associated pathway modulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Microbiome-associated pathway modulation</div>
 
+
                 <div class="item-desc">Distinct fecal and lesion-associated microbial signatures correlate with WNT and mTOR pathway readouts in FAP, indicating microbiome-linked modulation of progression biology.</div>
 
 
@@ -5304,6 +5674,7 @@ This pathophysiological event involves increased phosphatidylinositol 3-kinase/p
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genomic-instability-accumulation-across-adenoma-grades" data-dismech-node="Genomic instability accumulation across adenoma grades" data-dismech-type="pathophysiology">
                 <div class="item-name">Genomic instability accumulation across adenoma grades</div>
 
+
                 <div class="item-desc">Adenoma evolution in classic FAP is marked by increasing chromosomal and DNA repair instability features from tubular adenoma to villous adenoma to carcinoma.</div>
 
 
@@ -5325,11 +5696,11 @@ This pathophysiological event involves increased phosphatidylinositol 3-kinase/p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051276" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0051276</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051276" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0051276</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated chromosome organization (GO:0051276). GO:0051276 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5359,11 +5730,11 @@ This pathophysiological event involves dysregulated chromosome organization (GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006281</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006281</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated DNA repair (GO:0006281). GO:0006281 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5477,6 +5848,7 @@ This pathophysiological event involves dysregulated DNA repair (GO:0006281). GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tp53-driver-emergence-in-advanced-adenomas" data-dismech-node="TP53 driver emergence in advanced adenomas" data-dismech-type="pathophysiology">
                 <div class="item-name">TP53 driver emergence in advanced adenomas</div>
 
+
                 <div class="item-desc">Advanced FAP lesions accumulate TP53 driver events that prime transition to invasive carcinoma.</div>
 
 
@@ -5552,6 +5924,7 @@ This pathophysiological event involves dysregulated DNA repair (GO:0006281). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adenoma-to-carcinoma-transition" data-dismech-node="Adenoma-to-carcinoma transition" data-dismech-type="pathophysiology">
                 <div class="item-name">Adenoma-to-carcinoma transition</div>
+
 
                 <div class="item-desc">Advanced adenomas progress to invasive colorectal carcinoma in the absence of effective preventive intervention.</div>
 
@@ -5651,7 +6024,7 @@ This pathophysiological event involves dysregulated DNA repair (GO:0006281). GO:
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"APC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"APC\"], \"gene_terms\": [{\"label\": \"APC\", \"id\": \"hgnc:583\"}], \"association\": \"Germline pathogenic loss-of-function variants\"}}, {\"id\": \"APC-initiated WNT pathway activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"APC-initiated tumorigenesis proceeds through activation of canonical WNT signaling as an early mechanistic axis in FAP carcinogenesis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Wnt signaling pathway\"]}}, {\"id\": \"Adenoma initiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early adenomatous lesions arise in colorectal mucosa and provide the substrate for subsequent lesion expansion and malignant progression.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"colon\", \"rectum\"]}}, {\"id\": \"Adenoma-to-carcinoma transition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Advanced adenomas progress to invasive colorectal carcinoma in the absence of effective preventive intervention.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Colorectal cancer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In unmanaged disease, colorectal cancer risk is extremely high and often approaches certainty by mid-adulthood.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0003003\"}}, {\"id\": \"Colorectal polyposis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Classic FAP is defined by extensive colorectal adenoma burden, typically with hundreds of premalignant lesions.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0030255\"}}, {\"id\": \"Duodenal Adenocarcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Duodenal adenocarcinoma is an occasional upper-GI cancer phenotype in FAP.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006771\"}}, {\"id\": \"Epithelial hyperproliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Precancer transitions in classic FAP involve strong pro-growth molecular remodeling and expanded epithelial proliferative signaling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Genomic instability accumulation across adenoma grades\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Adenoma evolution in classic FAP is marked by increasing chromosomal and DNA repair instability features from tubular adenoma to villous adenoma to carcinoma.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromosome organization\", \"DNA repair\"]}}, {\"id\": \"Germline APC loss-of-function predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline pathogenic APC variation establishes a constitutional tumor suppressor deficit that predisposes colonic and rectal epithelium to adenoma development.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\"], \"genes\": [\"APC\"], \"gene_terms\": [{\"label\": \"APC\", \"id\": \"hgnc:583\"}], \"locations\": [\"colon\", \"rectum\"]}}, {\"id\": \"Metformin-based chemoprevention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Metformin remains investigational in FAP, with mixed efficacy signals across studies and evidence of pathway-level biologic activity.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"metformin\"]}}, {\"id\": \"Microbiome-associated pathway modulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Distinct fecal and lesion-associated microbial signatures correlate with WNT and mTOR pathway readouts in FAP, indicating microbiome-linked modulation of progression biology.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Multiple Gastric Polyps\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multiple gastric polyps are a frequent upper-gastrointestinal phenotype in familial adenomatous polyposis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004394\"}}, {\"id\": \"NSAID and COX-2 inhibitor chemoprevention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"NSAID-based chemoprevention is used as an adjunctive approach but evidence remains heterogeneous and not sufficient to replace surgery/surveillance.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"sulindac\", \"celecoxib\"]}}, {\"id\": \"Odontoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Odontoma is an occasional dental phenotype in FAP.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011068\"}}, {\"id\": \"PI3K/mTOR co-activation in adenomatous lesions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FAP lesions demonstrate PI3K/mTOR pathway co-activation alongside WNT dysregulation, consistent with pathway cooperation during progression.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"TOR signaling\", \"phosphatidylinositol 3-kinase/protein kinase B signal transduction\"]}}, {\"id\": \"Papillary Thyroid Carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Papillary thyroid carcinoma is an occasional neoplastic phenotype in FAP.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002895\"}}, {\"id\": \"Somatic APC Second-Hit Inactivation (Knudson Two-Hit)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A somatic second mutation inactivates the residual wild-type APC allele, completing biallelic APC loss in agreement with Knudson\u0027s two-hit model. Germline mutations preferentially affect the functional domains responsible for beta-catenin interaction, while somatic second hits cluster in the downstream region of the gene.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"APC\"], \"gene_terms\": [{\"label\": \"APC\", \"id\": \"hgnc:583\"}]}}, {\"id\": \"Supernumerary Tooth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Supernumerary teeth are an occasional dental phenotype in FAP.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011069\"}}, {\"id\": \"TP53 driver emergence in advanced adenomas\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Advanced FAP lesions accumulate TP53 driver events that prime transition to invasive carcinoma.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thyroid Nodule\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thyroid nodule is a frequent extracolonic phenotype in FAP.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0025388\"}}], \"edges\": [{\"source\": \"Germline APC loss-of-function predisposition\", \"target\": \"APC-initiated WNT pathway activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of APC function permits canonical WNT pathway activation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Germline APC loss-of-function predisposition\", \"target\": \"Somatic APC Second-Hit Inactivation (Knudson Two-Hit)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the residual wild-type APC allele via a somatic second mutation completes biallelic APC inactivation, in agreement with Knudson\u0027s two-hit model of tumor suppressor loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Germline APC loss-of-function predisposition\", \"target\": \"Multiple Gastric Polyps\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records multiple gastric polyps as a frequent extracolonic phenotype in familial adenomatous polyposis.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Germline APC loss-of-function predisposition\", \"target\": \"Thyroid Nodule\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records thyroid nodule as a frequent extracolonic phenotype in familial adenomatous polyposis.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Germline APC loss-of-function predisposition\", \"target\": \"Papillary Thyroid Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records papillary thyroid carcinoma as an occasional neoplastic phenotype in familial adenomatous polyposis.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Germline APC loss-of-function predisposition\", \"target\": \"Duodenal Adenocarcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records duodenal adenocarcinoma as an occasional upper-GI neoplastic phenotype in familial adenomatous polyposis.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Germline APC loss-of-function predisposition\", \"target\": \"Odontoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records odontoma as an occasional dental phenotype in familial adenomatous polyposis.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Germline APC loss-of-function predisposition\", \"target\": \"Supernumerary Tooth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records supernumerary tooth as an occasional dental phenotype in familial adenomatous polyposis.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Somatic APC Second-Hit Inactivation (Knudson Two-Hit)\", \"target\": \"APC-initiated WNT pathway activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic APC inactivation completes loss of the WNT-regulatory function and is the proximate driver of canonical WNT pathway activation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"APC-initiated WNT pathway activation\", \"target\": \"Epithelial hyperproliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"WNT activation increases proliferative drive in intestinal epithelium.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epithelial hyperproliferation\", \"target\": \"Adenoma initiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained epithelial proliferation drives early adenoma formation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Adenoma initiation\", \"target\": \"PI3K/mTOR co-activation in adenomatous lesions\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Established adenomas acquire cooperative PI3K/mTOR pathway activation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Additional oncogenic and microenvironmental pathway cooperation\"]}, {\"source\": \"Adenoma initiation\", \"target\": \"Colorectal polyposis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated adenoma initiation and persistence produce high-burden colorectal polyposis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PI3K/mTOR co-activation in adenomatous lesions\", \"target\": \"Microbiome-associated pathway modulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"WNT and mTOR pathway activity tracks with specific microbial signatures.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Host-microbiome and inflammatory signaling interactions\"]}, {\"source\": \"PI3K/mTOR co-activation in adenomatous lesions\", \"target\": \"Genomic instability accumulation across adenoma grades\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Co-activated signaling supports progression toward genomically unstable advanced lesions.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Microbiome-associated pathway modulation\", \"target\": \"Genomic instability accumulation across adenoma grades\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Microbiome-linked signaling perturbation may contribute to heterogeneous evolutionary trajectories.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Genomic instability accumulation across adenoma grades\", \"target\": \"TP53 driver emergence in advanced adenomas\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated genomic instability promotes emergence of carcinoma-driving alterations.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TP53 driver emergence in advanced adenomas\", \"target\": \"Adenoma-to-carcinoma transition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TP53 driver acquisition promotes malignant transition of advanced adenomas.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Adenoma-to-carcinoma transition\", \"target\": \"Colorectal cancer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malignant transition culminates in invasive colorectal cancer.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NSAID and COX-2 inhibitor chemoprevention\", \"target\": \"Adenoma initiation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Metformin-based chemoprevention\", \"target\": \"PI3K/mTOR co-activation in adenomatous lesions\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"APC\", \"target\": \"Germline APC loss-of-function predisposition\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"APC\", \"target\": \"Somatic APC Second-Hit Inactivation (Knudson Two-Hit)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"APC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"APC\"], \"gene_terms\": [{\"label\": \"APC\", \"id\": \"hgnc:583\"}], \"association\": \"Germline pathogenic loss-of-function variants\", \"variant_count\": 2}}, {\"id\": \"APC promoter 1B 6858 bp deletion (Marabelli et al., 2017)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Germline promoter 1B deletion identified in three Italian classical FAP families, consistent with a founder allele. Breakpoint coordinates and transcript-relative overlap are not specified in the available abstract.\", \"meta\": {\"evidence_count\": 1, \"regulatory_target_gene\": {\"label\": \"APC\", \"id\": \"hgnc:583\"}, \"genes\": [\"APC\"], \"gene_terms\": [{\"label\": \"APC\", \"id\": \"hgnc:583\"}], \"variant_type\": \"deletion\"}}, {\"id\": \"APC promoter 1B deletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline deletions encompassing promoter 1B provide a regulatory route to classic FAP. The approximately 11 kb allele also removes exon 1B; transcript-relative overlap of the 6858 bp allele is not specified in the available abstract, so UTR overlap is recorded only on the individual 11 kb variant.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_type\": \"deletion\", \"variant_origin\": \"GERMLINE\"}}}, {\"id\": \"APC promoter 1B-dependent allelic silencing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Expression from one APC allele is reduced to undetectable levels in blood-derived RNA from carriers of the approximately 11 kb deletion. Allelic silencing was also reported for the 6858 bp deletion. These observations establish the expression defect in the assayed samples; alternative promoter use in other tissues leaves LOE versus mLOE unresolved.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Expression from the silenced APC allele\"], \"genes\": [\"APC\"], \"gene_terms\": [{\"label\": \"APC\", \"id\": \"hgnc:583\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"APC promoter and exon 1B approximately 11 kb deletion (Lin et al., 2015)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Heterozygous deletion reported at GRCh37/hg19 chr5:112,034,824-112,045,845, encompassing promoter 1B and exon 1B. Identical breakpoints and a shared haplotype in three classic FAP kindreds suggested a founder allele. The genomic context records overlap with the exon 1B 5-prime untranslated region; it does not describe the entire deleted interval.\", \"meta\": {\"evidence_count\": 1, \"regulatory_target_gene\": {\"label\": \"APC\", \"id\": \"hgnc:583\"}, \"genes\": [\"APC\"], \"gene_terms\": [{\"label\": \"APC\", \"id\": \"hgnc:583\"}], \"variant_type\": \"deletion\", \"genomic_contexts\": [\"5\u0027 UTR\"]}}, {\"id\": \"APC-initiated WNT pathway activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"APC-initiated tumorigenesis proceeds through activation of canonical WNT signaling as an early mechanistic axis in FAP carcinogenesis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Wnt signaling pathway\"]}}, {\"id\": \"Adenoma initiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early adenomatous lesions arise in colorectal mucosa and provide the substrate for subsequent lesion expansion and malignant progression.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"colon\", \"rectum\"]}}, {\"id\": \"Adenoma-to-carcinoma transition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Advanced adenomas progress to invasive colorectal carcinoma in the absence of effective preventive intervention.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Colorectal cancer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In unmanaged disease, colorectal cancer risk is extremely high and often approaches certainty by mid-adulthood.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0003003\"}}, {\"id\": \"Colorectal polyposis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Classic FAP is defined by extensive colorectal adenoma burden, typically with hundreds of premalignant lesions.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0030255\"}}, {\"id\": \"Duodenal Adenocarcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Duodenal adenocarcinoma is an occasional upper-GI cancer phenotype in FAP.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006771\"}}, {\"id\": \"Epithelial hyperproliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Precancer transitions in classic FAP involve strong pro-growth molecular remodeling and expanded epithelial proliferative signaling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Genomic instability accumulation across adenoma grades\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Adenoma evolution in classic FAP is marked by increasing chromosomal and DNA repair instability features from tubular adenoma to villous adenoma to carcinoma.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromosome organization\", \"DNA repair\"]}}, {\"id\": \"Germline APC loss-of-function predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline pathogenic APC variation establishes a constitutional tumor suppressor deficit that predisposes colonic and rectal epithelium to adenoma development.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\"], \"genes\": [\"APC\"], \"gene_terms\": [{\"label\": \"APC\", \"id\": \"hgnc:583\"}], \"locations\": [\"colon\", \"rectum\"]}}, {\"id\": \"Metformin-based chemoprevention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Metformin remains investigational in FAP, with mixed efficacy signals across studies and evidence of pathway-level biologic activity.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"metformin\"]}}, {\"id\": \"Microbiome-associated pathway modulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Distinct fecal and lesion-associated microbial signatures correlate with WNT and mTOR pathway readouts in FAP, indicating microbiome-linked modulation of progression biology.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Multiple Gastric Polyps\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multiple gastric polyps are a frequent upper-gastrointestinal phenotype in familial adenomatous polyposis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004394\"}}, {\"id\": \"NSAID and COX-2 inhibitor chemoprevention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"NSAID-based chemoprevention is used as an adjunctive approach but evidence remains heterogeneous and not sufficient to replace surgery/surveillance.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"sulindac\", \"celecoxib\"]}}, {\"id\": \"Odontoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Odontoma is an occasional dental phenotype in FAP.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011068\"}}, {\"id\": \"PI3K/mTOR co-activation in adenomatous lesions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FAP lesions demonstrate PI3K/mTOR pathway co-activation alongside WNT dysregulation, consistent with pathway cooperation during progression.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"TOR signaling\", \"phosphatidylinositol 3-kinase/protein kinase B signal transduction\"]}}, {\"id\": \"Papillary Thyroid Carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Papillary thyroid carcinoma is an occasional neoplastic phenotype in FAP.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002895\"}}, {\"id\": \"Somatic APC Second-Hit Inactivation (Knudson Two-Hit)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A somatic second mutation inactivates the residual wild-type APC allele, completing biallelic APC loss in agreement with Knudson\u0027s two-hit model. Germline mutations preferentially affect the functional domains responsible for beta-catenin interaction, while somatic second hits cluster in the downstream region of the gene.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"APC\"], \"gene_terms\": [{\"label\": \"APC\", \"id\": \"hgnc:583\"}]}}, {\"id\": \"Supernumerary Tooth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Supernumerary teeth are an occasional dental phenotype in FAP.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011069\"}}, {\"id\": \"TP53 driver emergence in advanced adenomas\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Advanced FAP lesions accumulate TP53 driver events that prime transition to invasive carcinoma.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thyroid Nodule\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thyroid nodule is a frequent extracolonic phenotype in FAP.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0025388\"}}], \"edges\": [{\"source\": \"APC promoter 1B deletion\", \"target\": \"APC promoter 1B-dependent allelic silencing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Promoter 1B deletion is associated with loss of expression from one APC allele. The approximately 11 kb allele was assayed in blood-derived RNA.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"APC promoter 1B-dependent allelic silencing\", \"target\": \"Germline APC loss-of-function predisposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Promoter-dependent loss of expression provides a regulatory route to the inherited APC deficit in these families.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Germline APC loss-of-function predisposition\", \"target\": \"APC-initiated WNT pathway activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of APC function permits canonical WNT pathway activation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Germline APC loss-of-function predisposition\", \"target\": \"Somatic APC Second-Hit Inactivation (Knudson Two-Hit)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the residual wild-type APC allele via a somatic second mutation completes biallelic APC inactivation, in agreement with Knudson\u0027s two-hit model of tumor suppressor loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Germline APC loss-of-function predisposition\", \"target\": \"Multiple Gastric Polyps\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records multiple gastric polyps as a frequent extracolonic phenotype in familial adenomatous polyposis.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Germline APC loss-of-function predisposition\", \"target\": \"Thyroid Nodule\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records thyroid nodule as a frequent extracolonic phenotype in familial adenomatous polyposis.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Germline APC loss-of-function predisposition\", \"target\": \"Papillary Thyroid Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records papillary thyroid carcinoma as an occasional neoplastic phenotype in familial adenomatous polyposis.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Germline APC loss-of-function predisposition\", \"target\": \"Duodenal Adenocarcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records duodenal adenocarcinoma as an occasional upper-GI neoplastic phenotype in familial adenomatous polyposis.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Germline APC loss-of-function predisposition\", \"target\": \"Odontoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records odontoma as an occasional dental phenotype in familial adenomatous polyposis.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Germline APC loss-of-function predisposition\", \"target\": \"Supernumerary Tooth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records supernumerary tooth as an occasional dental phenotype in familial adenomatous polyposis.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Somatic APC Second-Hit Inactivation (Knudson Two-Hit)\", \"target\": \"APC-initiated WNT pathway activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic APC inactivation completes loss of the WNT-regulatory function and is the proximate driver of canonical WNT pathway activation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"APC-initiated WNT pathway activation\", \"target\": \"Epithelial hyperproliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"WNT activation increases proliferative drive in intestinal epithelium.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epithelial hyperproliferation\", \"target\": \"Adenoma initiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained epithelial proliferation drives early adenoma formation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Adenoma initiation\", \"target\": \"PI3K/mTOR co-activation in adenomatous lesions\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Established adenomas acquire cooperative PI3K/mTOR pathway activation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Additional oncogenic and microenvironmental pathway cooperation\"]}, {\"source\": \"Adenoma initiation\", \"target\": \"Colorectal polyposis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated adenoma initiation and persistence produce high-burden colorectal polyposis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PI3K/mTOR co-activation in adenomatous lesions\", \"target\": \"Microbiome-associated pathway modulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"WNT and mTOR pathway activity tracks with specific microbial signatures.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Host-microbiome and inflammatory signaling interactions\"]}, {\"source\": \"PI3K/mTOR co-activation in adenomatous lesions\", \"target\": \"Genomic instability accumulation across adenoma grades\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Co-activated signaling supports progression toward genomically unstable advanced lesions.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Microbiome-associated pathway modulation\", \"target\": \"Genomic instability accumulation across adenoma grades\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Microbiome-linked signaling perturbation may contribute to heterogeneous evolutionary trajectories.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Genomic instability accumulation across adenoma grades\", \"target\": \"TP53 driver emergence in advanced adenomas\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated genomic instability promotes emergence of carcinoma-driving alterations.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TP53 driver emergence in advanced adenomas\", \"target\": \"Adenoma-to-carcinoma transition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TP53 driver acquisition promotes malignant transition of advanced adenomas.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Adenoma-to-carcinoma transition\", \"target\": \"Colorectal cancer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malignant transition culminates in invasive colorectal cancer.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NSAID and COX-2 inhibitor chemoprevention\", \"target\": \"Adenoma initiation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Metformin-based chemoprevention\", \"target\": \"PI3K/mTOR co-activation in adenomatous lesions\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"APC\", \"target\": \"APC promoter 1B-dependent allelic silencing\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"APC\", \"target\": \"Germline APC loss-of-function predisposition\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"APC\", \"target\": \"Somatic APC Second-Hit Inactivation (Knudson Two-Hit)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"APC promoter and exon 1B approximately 11 kb deletion (Lin et al., 2015)\", \"target\": \"APC\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"APC promoter and exon 1B approximately 11 kb deletion (Lin et al., 2015)\", \"target\": \"APC\", \"predicate\": \"has_regulatory_target\", \"is_orphan\": false}, {\"source\": \"APC promoter 1B 6858 bp deletion (Marabelli et al., 2017)\", \"target\": \"APC\", \"predicate\": \"has_regulatory_target\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5713,10 +6086,10 @@ This pathophysiological event involves dysregulated DNA repair (GO:0006281). GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030255" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0030255</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030255" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0030255</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Large intestinal polyposis (HP:0030255). HP:0030255 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5789,10 +6162,10 @@ This clinical feature is Large intestinal polyposis (HP:0030255). HP:0030255 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003003" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0003003</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003003" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003003</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Colon cancer (HP:0003003). HP:0003003 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5865,10 +6238,10 @@ This clinical feature is Colon cancer (HP:0003003). HP:0003003 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0030256</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0030256</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Small intestinal polyposis (HP:0030256). HP:0030256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5964,10 +6337,10 @@ This clinical feature is Small intestinal polyposis (HP:0030256). HP:0030256 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0004394</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0004394</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Multiple gastric polyps (HP:0004394). HP:0004394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6038,10 +6411,10 @@ This clinical feature is Multiple gastric polyps (HP:0004394). HP:0004394 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006771" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0006771</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006771" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0006771</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Duodenal adenocarcinoma (HP:0006771). HP:0006771 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6112,10 +6485,10 @@ This clinical feature is Duodenal adenocarcinoma (HP:0006771). HP:0006771 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011068" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0011068</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011068" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0011068</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Odontoma (HP:0011068). HP:0011068 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6184,10 +6557,10 @@ This clinical feature is Odontoma (HP:0011068). HP:0011068 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002884" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002884</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002884" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002884</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hepatoblastoma (HP:0002884). HP:0002884 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6292,10 +6665,10 @@ This clinical feature is Hepatoblastoma (HP:0002884). HP:0002884 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025388" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0025388</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025388" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0025388</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Thyroid nodule (HP:0025388). HP:0025388 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6366,10 +6739,10 @@ This clinical feature is Thyroid nodule (HP:0025388). HP:0025388 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002895" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002895</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002895" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002895</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Papillary thyroid carcinoma (HP:0002895). HP:0002895 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6449,10 +6822,10 @@ This clinical feature is Papillary thyroid carcinoma (HP:0002895). HP:0002895 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007649" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0007649</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007649" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0007649</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Congenital hypertrophy of retinal pigment epithelium (HP:0007649). HP:0007649 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6559,10 +6932,10 @@ This clinical feature is Congenital hypertrophy of retinal pigment epithelium (H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000164</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000164</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dental anomalies, annotated with Abnormality of the dentition (HP:0000164). HP:0000164 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6633,10 +7006,10 @@ This clinical feature is Dental anomalies, annotated with Abnormality of the den
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0011069</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0011069</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Supernumerary tooth (HP:0011069). HP:0011069 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6716,10 +7089,10 @@ This clinical feature is Supernumerary tooth (HP:0011069). HP:0011069 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200040" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0200040</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0200040" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0200040</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Epidermoid cyst (HP:0200040). HP:0200040 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6799,10 +7172,10 @@ This clinical feature is Epidermoid cyst (HP:0200040). HP:0200040 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100246" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0100246</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100246" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0100246</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Osteoma (HP:0100246). HP:0100246 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6882,10 +7255,10 @@ This clinical feature is Osteoma (HP:0100246). HP:0100246 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6001034" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:6001034</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6001034" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:6001034</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Desmoid tumor (HP:6001034). HP:6001034 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6979,10 +7352,10 @@ This clinical feature is Desmoid tumor (HP:6001034). HP:6001034 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002885" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002885</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002885" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002885</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Medulloblastoma (HP:0002885). HP:0002885 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7094,10 +7467,10 @@ This clinical feature is Medulloblastoma (HP:0002885). HP:0002885 is a phenotype
                         Gene: APC
 
 
-    <a href="https://bioregistry.io/hgnc:583" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:583</a>
+    <a href="https://bioregistry.io/hgnc:583" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:583</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is APC (hgnc:583). hgnc:583 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7105,6 +7478,9 @@ This disease-associated gene is APC (hgnc:583). hgnc:583 is a gene from the HUGO
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7152,6 +7528,280 @@ This disease-associated gene is APC (hgnc:583). hgnc:583 is a gene from the HUGO
 
 
 
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (2)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-apc-promoter-and-exon-1b-approximately-11-kb-deletion-lin-et-al-2015" data-dismech-node="APC promoter and exon 1B approximately 11 kb deletion (Lin et al., 2015)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        APC promoter and exon 1B approximately 11 kb deletion (Lin et al., 2015)
+
+    </div>
+
+
+    <div class="item-meta">
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: APC
+
+
+    <a href="https://bioregistry.io/hgnc:583" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:583</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in APC (hgnc:583). hgnc:583 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Regulatory target: APC
+
+
+    <a href="https://bioregistry.io/hgnc:583" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:583</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant has a reported or proposed regulatory effect on this gene
+This variant has a reported or proposed regulatory effect on APC (hgnc:583). hgnc:583 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">deletion</span>
+
+
+
+    </div>
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #6b7280;">Genomic context:</strong>
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">5&#39; UTR</span>
+
+    </div>
+
+
+
+
+
+    <div class="item-desc">Heterozygous deletion reported at GRCh37/hg19 chr5:112,034,824-112,045,845, encompassing promoter 1B and exon 1B. Identical breakpoints and a shared haplotype in three classic FAP kindreds suggested a founder allele. The genomic context records overlap with the exon 1B 5-prime untranslated region; it does not describe the entire deleted interval.</div>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Functional effects</div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">APC gene expression</span>
+
+
+                <span class="tag" style="background: #e0e7ff; color: #3730a3;">Reduced gene expression</span>
+
+
+
+                <span class="tag" style="background: #fce7f3; color: #9d174d;">PROMOTER</span>
+
+            </div>
+
+
+            <div class="item-desc">Allele-specific RNA analysis demonstrated silencing of one APC allele in blood. Tissue-wide loss versus modular loss of expression remains unresolved because other tissues may use promoter 1A.</div>
+
+
+            <div class="item-desc"><strong>Mechanism:</strong> Deletion of promoter 1B and its associated first exon</div>
+
+
+
+        </div>
+
+    </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25941542" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25941542" target="_blank">PMID:25941542</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"this ~11 kb deletion was accompanied by silencing of one of the APC alleles in blood-derived RNA of affected individuals."</div>
+
+
+                <div class="evidence-explanation">The abstract supports the regulatory effect; the full text provides the hg19 interval and segregation and haplotype analyses.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-apc-promoter-1b-6858-bp-deletion-marabelli-et-al-2017" data-dismech-node="APC promoter 1B 6858 bp deletion (Marabelli et al., 2017)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        APC promoter 1B 6858 bp deletion (Marabelli et al., 2017)
+
+    </div>
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Regulatory target: APC
+
+
+    <a href="https://bioregistry.io/hgnc:583" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:583</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant has a reported or proposed regulatory effect on this gene
+This variant has a reported or proposed regulatory effect on APC (hgnc:583). hgnc:583 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">deletion</span>
+
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">6858 bp</span>
+
+    </div>
+
+
+
+
+
+
+
+    <div class="item-desc">Germline promoter 1B deletion identified in three Italian classical FAP families, consistent with a founder allele. Breakpoint coordinates and transcript-relative overlap are not specified in the available abstract.</div>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Functional effects</div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">APC gene expression</span>
+
+
+                <span class="tag" style="background: #e0e7ff; color: #3730a3;">Reduced gene expression</span>
+
+
+
+                <span class="tag" style="background: #fce7f3; color: #9d174d;">PROMOTER</span>
+
+            </div>
+
+
+            <div class="item-desc">DNA and RNA studies associated this deletion with APC allele silencing; the abstract does not resolve tissue specificity.</div>
+
+
+            <div class="item-desc"><strong>Mechanism:</strong> Deletion of promoter 1B</div>
+
+
+
+        </div>
+
+    </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28791770" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28791770" target="_blank">PMID:28791770</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we precisely mapped this deletion (6858 bp in length) that proved to be associated with APC allele silencing."</div>
+
+
+                <div class="evidence-explanation">Supports the measured deletion length and expression defect.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+                </details>
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-tp53-and-cooperating-progression-drivers" data-dismech-node="TP53 and cooperating progression drivers" data-dismech-type="genetic">
@@ -7172,10 +7822,10 @@ This disease-associated gene is APC (hgnc:583). hgnc:583 is a gene from the HUGO
                         Gene: TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:11998</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7183,6 +7833,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -7252,7 +7905,7 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is surgical procedure (NCIT:C15329), qualified as surgical procedure colectomy; surgical procedure proctocolectomy. NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7388,7 +8041,7 @@ This treatment is surgical procedure (NCIT:C15329), qualified as surgical proced
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">colonoscopy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">colonoscopy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is colonoscopy (NCIT:C16450), qualified as diagnostic procedure colonoscopy. NCIT:C16450 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7513,7 +8166,7 @@ This treatment is colonoscopy (NCIT:C16450), qualified as diagnostic procedure c
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">NSAID therapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">NSAID therapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is NSAID therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7555,11 +8208,11 @@ This treatment is NSAID therapy, annotated with Pharmacotherapy (NCIT:C15986). N
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C850" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-36">NCIT:C850</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C850" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-41">NCIT:C850</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses sulindac (NCIT:C850). NCIT:C850 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -7572,11 +8225,11 @@ This treatment uses sulindac (NCIT:C850). NCIT:C850 is a therapeutic agent from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1728" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-37">NCIT:C1728</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1728" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-42">NCIT:C1728</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses celecoxib (NCIT:C1728). NCIT:C1728 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -7730,7 +8383,7 @@ This treatment uses celecoxib (NCIT:C1728). NCIT:C1728 is a therapeutic agent fr
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7772,11 +8425,11 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C61612" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C61612</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C61612" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-44">NCIT:C61612</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses metformin (NCIT:C61612). NCIT:C61612 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -7930,7 +8583,7 @@ This treatment uses metformin (NCIT:C61612). NCIT:C61612 is a therapeutic agent 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">chemoprevention<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">chemoprevention<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is chemoprevention, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7972,11 +8625,11 @@ This treatment is chemoprevention, annotated with Pharmacotherapy (NCIT:C15986).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C65530" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-41">NCIT:C65530</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C65530" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-46">NCIT:C65530</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses erlotinib (NCIT:C65530). NCIT:C65530 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -8077,7 +8730,7 @@ This treatment uses erlotinib (NCIT:C65530). NCIT:C65530 is a therapeutic agent 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8118,11 +8771,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C226" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-43">NCIT:C226</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C226" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-48">NCIT:C226</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses eflornithine (NCIT:C226). NCIT:C226 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -8135,11 +8788,11 @@ This treatment uses eflornithine (NCIT:C226). NCIT:C226 is a therapeutic agent f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C850" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-44">NCIT:C850</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C850" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C850</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses sulindac (NCIT:C850). NCIT:C850 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -8215,7 +8868,7 @@ This treatment uses sulindac (NCIT:C850). NCIT:C850 is a therapeutic agent from 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8406,11 +9059,11 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         colonoscopy
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C16450" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-46">NCIT:C16450</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16450" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-51">NCIT:C16450</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8519,11 +9172,11 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         molecular genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-47">NCIT:C19770</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-52">NCIT:C19770</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9331,11 +9984,11 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001155" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-48">UBERON:0001155</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001155" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-53">UBERON:0001155</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Uberon multi-species anatomy ontology (UBERON)
 Relation: this dataset samples this sample type
 This dataset samples colorectal mucosal and polyp tissue, annotated with colon (UBERON:0001155). UBERON:0001155 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -9435,11 +10088,11 @@ This dataset samples colorectal mucosal and polyp tissue, annotated with colon (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001155" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-49">UBERON:0001155</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001155" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-54">UBERON:0001155</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Uberon multi-species anatomy ontology (UBERON)
 Relation: this dataset samples this sample type
 This dataset samples colorectal adenoma and carcinoma tissue, annotated with colon (UBERON:0001155). UBERON:0001155 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -9539,11 +10192,11 @@ This dataset samples colorectal adenoma and carcinoma tissue, annotated with col
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030255" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0030255</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030255" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0030255</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Large intestinal polyposis (HP:0030255). HP:0030255 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9556,11 +10209,11 @@ This clinical trial targets Large intestinal polyposis (HP:0030255). HP:0030255 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0030256</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0030256</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Small intestinal polyposis (HP:0030256). HP:0030256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9632,11 +10285,11 @@ This clinical trial targets Small intestinal polyposis (HP:0030256). HP:0030256 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030255" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0030255</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030255" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0030255</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Large intestinal polyposis (HP:0030255). HP:0030255 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9649,11 +10302,11 @@ This clinical trial targets Large intestinal polyposis (HP:0030255). HP:0030255 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0030256</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0030256</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Small intestinal polyposis (HP:0030256). HP:0030256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9725,11 +10378,11 @@ This clinical trial targets Small intestinal polyposis (HP:0030256). HP:0030256 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0030256</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0030256</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Small intestinal polyposis (HP:0030256). HP:0030256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9801,11 +10454,11 @@ This clinical trial targets Small intestinal polyposis (HP:0030256). HP:0030256 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030255" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0030255</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030255" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0030255</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Large intestinal polyposis (HP:0030255). HP:0030255 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9818,11 +10471,11 @@ This clinical trial targets Large intestinal polyposis (HP:0030255). HP:0030255 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0030256</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0030256</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Small intestinal polyposis (HP:0030256). HP:0030256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10023,6 +10676,93 @@ progression:
     snippet: &#34;Colorectal cancer rates reach 100% by the age of 45, making early colectomy a mainstay of treatment.&#34;
     explanation: This supports near-universal CRC progression risk by age and the clinical rationale for early colectomy.
 pathophysiology:
+- name: APC promoter 1B deletion
+  biological_scale: MOLECULAR
+  genetic_context:
+    variant_type: deletion
+    variant_origin: GERMLINE
+  description: &gt;-
+    Germline deletions encompassing promoter 1B provide a regulatory route
+    to classic FAP. The approximately 11 kb allele also removes exon 1B;
+    transcript-relative overlap of the 6858 bp allele is not specified in
+    the available abstract, so UTR overlap is recorded only on the individual
+    11 kb variant.
+  evidence:
+  - reference: PMID:25941542
+    reference_title: Novel APC promoter and exon 1B deletion and allelic silencing in three mutation-negative classic familial adenomatous polyposis families.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;encompasses the APC 1B promoter and exon.&#34;
+    explanation: Identifies the promoter and first-exon overlap of the approximately 11 kb deletion.
+  - reference: PMID:28791770
+    reference_title: A novel APC promoter 1B deletion shows a founder effect in Italian patients with classical familial adenomatous polyposis phenotype.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;We identified a novel deletion encompassing promoter 1B in a large Italian family&#34;
+    explanation: Establishes a second promoter 1B deletion associated with familial polyposis.
+  downstream:
+  - target: APC promoter 1B-dependent allelic silencing
+    causal_link_type: DIRECT
+    description: &gt;-
+      Promoter 1B deletion is associated with loss of expression from one APC
+      allele. The approximately 11 kb allele was assayed in blood-derived RNA.
+    evidence:
+    - reference: PMID:25941542
+      reference_title: Novel APC promoter and exon 1B deletion and allelic silencing in three mutation-negative classic familial adenomatous polyposis families.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;this ~11 kb deletion was accompanied by silencing of one of the APC alleles in blood-derived RNA of affected individuals.&#34;
+      explanation: Links the observed structural allele to the allele-specific expression defect.
+- name: APC promoter 1B-dependent allelic silencing
+  biological_scale: MOLECULAR
+  mechanism_confidence: ESTABLISHED
+  description: &gt;-
+    Expression from one APC allele is reduced to undetectable levels in
+    blood-derived RNA from carriers of the approximately 11 kb deletion.
+    Allelic silencing was also reported for the 6858 bp deletion. These
+    observations establish the expression defect in the assayed samples;
+    alternative promoter use in other tissues leaves LOE versus mLOE unresolved.
+  gene:
+    preferred_term: APC
+    term:
+      id: hgnc:583
+      label: APC
+  biological_processes:
+  - preferred_term: Expression from the silenced APC allele
+    modifier: DECREASED
+    term:
+      id: GO:0010467
+      label: gene expression
+  evidence:
+  - reference: PMID:25941542
+    reference_title: Novel APC promoter and exon 1B deletion and allelic silencing in three mutation-negative classic familial adenomatous polyposis families.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;this ~11 kb deletion was accompanied by silencing of one of the APC alleles in blood-derived RNA of affected individuals.&#34;
+    explanation: &gt;-
+      Patient RNA establishes allelic silencing in the assayed tissue. The
+      discussion leaves expression from promoter 1A in other tissues open.
+  - reference: PMID:28791770
+    reference_title: A novel APC promoter 1B deletion shows a founder effect in Italian patients with classical familial adenomatous polyposis phenotype.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;we precisely mapped this deletion (6858 bp in length) that proved to be associated with APC allele silencing.&#34;
+    explanation: Independent DNA and RNA studies associate the second promoter deletion with allelic silencing.
+  downstream:
+  - target: Germline APC loss-of-function predisposition
+    description: &gt;-
+      Promoter-dependent loss of expression provides a regulatory route to
+      the inherited APC deficit in these families.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:28791770
+      reference_title: A novel APC promoter 1B deletion shows a founder effect in Italian patients with classical familial adenomatous polyposis phenotype.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;we precisely mapped this deletion (6858 bp in length) that proved to be associated with APC allele silencing.&#34;
+      explanation: &gt;-
+        An independent promoter 1B deletion segregated in classical FAP
+        families and was associated with allelic silencing.
 - name: Germline APC loss-of-function predisposition
   conforms_to: &#34;germline_two_hit_tumor_predisposition#Constitutional First-Hit Tumor Suppressor Inactivation&#34;
   description: &gt;-
@@ -10778,6 +11518,74 @@ genetic:
     term:
       id: hgnc:583
       label: APC
+  variants:
+  - name: APC promoter and exon 1B approximately 11 kb deletion (Lin et al., 2015)
+    variant_type: deletion
+    genomic_contexts:
+    - &#34;5&#39; UTR&#34;
+    description: &gt;-
+      Heterozygous deletion reported at GRCh37/hg19
+      chr5:112,034,824-112,045,845, encompassing promoter 1B and exon 1B.
+      Identical breakpoints and a shared haplotype in three classic FAP
+      kindreds suggested a founder allele. The genomic context records
+      overlap with the exon 1B 5-prime untranslated region; it does not
+      describe the entire deleted interval.
+    gene:
+      preferred_term: APC
+      term:
+        id: hgnc:583
+        label: APC
+    regulatory_target_gene:
+      preferred_term: APC
+      term:
+        id: hgnc:583
+        label: APC
+    functional_effects:
+    - function: APC gene expression
+      type: Reduced gene expression
+      regulatory_element_type: PROMOTER
+      regulatory_mechanism: Deletion of promoter 1B and its associated first exon
+      description: &gt;-
+        Allele-specific RNA analysis demonstrated silencing of one APC allele
+        in blood. Tissue-wide loss versus modular loss of expression remains
+        unresolved because other tissues may use promoter 1A.
+    evidence:
+    - reference: PMID:25941542
+      reference_title: Novel APC promoter and exon 1B deletion and allelic silencing in three mutation-negative classic familial adenomatous polyposis families.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;this ~11 kb deletion was accompanied by silencing of one of the APC alleles in blood-derived RNA of affected individuals.&#34;
+      explanation: &gt;-
+        The abstract supports the regulatory effect; the full text provides
+        the hg19 interval and segregation and haplotype analyses.
+  - name: APC promoter 1B 6858 bp deletion (Marabelli et al., 2017)
+    variant_type: deletion
+    sequence_length: 6858
+    description: &gt;-
+      Germline promoter 1B deletion identified in three Italian classical
+      FAP families, consistent with a founder allele. Breakpoint coordinates
+      and transcript-relative overlap are not specified in the available
+      abstract.
+    regulatory_target_gene:
+      preferred_term: APC
+      term:
+        id: hgnc:583
+        label: APC
+    functional_effects:
+    - function: APC gene expression
+      type: Reduced gene expression
+      regulatory_element_type: PROMOTER
+      regulatory_mechanism: Deletion of promoter 1B
+      description: &gt;-
+        DNA and RNA studies associated this deletion with APC allele
+        silencing; the abstract does not resolve tissue specificity.
+    evidence:
+    - reference: PMID:28791770
+      reference_title: A novel APC promoter 1B deletion shows a founder effect in Italian patients with classical familial adenomatous polyposis phenotype.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;we precisely mapped this deletion (6858 bp in length) that proved to be associated with APC allele silencing.&#34;
+      explanation: Supports the measured deletion length and expression defect.
   inheritance:
   - name: Autosomal dominant
     evidence:
@@ -11360,6 +12168,14 @@ datasets:
     snippet: &#34;Exome sequencing was performed on multiple regions of adenocarcinoma (n = 8), villous adenoma (n = 10), tubular adenoma (n = 9) and blood samples were obtained from 9 patients belonging to 7 Chinese FAP families.&#34;
     explanation: Supports cohort composition and WES dataset scope for evolutionary analysis.
 references:
+- reference: PMID:25941542
+  title: Novel APC promoter and exon 1B deletion and allelic silencing in three mutation-negative classic familial adenomatous polyposis families.
+  findings:
+  - statement: An approximately 11 kb promoter/exon 1B deletion in three classic FAP kindreds was associated with allelic silencing in blood.
+- reference: PMID:28791770
+  title: A novel APC promoter 1B deletion shows a founder effect in Italian patients with classical familial adenomatous polyposis phenotype.
+  findings:
+  - statement: A 6858 bp promoter 1B deletion associated with APC allele silencing was found in three Italian classical FAP families.
 - reference: DOI:10.1038/s43018-024-00831-z
   title: Multiomic analysis of familial adenomatous polyposis reveals molecular pathways associated with early tumorigenesis
   findings: []
@@ -11484,7 +12300,77 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">25</span>
+                    <span class="card-count">27</span>
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/25941542" target="_blank">PMID:25941542</a>
+                            </div>
+
+                            <div class="reference-title">Novel APC promoter and exon 1B deletion and allelic silencing in three mutation-negative classic familial adenomatous polyposis families.</div>
+
+                        </div>
+
+                        <span class="reference-summary">1 finding</span>
+
+                    </div>
+
+
+
+    <div class="reference-findings">
+
+        <div class="reference-finding">
+
+            <div class="reference-finding-statement">An approximately 11 kb promoter/exon 1B deletion in three classic FAP kindreds was associated with allelic silencing in blood.</div>
+
+
+
+
+
+        </div>
+
+    </div>
+
+
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/28791770" target="_blank">PMID:28791770</a>
+                            </div>
+
+                            <div class="reference-title">A novel APC promoter 1B deletion shows a founder effect in Italian patients with classical familial adenomatous polyposis phenotype.</div>
+
+                        </div>
+
+                        <span class="reference-summary">1 finding</span>
+
+                    </div>
+
+
+
+    <div class="reference-findings">
+
+        <div class="reference-finding">
+
+            <div class="reference-finding-statement">A 6858 bp promoter 1B deletion associated with APC allele silencing was found in three Italian classical FAP families.</div>
+
+
+
+
+
+        </div>
+
+    </div>
+
+
+
                 </div>
 
                 <div class="reference-entry">
@@ -12611,7 +13497,7 @@ with GI adverse events including stomatitis, diarrhea, and abdominal pain. (faro
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Classic Familial Adenomatous Polyposis", "mondoId": "MONDO:0021055", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Classic_Familial_Adenomatous_Polyposis", "yamlRevision": "10c83395eaf5"};
+        const OS_CONFIG = {"diseaseName": "Classic Familial Adenomatous Polyposis", "mondoId": "MONDO:0021055", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Classic_Familial_Adenomatous_Polyposis", "yamlRevision": "0fd687ae464e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

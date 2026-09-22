@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2046,11 +2083,13 @@ This mechanism module involves increased Microbial fermentation of malabsorbed c
             
             <div class="item-box anchor-target" id="module-pathophysiology-loss-of-a-substrate-specific-brush-border-digestive-or-absorptive-step" data-dismech-node="Loss of a Substrate-Specific Brush-Border Digestive or Absorptive Step" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of a Substrate-Specific Brush-Border Digestive or Absorptive Step</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The shared upstream lesion. A biallelic loss-of-function defect removes one substrate-specific activity from the apical brush border of the small-intestinal enterocyte, while leaving the rest of the absorptive machinery and the villus architecture intact. Two molecular classes of lesion produce the same functional result. In the hydrolase class, a brush-border disaccharidase is absent, catalytically dead, or - as demonstrated for sucrase-isomaltase - synthesised but blocked in the endoplasmic reticulum or Golgi and never delivered to the apical membrane, so the dietary disaccharide is never cleaved to absorbable monosaccharides. In the transporter class, the apical sodium-coupled monosaccharide carrier is present but non-functional, so hydrolysis proceeds normally yet the liberated monosaccharide cannot cross the apical membrane. Because each lesion removes exactly one step, the defect is silent until the corresponding substrate is fed, and the specific enzyme or transporter substituted differs by disorder.</div>
                 
@@ -2198,11 +2237,13 @@ This pathophysiological event involves Enterocyte brush border, annotated with b
             
             <div class="item-box anchor-target" id="module-pathophysiology-unabsorbed-dietary-solute-retention-in-the-intestinal-lumen" data-dismech-node="Unabsorbed Dietary Solute Retention in the Intestinal Lumen" data-dismech-type="pathophysiology">
                 <div class="item-name">Unabsorbed Dietary Solute Retention in the Intestinal Lumen</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The rate-limiting, disorder-agnostic node and the key conformance target. Whatever the specific missing step, its consequence is identical: the ingested substrate is neither reduced to an absorbable form nor taken up, so it remains in the small-intestinal lumen as an osmotically active solute at a concentration set by dietary load rather than by absorptive capacity. This is the point at which the disorder-specific molecular lesions converge, and the point at which both therapeutic strategies act - removing the substrate from the diet, or hydrolysing it in the lumen with a replacement enzyme, each empties this node without repairing the underlying genetic defect. Its clinical signature is a high stool osmotic gap, which is what separates this class from the electrolyte-transport-related congenital diarrheas.</div>
                 
@@ -2369,11 +2410,13 @@ This pathophysiological event involves decreased Luminal disaccharide catabolism
             
             <div class="item-box anchor-target" id="module-pathophysiology-osmotic-water-influx-and-luminal-distension" data-dismech-node="Osmotic Water Influx and Luminal Distension" data-dismech-type="pathophysiology">
                 <div class="item-name">Osmotic Water Influx and Luminal Distension</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Retained luminal solute exerts an osmotic force that draws water across the intestinal epithelium into the lumen. The resulting increase in luminal volume distends the small bowel and accelerates propulsion of fluid and unabsorbed substrate into the colon, shortening the time available for any residual absorption or for colonic salvage. This is the step that converts a biochemical malabsorption into a fluid-volume problem.</div>
                 
@@ -2479,11 +2522,13 @@ This pathophysiological event involves increased Transepithelial water movement 
             
             <div class="item-box anchor-target" id="module-pathophysiology-colonic-microbial-fermentation-of-the-malabsorbed-substrate" data-dismech-node="Colonic Microbial Fermentation of the Malabsorbed Substrate" data-dismech-type="pathophysiology">
                 <div class="item-name">Colonic Microbial Fermentation of the Malabsorbed Substrate</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A parallel branch rather than an obligatory step in the chain to diarrhea. Substrate delivered to the colon is fermented by the resident microbiota to hydrogen, carbon dioxide, methane, lactate and short-chain fatty acids. This branch has two opposing effects, which is why it is modelled separately. Gas production causes the bloating, distension and flatulence that dominate the milder phenotypes, and is what the hydrogen and 13C breath tests used to diagnose these disorders actually measure. At the same time, short-chain fatty acids are absorbed by the colonic mucosa and drive concomitant salvage of water and electrolytes, partially offsetting the osmotic load. The balance between fermentative production and this reabsorptive reserve, rather than the primary enzymatic defect alone, determines the substrate dose at which an affected individual becomes symptomatic - which is why partial-deficiency phenotypes are dose-dependent while complete congenital deficiencies are not.</div>
                 
@@ -2596,11 +2641,13 @@ This pathophysiological event involves increased Microbial fermentation of malab
             
             <div class="item-box anchor-target" id="module-pathophysiology-substrate-dependent-watery-diarrhea-and-nutritional-consequences" data-dismech-node="Substrate-Dependent Watery Diarrhea and Nutritional Consequences" data-dismech-type="pathophysiology">
                 <div class="item-name">Substrate-Dependent Watery Diarrhea and Nutritional Consequences</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The clinical output. Osmotic fluid loss that exceeds colonic salvage capacity produces watery, often explosive and acidic diarrhea, accompanied by abdominal distension, flatulence and pain from the fermentative branch. In the complete congenital deficiencies the diarrhea begins with the first feed containing the offending substrate and, if unrecognised, causes dehydration, electrolyte disturbance, failure to thrive and malnutrition, historically with substantial mortality. The defining feature of this node - and of the whole module - is its strict substrate dependence: symptoms remit completely when the offending nutrient is removed from the diet and recur on rechallenge, without any repair of the underlying molecular defect. That reversibility is the clinical evidence that the chain runs through luminal solute retention rather than through mucosal damage.</div>
                 
