@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5114,6 +5153,7 @@ Two further points bear on why this has stayed open. First, a second, non-exclus
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nbeal2-loss-of-function" data-dismech-node="NBEAL2 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">NBEAL2 Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic loss-of-function variants in NBEAL2, a 54-exon gene on 3p21 encoding a 2754-amino-acid BEACH-domain scaffolding protein. The variant spectrum is broad — 86 different variants across 69 pedigrees, mostly private, comprising frameshift, nonsense, missense, splicing and small indels scattered along the gene — and no genotype-phenotype correlation has been demonstrated, either by mutation type or by position. That absence is itself informative: it argues the phenotype reflects loss of a single function rather than graded residual activity.</div>
 
 
@@ -5315,6 +5355,7 @@ This pathophysiological event involves megakaryocyte (CL:0000556). CL:0000556 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-alpha-granule-cargo-packaging" data-dismech-node="Failure of Alpha-Granule Cargo Packaging" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Alpha-Granule Cargo Packaging</div>
+
 
                 <div class="item-desc">Megakaryocytes and platelets retain only rudimentary alpha-granule precursors. Endogenously synthesized cargo — platelet factor 4, von Willebrand factor, thrombospondin-1 — is markedly depleted, while endocytosed constituents are less affected, and dense granules, lysosomes, mitochondria and peroxisomes are preserved. That selectivity is what makes GPS an isolated alpha-storage pool disease rather than a general organelle defect.</div>
 
@@ -5608,6 +5649,7 @@ This pathophysiological event involves platelet alpha granule (GO:0031091). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-megakaryocyte-cargo-release-into-marrow" data-dismech-node="Constitutive Megakaryocyte Cargo Release into Marrow" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive Megakaryocyte Cargo Release into Marrow</div>
 
+
                 <div class="item-desc">Proteins that should be released only on platelet activation are instead released spontaneously from megakaryocytes into the marrow. The marrow stroma is therefore chronically exposed to factors it would normally see only transiently and locally at sites of vascular injury — among them platelet-derived growth factor and other pro-fibrotic substances.</div>
 
 
@@ -5760,6 +5802,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-macrothrombocytopenia-and-impaired-platelet-function" data-dismech-node="Macrothrombocytopenia and Impaired Platelet Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Macrothrombocytopenia and Impaired Platelet Function</div>
+
 
                 <div class="item-desc">Platelets are reduced in number and enlarged, and — because the granule cargo needed for a robust platelet plug is missing — they function poorly at counts that would not normally cause bleeding. Median platelet count in the 47-patient international cohort era is moderate rather than profound thrombocytopenia, which is precisely why the functional deficit matters: the bleeding is disproportionate to the count. Impaired adhesion, aggregation and coagulant activity were demonstrated directly in the mouse model, together with defective arterial thrombus formation.</div>
 
@@ -5954,6 +5997,7 @@ This pathophysiological event involves decreased platelet degranulation (GO:0002
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-primary-hemostatic-plug-formation" data-dismech-node="Failure of Primary Hemostatic Plug Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Primary Hemostatic Plug Formation</div>
 
+
                 <div class="item-desc">The convergence node shared with the rest of the inherited platelet function disorders, reached here by the secretion route. Made explicit so this entry joins the family at the step the mechanism module treats as rate-limiting, and so that the disproportion the node above describes - bleeding at counts that would not normally cause it - has a place to land. Note that only the qualitative arm is routed through this node: the module deliberately does not model impaired platelet production, so the marrow and immune arms of this disorder reach their own consequences directly.</div>
 
 
@@ -6127,6 +6171,7 @@ This pathophysiological event involves decreased primary hemostasis, annotated w
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-myelofibrosis" data-dismech-node="Progressive Myelofibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Myelofibrosis</div>
 
+
                 <div class="item-desc">Reticulin and collagen fibrosis of the marrow, developing over years to decades rather than being present from birth. It is the principal determinant of long-term morbidity, driving splenomegaly through compensatory extramedullary haematopoiesis and, in advanced disease, pancytopenia. Long-term follow-up established that the thrombocytopenia and the fibrosis are both progressive, and that the disorder can be fatal.</div>
 
 
@@ -6246,6 +6291,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-splenomegaly-and-extramedullary-haematopoiesis" data-dismech-node="Splenomegaly and Extramedullary Haematopoiesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Splenomegaly and Extramedullary Haematopoiesis</div>
 
+
                 <div class="item-desc">Splenic enlargement, understood as compensatory extramedullary haematopoiesis in a marrow progressively replaced by fibrosis. It is a consistent feature of the human syndrome and is reproduced in the mouse knockout. Splenectomy improves but does not correct the platelet count, so it is not a routine recommendation.</div>
 
 
@@ -6327,6 +6373,7 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-leukocyte-granule-deficiency" data-dismech-node="Leukocyte Granule Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Leukocyte Granule Deficiency</div>
+
 
                 <div class="item-desc">The same biogenesis defect expressed outside the megakaryocyte lineage. In patients, neutrophils show reduced specific and gelatinase granule content with elevated surface and circulating granule proteins — the signature of inappropriate release rather than failed synthesis, since neutrophils differentiated in vitro from the same patients&#39; progenitors have normal granule abundance — together with impaired extracellular trap formation, while azurophilic granules are preserved. The NK-cell defect is a separate claim with a separate evidence base: reduced numbers and impaired degranulation are established in Nbeal2-deficient mice, and whether the NK compartment is also altered in human GPS is explicitly an open question. Clinically the human picture is low leukocyte counts and a modest excess of mild infections rather than severe immunodeficiency.</div>
 
@@ -6600,6 +6647,7 @@ This pathophysiological event involves decreased neutrophil extracellular trap f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-effector-t-cell-ctla-4-expression" data-dismech-node="Reduced Effector T Cell CTLA-4 Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Effector T Cell CTLA-4 Expression</div>
 
+
                 <div class="item-desc">NBEAL2 associates with CTLA-4 in primary T cells, and its loss lowers CTLA-4 expression in patient effector T cells while leaving regulatory T cells apparently unaffected — a selectivity that matters, since it removes a brake from the effector compartment specifically. The mechanism has a close precedent in LRBA, a BEACH-domain relative whose recessive loss causes autoimmunity through defective CTLA-4 trafficking.</div>
 
 
@@ -6731,6 +6779,7 @@ This pathophysiological event involves effector T cell (CL:0000911). CL:0000911 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoimmunity-and-autoantibody-production" data-dismech-node="Autoimmunity and Autoantibody Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoimmunity and Autoantibody Production</div>
+
 
                 <div class="item-desc">A quarter of patients in the international cohort carried a diagnosed autoimmune disease and a majority tested positive for autoantibodies, with a plasma proteome shifted toward inflammation and immune response. This is the newest face of GPS and the reason the disorder is now framed as an immune as well as a haemostatic disease.</div>
 
@@ -7739,6 +7788,9 @@ This disease-associated gene is NBEAL2 (hgnc:31928). hgnc:31928 is a gene from t
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">

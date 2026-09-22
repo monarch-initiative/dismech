@@ -60,9 +60,9 @@ means giving it a fetcher and adding it to ``REFERENCE_CACHED_PREFIXES``.
 
 This deliberately replaces the old shared ``cache/dataset_accessions`` JSON
 blob, which every curation PR rewrote in full and which therefore collided
-between PRs. That file is frozen: nothing reads or writes it any more, and
+between PRs. That file is deleted: nothing reads or writes it any more, and
 ``test_no_automation_touches_the_frozen_dataset_cache`` keeps it that way. Do
-not edit it.
+not restore it.
 """
 
 from __future__ import annotations

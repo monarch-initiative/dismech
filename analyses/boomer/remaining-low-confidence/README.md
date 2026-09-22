@@ -124,6 +124,10 @@ mapping corrections instead.
 
 ## Other cases and next priorities
 
+Follow-up: [FOXE3 source review and controlled reruns](../foxe3/README.md)
+separate the ICD parent/child conflict from the gene-specific grounding question.
+The table below records the original triage.
+
 | Case | Score | Finding / next check |
 |---|---:|---|
 | [FOXE3 anterior segment dysgenesis](FOXE3_Anterior_Segment_Dysgenesis-alternatives.md) | 0.5 | ICD-11 child/parent pair. Separately, the FOXE3-specific dismech entry is grounded to a broad MONDO anterior-segment-dysgenesis family; review that scope as well. |

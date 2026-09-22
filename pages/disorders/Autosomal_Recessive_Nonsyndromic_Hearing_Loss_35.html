@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4650,6 +4689,13 @@ Two caveats are worth carrying. First, &#34;nonsyndromic&#34; may be doing more 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-esrrb-loss-of-function" data-dismech-node="ESRRB Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">ESRRB Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Biallelic ESRRB alleles that reduce or abolish the transcriptional output of ERR-beta. The reported spectrum is dominated by missense substitutions: of the coding variants described to date, all but one lie in the DNA-binding domain or the ligand-binding domain, split roughly evenly between them. Truncating alleles exist but are the minority - the seven base pair exon 8 duplication that defined the gene in the Turkish family, and a canonical donor splice variant that skips exon 4 and triggers nonsense-mediated decay. Because most alleles are missense, DFNB35 is better read as a graded loss of transcription factor activity than as a clean null.</div>
 
 
@@ -4865,6 +4911,13 @@ This pathophysiological event involves decreased ERR-beta nuclear receptor trans
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-err-beta-transcriptional-output-at-target-promoters" data-dismech-node="Reduced ERR-beta Transcriptional Output at Target Promoters" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced ERR-beta Transcriptional Output at Target Promoters</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The molecular consequence measured directly in patient material and in inner-ear derived cells. The recurrent p.Arg382Cys ligand-binding-domain substitution does not stop ERR-beta reaching the nucleus - subcellular fractionation and immunocytochemistry show wild-type-like nuclear localisation - but it destabilises the protein and abolishes its activity on a reporter promoter. Downstream, transcripts of ESRRB target genes fall by roughly half in patient-derived lymphoblastoid lines, including ATP1B1, which encodes the Na+/K+-ATPase beta-1 subunit that inner ear ion gradients depend on. The distinction matters mechanistically: this is a transcriptional output failure, not a trafficking failure.</div>
 
 
@@ -5036,6 +5089,13 @@ This pathophysiological event involves decreased regulation of transcription by 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-the-strial-marginal-cell-secretory-programme" data-dismech-node="Failure of the Strial Marginal Cell Secretory Programme" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of the Strial Marginal Cell Secretory Programme</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">ERR-beta is expressed specifically in the endolymph-producing cells of the inner ear - strial marginal cells in the cochlea, vestibular dark cells in the ampulla and utricle - and controls their development. Without it, these cells fail to express the panel of ion channel and transporter genes that makes them secretory, and they partially convert toward the identity of the adjacent Pendrin-expressing epithelium. This is a cell-fate defect, which is a different lesion from the transport defects that Jervell and Lange-Nielsen syndrome (KCNQ1, KCNE1) or Delpire-McNeill syndrome (SLC12A2) produce in the same cells: there the machinery is installed and broken, here it is not installed.</div>
 
@@ -5346,6 +5406,13 @@ This pathophysiological event occurs in stria vascularis of the cochlear duct, a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-endolymph-production-and-cochlear-lateral-wall-failure" data-dismech-node="Impaired Endolymph Production and Cochlear Lateral Wall Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Endolymph Production and Cochlear Lateral Wall Failure</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">The tissue-level consequence: an endolymph-secreting epithelium that cannot secrete. In the mosaic mouse the defect is not confined to the marginal cell layer - null marginal cells alter gene expression in the intermediate cells beneath them and the local strial capillary bed is lost, so the stria fails as a three-layer unit rather than as one cell type. Both the endocochlear potential and the endolymphatic potassium concentration depend on this epithelium, and lesions elsewhere in the same compartment are established causes of profound deafness. Graded PROVISIONAL because the endolymph and endocochlear potential consequences of ESRRB loss specifically have not been measured; what is measured is the loss of the machinery that produces them.</div>
 
 
@@ -5581,6 +5648,13 @@ This pathophysiological event occurs in endolymph (UBERON:0001852). UBERON:00018
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-esrrb-activity-in-secretory-stage-ameloblasts" data-dismech-node="Reduced ESRRB Activity in Secretory-Stage Ameloblasts" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced ESRRB Activity in Secretory-Stage Ameloblasts</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">A second, non-cochlear site of ESRRB action that complicates the &#34;nonsyndromic&#34; label. Esrrb protein is present in mouse ameloblasts during the secretory stage of amelogenesis, when enamel matrix is laid down, but not at the later maturation stage. The proposed consequence is enamel that is more susceptible to acid dissolution rather than a recognisable enamel dysplasia, which is consistent with the clinical picture being excess caries rather than amelogenesis imperfecta. This is curated as a modifier node, not as part of the hearing loss chain.</div>
 
 
@@ -5780,7 +5854,7 @@ This pathophysiological event involves decreased enamel matrix deposition during
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bilateral Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining and, so far, only consistently reported feature. Every DFNB35 patient described has sensorineural rather than conductive or mixed loss, which is what the lateral wall localisation of the lesion predicts.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0008619\"}}, {\"id\": \"Cochlear Implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The standard intervention for severe-to-profound sensorineural hearing loss, and the only one with any DFNB35-relevant outcome data. That data is thin and should not be overstated: in a study designed to find genetic causes of *poor* implant outcome, an ESRRB variant appeared among the matched controls with good outcomes rather than among the cases, alongside five other genes. A single ESRRB child also appears in a series of genetically characterised implant candidates undergoing vestibular testing. Neither study reports ESRRB-specific implant performance, and neither has a DFNB35 denominator.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"ESRRB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ESRRB\"], \"gene_terms\": [{\"label\": \"ESRRB\", \"id\": \"hgnc:3473\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 9}}, {\"id\": \"ESRRB Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ESRRB alleles that reduce or abolish the transcriptional output of ERR-beta. The reported spectrum is dominated by missense substitutions: of the coding variants described to date, all but one lie in the DNA-binding domain or the ligand-binding domain, split roughly evenly between them. Truncating alleles exist but are the minority - the seven base pair exon 8 duplication that defined the gene in the Turkish family, and a canonical donor splice variant that skips exon 4 and triggers nonsense-mediated decay. Because most alleles are missense, DFNB35 is better read as a graded loss of transcription factor activity than as a clean null.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"ERR-beta nuclear receptor transcription factor activity\"], \"genes\": [\"ESRRB\"], \"gene_terms\": [{\"label\": \"ESRRB\", \"id\": \"hgnc:3473\"}], \"role\": \"initiator\"}}, {\"id\": \"Failure of the Strial Marginal Cell Secretory Programme\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ERR-beta is expressed specifically in the endolymph-producing cells of the inner ear - strial marginal cells in the cochlea, vestibular dark cells in the ampulla and utricle - and controls their development. Without it, these cells fail to express the panel of ion channel and transporter genes that makes them secretory, and they partially convert toward the identity of the adjacent Pendrin-expressing epithelium. This is a cell-fate defect, which is a different lesion from the transport defects that Jervell and Lange-Nielsen syndrome (KCNQ1, KCNE1) or Delpire-McNeill syndrome (SLC12A2) produce in the same cells: there the machinery is installed and broken, here it is not installed.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"strial marginal cell\", \"vestibular dark cell\"], \"biological_processes\": [\"potassium ion transport into endolymph\", \"inner ear development\"], \"role\": \"central_effector\", \"locations\": [\"stria vascularis of the cochlear duct\"], \"animal_models\": [{\"name\": \"Nr3b2 (Esrrb) null mouse, including genetically mosaic animals\", \"species\": \"Mouse\", \"genotype\": \"Nr3b2(-/-); mosaic Nr3b2(-/-) inner ear epithelium\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The mouse defines this node rather than merely supporting it: loss of the secretory gene programme and partial fate conversion of strial marginal cells are the mouse results the human mechanism is read from.\"}]}}, {\"id\": \"Impaired Endolymph Production and Cochlear Lateral Wall Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tissue-level consequence: an endolymph-secreting epithelium that cannot secrete. In the mosaic mouse the defect is not confined to the marginal cell layer - null marginal cells alter gene expression in the intermediate cells beneath them and the local strial capillary bed is lost, so the stria fails as a three-layer unit rather than as one cell type. Both the endocochlear potential and the endolymphatic potassium concentration depend on this epithelium, and lesions elsewhere in the same compartment are established causes of profound deafness. Graded PROVISIONAL because the endolymph and endocochlear potential consequences of ESRRB loss specifically have not been measured; what is measured is the loss of the machinery that produces them.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"strial marginal cell\"], \"biological_processes\": [\"potassium ion homeostasis of endolymph\"], \"role\": \"amplifier\", \"locations\": [\"stria vascularis of the cochlear duct\", \"endolymph\"], \"animal_models\": [{\"name\": \"Nr3b2 (Esrrb) null mouse, including genetically mosaic animals\", \"species\": \"Mouse\", \"genotype\": \"Nr3b2(-/-); mosaic Nr3b2(-/-) inner ear epithelium\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The mouse shows the stria failing as a multilayer unit - marginal cell defect plus secondary intermediate cell changes plus capillary loss - which is the tissue-level claim. It does not show the fluid consequence.\"}]}}, {\"id\": \"Increased Dental Caries Experience\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The finding that makes \\\"nonsyndromic\\\" arguable. In the two DFNB35 families examined for it - the Turkish exon 8 duplication family and the Czech p.R291L family - dental destruction by caries was markedly more extensive in mutation carriers than in unaffected relatives. This is not classical syndromic deafness: there is no enamel dysplasia, no other organ system involved, and the observation rests on two families plus locus-level association data from unrelated caries cohorts.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000670\"}}, {\"id\": \"Nr3b2 (Esrrb) null mouse, including genetically mosaic animals\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The model that established what ERR-beta does in the inner ear. Because germline Nr3b2 loss is not compatible with normal development, the informative experiments are on the inner ear epithelium and on genetically mosaic animals in which null marginal cells sit beside wild-type ones - which is what makes the non-cell-autonomous effects on intermediate cells and capillaries interpretable.\"}, {\"id\": \"Reduced ERR-beta Transcriptional Output at Target Promoters\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The molecular consequence measured directly in patient material and in inner-ear derived cells. The recurrent p.Arg382Cys ligand-binding-domain substitution does not stop ERR-beta reaching the nucleus - subcellular fractionation and immunocytochemistry show wild-type-like nuclear localisation - but it destabilises the protein and abolishes its activity on a reporter promoter. Downstream, transcripts of ESRRB target genes fall by roughly half in patient-derived lymphoblastoid lines, including ATP1B1, which encodes the Na+/K+-ATPase beta-1 subunit that inner ear ion gradients depend on. The distinction matters mechanistically: this is a transcriptional output failure, not a trafficking failure.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"regulation of transcription by ERR-beta at target promoters\"], \"role\": \"amplifier\"}}, {\"id\": \"Reduced ESRRB Activity in Secretory-Stage Ameloblasts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second, non-cochlear site of ESRRB action that complicates the \\\"nonsyndromic\\\" label. Esrrb protein is present in mouse ameloblasts during the secretory stage of amelogenesis, when enamel matrix is laid down, but not at the later maturation stage. The proposed consequence is enamel that is more susceptible to acid dissolution rather than a recognisable enamel dysplasia, which is consistent with the clinical picture being excess caries rather than amelogenesis imperfecta. This is curated as a modifier node, not as part of the hearing loss chain.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"ameloblast\"], \"biological_processes\": [\"enamel matrix deposition during the secretory stage\"], \"role\": \"modifier\"}}, {\"id\": \"c.1018_1024dup (7 bp duplication in exon 8)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The allele that identified the gene, homozygous in a large consanguineous Turkish family. Frameshift with a premature stop codon.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"frameshift_variant\"}}, {\"id\": \"c.397+2T\u003eG\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Canonical donor splice-site variant found in trans with p.Arg382Cys in a Korean family. A minigene assay showed it skips exon 4, producing a premature stop codon and nonsense-mediated decay, confirmed by cycloheximide stabilisation of the transcript in patient cells.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"splice_donor_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"c.787+1G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Novel homozygous splicing donor-site variant in a consanguineous Pakistani family with prelingual nonsyndromic hearing loss.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"splice_donor_variant\"}}, {\"id\": \"p.A110V, p.L320P, p.V342L, p.L347P\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The four missense alleles found in the original DFNB35 family and in three DFNB35-linked consanguineous Pakistani families. p.A110V is in the DNA-binding domain; the other three are in the ligand-binding domain.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"missense_variant\"}}, {\"id\": \"p.Arg382Cys (c.1144C\u003eT)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A recurrent ligand-binding-domain missense allele, notable because it is common enough in East Asian populations (gnomAD East Asian allele frequency 0.007) to trigger the ACMG stand-alone benign criterion BA1, and was therefore classified as a variant of uncertain significance despite deleterious in silico predictions. Direct functional work later showed reduced protein stability, abolished reporter activity and lowered target gene expression, supporting reclassification.\", \"meta\": {\"evidence_count\": 2, \"variant_type\": \"missense_variant\", \"clinical_significance\": \"UNCERTAIN_SIGNIFICANCE\"}}, {\"id\": \"p.G167R (c.499G\u003eA)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Novel homozygous missense allele in exon 5, in the DNA-binding domain, segregating with hearing loss in a consanguineous Iranian family of Azeri Turkish ethnicity. Classified by ACMG/AMP criteria and in silico prediction rather than by a functional assay.\", \"meta\": {\"evidence_count\": 2, \"variant_type\": \"missense_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.R291L\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense allele in a consanguineous Czech family, and one of the two DFNB35 families in which dental caries was assessed.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"missense_variant\"}}, {\"id\": \"p.Tyr295Cys\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Novel missense allele reported in a Tunisian hearing-impairment panel study, independent of the earlier Tunisian p.Y305H family.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"missense_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Y305H\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Novel missense ligand-binding-domain allele in a Tunisian ARNSHL family.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"missense_variant\"}}], \"edges\": [{\"source\": \"ESRRB Loss of Function\", \"target\": \"Failure of the Strial Marginal Cell Secretory Programme\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ERR-beta is the transcription factor that installs and maintains the endolymph secretory programme in strial marginal cells, so reduced ERR-beta activity is read out directly as failure of that programme.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced ERR-beta Transcriptional Output at Target Promoters\", \"target\": \"Failure of the Strial Marginal Cell Secretory Programme\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lowered transcriptional output at ERR-beta target promoters is the molecular route by which the marginal cell secretory programme is not installed.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced transcription of the ion channel, transporter and ATPase genes that constitute the marginal cell secretory programme.\"]}, {\"source\": \"Failure of the Strial Marginal Cell Secretory Programme\", \"target\": \"Impaired Endolymph Production and Cochlear Lateral Wall Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The marginal cells are the endolymph-producing epithelium; a marginal cell that never acquires its transporter repertoire cannot secrete.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Endolymph Production and Cochlear Lateral Wall Failure\", \"target\": \"Bilateral Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A stria vascularis that does not develop is an established route to sensorineural deafness; the evidence for that step in DFNB35 comes from the compartment rather than from ESRRB itself.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Loss of the endocochlear potential and of the endolymphatic potassium gradient, on which hair cell mechanotransduction depends.\"]}, {\"source\": \"Reduced ESRRB Activity in Secretory-Stage Ameloblasts\", \"target\": \"Increased Dental Caries Experience\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proposed route is a softer, more acid-soluble enamel surface, but the human data are association and family observation rather than a demonstrated causal chain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cochlear Implantation\", \"target\": \"Bilateral Sensorineural Hearing Impairment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nr3b2 (Esrrb) null mouse, including genetically mosaic animals\", \"target\": \"Failure of the Strial Marginal Cell Secretory Programme\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mouse defines this node rather than merely supporting it: loss of the secretory gene programme and partial fate conversion of strial marginal cells are the mouse results the human mechanism is read from.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"A null allele, whereas most human DFNB35 alleles are missense and hypomorphic, so the mouse is the severe end of the human spectrum. The cached record reports cell fate, gene expression and vascular findings only; no quantitative auditory measurement - ABR threshold, DPOAE or endocochlear potential - is available from it, so this model cannot close the loop to hearing loss. A behavioural hearing and balance phenotype has been described for rescued and conditional-null Esrrb animals elsewhere in the literature; it is not quotable from the caches available here and is not what this link claims.\"}, {\"source\": \"Nr3b2 (Esrrb) null mouse, including genetically mosaic animals\", \"target\": \"Impaired Endolymph Production and Cochlear Lateral Wall Failure\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The mouse shows the stria failing as a multilayer unit - marginal cell defect plus secondary intermediate cell changes plus capillary loss - which is the tissue-level claim. It does not show the fluid consequence.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"PARTIALLY_RECAPITULATES because the structural and transcriptional halves of this node are demonstrated while the functional half is not: no endolymph volume, endolymphatic potassium concentration or endocochlear potential measurement is reported in the cached record, and no hearing threshold is reported either. The node\u0027s name asserts impaired endolymph production; the mouse establishes the loss of the apparatus that produces it.\"}, {\"source\": \"ESRRB\", \"target\": \"ESRRB Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.1018_1024dup (7 bp duplication in exon 8)\", \"target\": \"ESRRB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.A110V, p.L320P, p.V342L, p.L347P\", \"target\": \"ESRRB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Arg382Cys (c.1144C\u003eT)\", \"target\": \"ESRRB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.397+2T\u003eG\", \"target\": \"ESRRB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.R291L\", \"target\": \"ESRRB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Y305H\", \"target\": \"ESRRB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.G167R (c.499G\u003eA)\", \"target\": \"ESRRB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Tyr295Cys\", \"target\": \"ESRRB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.787+1G\u003eA\", \"target\": \"ESRRB\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bilateral Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining and, so far, only consistently reported feature. Every DFNB35 patient described has sensorineural rather than conductive or mixed loss, which is what the lateral wall localisation of the lesion predicts.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0008619\"}}, {\"id\": \"Cochlear Implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The standard intervention for severe-to-profound sensorineural hearing loss, and the only one with any DFNB35-relevant outcome data. That data is thin and should not be overstated: in a study designed to find genetic causes of *poor* implant outcome, an ESRRB variant appeared among the matched controls with good outcomes rather than among the cases, alongside five other genes. A single ESRRB child also appears in a series of genetically characterised implant candidates undergoing vestibular testing. Neither study reports ESRRB-specific implant performance, and neither has a DFNB35 denominator.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"ESRRB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ESRRB\"], \"gene_terms\": [{\"label\": \"ESRRB\", \"id\": \"hgnc:3473\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 9}}, {\"id\": \"ESRRB Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ESRRB alleles that reduce or abolish the transcriptional output of ERR-beta. The reported spectrum is dominated by missense substitutions: of the coding variants described to date, all but one lie in the DNA-binding domain or the ligand-binding domain, split roughly evenly between them. Truncating alleles exist but are the minority - the seven base pair exon 8 duplication that defined the gene in the Turkish family, and a canonical donor splice variant that skips exon 4 and triggers nonsense-mediated decay. Because most alleles are missense, DFNB35 is better read as a graded loss of transcription factor activity than as a clean null.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"ERR-beta nuclear receptor transcription factor activity\"], \"genes\": [\"ESRRB\"], \"gene_terms\": [{\"label\": \"ESRRB\", \"id\": \"hgnc:3473\"}], \"role\": \"initiator\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Failure of the Strial Marginal Cell Secretory Programme\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ERR-beta is expressed specifically in the endolymph-producing cells of the inner ear - strial marginal cells in the cochlea, vestibular dark cells in the ampulla and utricle - and controls their development. Without it, these cells fail to express the panel of ion channel and transporter genes that makes them secretory, and they partially convert toward the identity of the adjacent Pendrin-expressing epithelium. This is a cell-fate defect, which is a different lesion from the transport defects that Jervell and Lange-Nielsen syndrome (KCNQ1, KCNE1) or Delpire-McNeill syndrome (SLC12A2) produce in the same cells: there the machinery is installed and broken, here it is not installed.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"strial marginal cell\", \"vestibular dark cell\"], \"biological_processes\": [\"potassium ion transport into endolymph\", \"inner ear development\"], \"role\": \"central_effector\", \"locations\": [\"stria vascularis of the cochlear duct\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Nr3b2 (Esrrb) null mouse, including genetically mosaic animals\", \"species\": \"Mouse\", \"genotype\": \"Nr3b2(-/-); mosaic Nr3b2(-/-) inner ear epithelium\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The mouse defines this node rather than merely supporting it: loss of the secretory gene programme and partial fate conversion of strial marginal cells are the mouse results the human mechanism is read from.\"}]}}, {\"id\": \"Impaired Endolymph Production and Cochlear Lateral Wall Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tissue-level consequence: an endolymph-secreting epithelium that cannot secrete. In the mosaic mouse the defect is not confined to the marginal cell layer - null marginal cells alter gene expression in the intermediate cells beneath them and the local strial capillary bed is lost, so the stria fails as a three-layer unit rather than as one cell type. Both the endocochlear potential and the endolymphatic potassium concentration depend on this epithelium, and lesions elsewhere in the same compartment are established causes of profound deafness. Graded PROVISIONAL because the endolymph and endocochlear potential consequences of ESRRB loss specifically have not been measured; what is measured is the loss of the machinery that produces them.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"strial marginal cell\"], \"biological_processes\": [\"potassium ion homeostasis of endolymph\"], \"role\": \"amplifier\", \"locations\": [\"stria vascularis of the cochlear duct\", \"endolymph\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Nr3b2 (Esrrb) null mouse, including genetically mosaic animals\", \"species\": \"Mouse\", \"genotype\": \"Nr3b2(-/-); mosaic Nr3b2(-/-) inner ear epithelium\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The mouse shows the stria failing as a multilayer unit - marginal cell defect plus secondary intermediate cell changes plus capillary loss - which is the tissue-level claim. It does not show the fluid consequence.\"}]}}, {\"id\": \"Increased Dental Caries Experience\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The finding that makes \\\"nonsyndromic\\\" arguable. In the two DFNB35 families examined for it - the Turkish exon 8 duplication family and the Czech p.R291L family - dental destruction by caries was markedly more extensive in mutation carriers than in unaffected relatives. This is not classical syndromic deafness: there is no enamel dysplasia, no other organ system involved, and the observation rests on two families plus locus-level association data from unrelated caries cohorts.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000670\"}}, {\"id\": \"Nr3b2 (Esrrb) null mouse, including genetically mosaic animals\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The model that established what ERR-beta does in the inner ear. Because germline Nr3b2 loss is not compatible with normal development, the informative experiments are on the inner ear epithelium and on genetically mosaic animals in which null marginal cells sit beside wild-type ones - which is what makes the non-cell-autonomous effects on intermediate cells and capillaries interpretable.\"}, {\"id\": \"Reduced ERR-beta Transcriptional Output at Target Promoters\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The molecular consequence measured directly in patient material and in inner-ear derived cells. The recurrent p.Arg382Cys ligand-binding-domain substitution does not stop ERR-beta reaching the nucleus - subcellular fractionation and immunocytochemistry show wild-type-like nuclear localisation - but it destabilises the protein and abolishes its activity on a reporter promoter. Downstream, transcripts of ESRRB target genes fall by roughly half in patient-derived lymphoblastoid lines, including ATP1B1, which encodes the Na+/K+-ATPase beta-1 subunit that inner ear ion gradients depend on. The distinction matters mechanistically: this is a transcriptional output failure, not a trafficking failure.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"regulation of transcription by ERR-beta at target promoters\"], \"role\": \"amplifier\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Reduced ESRRB Activity in Secretory-Stage Ameloblasts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second, non-cochlear site of ESRRB action that complicates the \\\"nonsyndromic\\\" label. Esrrb protein is present in mouse ameloblasts during the secretory stage of amelogenesis, when enamel matrix is laid down, but not at the later maturation stage. The proposed consequence is enamel that is more susceptible to acid dissolution rather than a recognisable enamel dysplasia, which is consistent with the clinical picture being excess caries rather than amelogenesis imperfecta. This is curated as a modifier node, not as part of the hearing loss chain.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"ameloblast\"], \"biological_processes\": [\"enamel matrix deposition during the secretory stage\"], \"role\": \"modifier\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"c.1018_1024dup (7 bp duplication in exon 8)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The allele that identified the gene, homozygous in a large consanguineous Turkish family. Frameshift with a premature stop codon.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"frameshift_variant\"}}, {\"id\": \"c.397+2T\u003eG\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Canonical donor splice-site variant found in trans with p.Arg382Cys in a Korean family. A minigene assay showed it skips exon 4, producing a premature stop codon and nonsense-mediated decay, confirmed by cycloheximide stabilisation of the transcript in patient cells.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"splice_donor_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"c.787+1G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Novel homozygous splicing donor-site variant in a consanguineous Pakistani family with prelingual nonsyndromic hearing loss.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"splice_donor_variant\"}}, {\"id\": \"p.A110V, p.L320P, p.V342L, p.L347P\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The four missense alleles found in the original DFNB35 family and in three DFNB35-linked consanguineous Pakistani families. p.A110V is in the DNA-binding domain; the other three are in the ligand-binding domain.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"missense_variant\"}}, {\"id\": \"p.Arg382Cys (c.1144C\u003eT)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A recurrent ligand-binding-domain missense allele, notable because it is common enough in East Asian populations (gnomAD East Asian allele frequency 0.007) to trigger the ACMG stand-alone benign criterion BA1, and was therefore classified as a variant of uncertain significance despite deleterious in silico predictions. Direct functional work later showed reduced protein stability, abolished reporter activity and lowered target gene expression, supporting reclassification.\", \"meta\": {\"evidence_count\": 2, \"variant_type\": \"missense_variant\", \"clinical_significance\": \"UNCERTAIN_SIGNIFICANCE\"}}, {\"id\": \"p.G167R (c.499G\u003eA)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Novel homozygous missense allele in exon 5, in the DNA-binding domain, segregating with hearing loss in a consanguineous Iranian family of Azeri Turkish ethnicity. Classified by ACMG/AMP criteria and in silico prediction rather than by a functional assay.\", \"meta\": {\"evidence_count\": 2, \"variant_type\": \"missense_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.R291L\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense allele in a consanguineous Czech family, and one of the two DFNB35 families in which dental caries was assessed.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"missense_variant\"}}, {\"id\": \"p.Tyr295Cys\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Novel missense allele reported in a Tunisian hearing-impairment panel study, independent of the earlier Tunisian p.Y305H family.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"missense_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Y305H\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Novel missense ligand-binding-domain allele in a Tunisian ARNSHL family.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"missense_variant\"}}], \"edges\": [{\"source\": \"ESRRB Loss of Function\", \"target\": \"Failure of the Strial Marginal Cell Secretory Programme\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ERR-beta is the transcription factor that installs and maintains the endolymph secretory programme in strial marginal cells, so reduced ERR-beta activity is read out directly as failure of that programme.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced ERR-beta Transcriptional Output at Target Promoters\", \"target\": \"Failure of the Strial Marginal Cell Secretory Programme\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lowered transcriptional output at ERR-beta target promoters is the molecular route by which the marginal cell secretory programme is not installed.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced transcription of the ion channel, transporter and ATPase genes that constitute the marginal cell secretory programme.\"]}, {\"source\": \"Failure of the Strial Marginal Cell Secretory Programme\", \"target\": \"Impaired Endolymph Production and Cochlear Lateral Wall Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The marginal cells are the endolymph-producing epithelium; a marginal cell that never acquires its transporter repertoire cannot secrete.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Endolymph Production and Cochlear Lateral Wall Failure\", \"target\": \"Bilateral Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A stria vascularis that does not develop is an established route to sensorineural deafness; the evidence for that step in DFNB35 comes from the compartment rather than from ESRRB itself.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Loss of the endocochlear potential and of the endolymphatic potassium gradient, on which hair cell mechanotransduction depends.\"]}, {\"source\": \"Reduced ESRRB Activity in Secretory-Stage Ameloblasts\", \"target\": \"Increased Dental Caries Experience\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proposed route is a softer, more acid-soluble enamel surface, but the human data are association and family observation rather than a demonstrated causal chain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cochlear Implantation\", \"target\": \"Bilateral Sensorineural Hearing Impairment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nr3b2 (Esrrb) null mouse, including genetically mosaic animals\", \"target\": \"Failure of the Strial Marginal Cell Secretory Programme\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mouse defines this node rather than merely supporting it: loss of the secretory gene programme and partial fate conversion of strial marginal cells are the mouse results the human mechanism is read from.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"A null allele, whereas most human DFNB35 alleles are missense and hypomorphic, so the mouse is the severe end of the human spectrum. The cached record reports cell fate, gene expression and vascular findings only; no quantitative auditory measurement - ABR threshold, DPOAE or endocochlear potential - is available from it, so this model cannot close the loop to hearing loss. A behavioural hearing and balance phenotype has been described for rescued and conditional-null Esrrb animals elsewhere in the literature; it is not quotable from the caches available here and is not what this link claims.\"}, {\"source\": \"Nr3b2 (Esrrb) null mouse, including genetically mosaic animals\", \"target\": \"Impaired Endolymph Production and Cochlear Lateral Wall Failure\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The mouse shows the stria failing as a multilayer unit - marginal cell defect plus secondary intermediate cell changes plus capillary loss - which is the tissue-level claim. It does not show the fluid consequence.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"PARTIALLY_RECAPITULATES because the structural and transcriptional halves of this node are demonstrated while the functional half is not: no endolymph volume, endolymphatic potassium concentration or endocochlear potential measurement is reported in the cached record, and no hearing threshold is reported either. The node\u0027s name asserts impaired endolymph production; the mouse establishes the loss of the apparatus that produces it.\"}, {\"source\": \"ESRRB\", \"target\": \"ESRRB Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.1018_1024dup (7 bp duplication in exon 8)\", \"target\": \"ESRRB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.A110V, p.L320P, p.V342L, p.L347P\", \"target\": \"ESRRB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Arg382Cys (c.1144C\u003eT)\", \"target\": \"ESRRB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.397+2T\u003eG\", \"target\": \"ESRRB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.R291L\", \"target\": \"ESRRB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Y305H\", \"target\": \"ESRRB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.G167R (c.499G\u003eA)\", \"target\": \"ESRRB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Tyr295Cys\", \"target\": \"ESRRB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.787+1G\u003eA\", \"target\": \"ESRRB\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6480,6 +6554,9 @@ This disease-associated gene is ESRRB (hgnc:3473). hgnc:3473 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6530,7 +6607,9 @@ This disease-associated gene is ESRRB (hgnc:3473). hgnc:3473 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift variant</span>
@@ -6538,6 +6617,11 @@ This disease-associated gene is ESRRB (hgnc:3473). hgnc:3473 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The allele that identified the gene, homozygous in a large consanguineous Turkish family. Frameshift with a premature stop codon.</div>
@@ -6600,7 +6684,9 @@ This disease-associated gene is ESRRB (hgnc:3473). hgnc:3473 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
@@ -6608,6 +6694,11 @@ This disease-associated gene is ESRRB (hgnc:3473). hgnc:3473 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The four missense alleles found in the original DFNB35 family and in three DFNB35-linked consanguineous Pakistani families. p.A110V is in the DNA-binding domain; the other three are in the ligand-binding domain.</div>
@@ -6672,7 +6763,9 @@ This disease-associated gene is ESRRB (hgnc:3473). hgnc:3473 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
@@ -6680,6 +6773,11 @@ This disease-associated gene is ESRRB (hgnc:3473). hgnc:3473 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A recurrent ligand-binding-domain missense allele, notable because it is common enough in East Asian populations (gnomAD East Asian allele frequency 0.007) to trigger the ACMG stand-alone benign criterion BA1, and was therefore classified as a variant of uncertain significance despite deleterious in silico predictions. Direct functional work later showed reduced protein stability, abolished reporter activity and lowered target gene expression, supporting reclassification.</div>
@@ -6771,7 +6869,9 @@ This disease-associated gene is ESRRB (hgnc:3473). hgnc:3473 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">splice donor variant</span>
@@ -6779,6 +6879,11 @@ This disease-associated gene is ESRRB (hgnc:3473). hgnc:3473 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Canonical donor splice-site variant found in trans with p.Arg382Cys in a Korean family. A minigene assay showed it skips exon 4, producing a premature stop codon and nonsense-mediated decay, confirmed by cycloheximide stabilisation of the transcript in patient cells.</div>
@@ -6841,7 +6946,9 @@ This disease-associated gene is ESRRB (hgnc:3473). hgnc:3473 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
@@ -6849,6 +6956,11 @@ This disease-associated gene is ESRRB (hgnc:3473). hgnc:3473 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous missense allele in a consanguineous Czech family, and one of the two DFNB35 families in which dental caries was assessed.</div>
@@ -6911,7 +7023,9 @@ This disease-associated gene is ESRRB (hgnc:3473). hgnc:3473 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
@@ -6919,6 +7033,11 @@ This disease-associated gene is ESRRB (hgnc:3473). hgnc:3473 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Novel missense ligand-binding-domain allele in a Tunisian ARNSHL family.</div>
@@ -6983,7 +7102,9 @@ This disease-associated gene is ESRRB (hgnc:3473). hgnc:3473 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
@@ -6991,6 +7112,11 @@ This disease-associated gene is ESRRB (hgnc:3473). hgnc:3473 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Novel homozygous missense allele in exon 5, in the DNA-binding domain, segregating with hearing loss in a consanguineous Iranian family of Azeri Turkish ethnicity. Classified by ACMG/AMP criteria and in silico prediction rather than by a functional assay.</div>
@@ -7082,7 +7208,9 @@ This disease-associated gene is ESRRB (hgnc:3473). hgnc:3473 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
@@ -7090,6 +7218,11 @@ This disease-associated gene is ESRRB (hgnc:3473). hgnc:3473 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Novel missense allele reported in a Tunisian hearing-impairment panel study, independent of the earlier Tunisian p.Y305H family.</div>
@@ -7152,7 +7285,9 @@ This disease-associated gene is ESRRB (hgnc:3473). hgnc:3473 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">splice donor variant</span>
@@ -7160,6 +7295,11 @@ This disease-associated gene is ESRRB (hgnc:3473). hgnc:3473 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Novel homozygous splicing donor-site variant in a consanguineous Pakistani family with prelingual nonsyndromic hearing loss.</div>

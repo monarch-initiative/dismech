@@ -261,11 +261,27 @@ def _fetch_modern_pmc_html(self, pmcid, config):
     """
     import requests
 
-    time.sleep(config.rate_limit_delay)
-    response = requests.get(_pmc_html_url(pmcid), timeout=30)
-    if response.status_code != 200:
-        return None
-    soup = BeautifulSoup(response.content, "html.parser")
+    canonical_url = _pmc_html_url(pmcid)
+    # Some public articles return a browser-check page for the default view
+    # while PMC's PDF-render view still serves the complete article HTML.
+    # Both representations must pass the same body-content checks.
+    for url in (canonical_url, canonical_url + "?pdf=render"):
+        time.sleep(config.rate_limit_delay)
+        try:
+            response = requests.get(url, timeout=30)
+        except requests.RequestException as exc:
+            logger.warning("PMC HTML unavailable at %s: %s", url, exc)
+            continue
+        if response.status_code == 200:
+            text = _extract_modern_pmc_html(response.content)
+            if text:
+                return text
+    return None
+
+
+def _extract_modern_pmc_html(data):
+    """Extract substantive article text from either public PMC representation."""
+    soup = BeautifulSoup(data, "html.parser")
     article = (
         soup.select_one(".main-article-body")
         or soup.find("article")
@@ -446,6 +462,52 @@ def _wrap_jstage_pdf_title(original):
             if title:
                 content.title = title
         return content
+
+    return wrapper
+
+
+def _wrap_url_fetch(original):
+    """Cache HTML evidence without executable code or page configuration.
+
+    URLSource returns raw HTML rather than using HTMLExtractor. Page scripts
+    and data attributes can contain incidental credentials (including signed
+    download URLs) unrelated to the reference text. Retain body markup and
+    table structure, but remove code, comments and other attributes before the
+    fetcher writes the generated cache. Plain text, XML and extracted PDFs are
+    unchanged. This is source extraction, not a browser visibility test.
+    """
+
+    @wraps(original)
+    def wrapper(self, *args, **kwargs):
+        result = original(self, *args, **kwargs)
+        if result is None or result.content_type != "url" or not result.content:
+            return result
+        content = result.content
+        if content.lstrip().startswith("<?xml"):
+            return result
+        soup = BeautifulSoup(content, "html.parser")
+        if soup.find("html") is None and not re.search(
+            r"<!doctype\s+html\b", content, re.IGNORECASE
+        ):
+            return result
+        from bs4 import Comment
+
+        for tag in soup(["script", "style", "noscript", "template"]):
+            tag.decompose()
+        for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
+            comment.extract()
+        for tag in soup.find_all(True):
+            structural = {}
+            if tag.name in {"td", "th"}:
+                for attribute in ("rowspan", "colspan"):
+                    value = tag.get(attribute)
+                    if value is not None and str(value).isdigit():
+                        structural[attribute] = value
+                if tag.get("scope") in {"row", "col", "rowgroup", "colgroup"}:
+                    structural["scope"] = tag["scope"]
+            tag.attrs = structural
+        result.content = str(soup)
+        return result
 
     return wrapper
 
@@ -771,6 +833,11 @@ def apply_patch():
         URLSource.fetch = _wrap_jstage_pdf_title(URLSource.fetch)
         URLSource._jstage_pdf_title_patch_applied = True  # type: ignore[attr-defined]
         logger.debug("Applied J-STAGE PDF title metadata patch to URLSource")
+
+    if not getattr(URLSource, "_html_page_code_patch_applied", False):
+        URLSource.fetch = _wrap_url_fetch(URLSource.fetch)
+        URLSource._html_page_code_patch_applied = True
+        logger.debug("Applied URL HTML page-code removal patch")
 
     if not getattr(ReferenceFetcher, "_clinicaltrials_cache_patch_applied", False):
         original_get_cache_path = ReferenceFetcher.get_cache_path

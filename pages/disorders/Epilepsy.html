@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4693,6 +4732,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-hyperexcitability" data-dismech-node="Neuronal Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Hyperexcitability</div>
 
+
                 <div class="item-desc">Imbalance between excitatory (glutamate) and inhibitory (GABA) neurotransmission leads to synchronized, excessive neuronal firing. Ion channel dysfunction is a common mechanism.
 </div>
 
@@ -4817,6 +4857,7 @@ This pathophysiological event involves Synaptic Transmission, annotated with che
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-blood-brain-barrier-disruption" data-dismech-node="Blood-Brain Barrier Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Blood-Brain Barrier Disruption</div>
+
 
                 <div class="item-desc">Loss of tight junction proteins (claudin-5) in brain endothelial cells leads to blood-brain barrier breakdown, allowing albumin extravasation and disruption of ionic homeostasis.
 </div>
@@ -5015,6 +5056,7 @@ This pathophysiological event involves Blood-Brain Barrier Maintenance, annotate
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-network-hyperexcitability" data-dismech-node="Network Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Network Hyperexcitability</div>
 
+
                 <div class="item-desc">Abnormal synchronization of neuronal networks that can recruit adjacent or distant brain regions, leading to seizure propagation.
 </div>
 
@@ -5075,6 +5117,7 @@ This pathophysiological event involves Neuronal Activity, annotated with transmi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroinflammation-and-gliosis" data-dismech-node="Neuroinflammation and Gliosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuroinflammation and Gliosis</div>
+
 
                 <div class="item-desc">Activation of microglia and reactive astrocytes following brain injury or during seizures, releasing inflammatory mediators and undergoing morphological changes that alter the brain microenvironment.
 </div>
@@ -5231,6 +5274,7 @@ This pathophysiological event involves Neuroinflammatory Response (GO:0150076). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lipoxygenase-mediated-lipid-peroxidation-and-eicosanoid-signaling" data-dismech-node="Lipoxygenase-Mediated Lipid Peroxidation and Eicosanoid Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Lipoxygenase-Mediated Lipid Peroxidation and Eicosanoid Signaling</div>
+
 
                 <div class="item-desc">Lipoxygenase (LOX) enzymes, particularly 5-LOX and 12/15-LOX, catalyze the generation of bioactive lipid metabolites (eicosanoids including leukotrienes and lipoxins) from arachidonic acid. LOX-mediated lipid peroxidation contributes to oxidative stress and pro-inflammatory signaling, with dysregulation of LOX activity contributing to blood-brain barrier disruption, glial cell activation, cytokine release, immune cell infiltration, and neuronal hyperexcitability. These eicosanoid mediators propagate neuroinflammatory cascades that promote seizure susceptibility and drug-resistant epilepsy.
 </div>
@@ -5563,6 +5607,7 @@ This pathophysiological event involves Oxidative Stress, annotated with response
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondria-associated-endoplasmic-reticulum-membrane-dysfunction" data-dismech-node="Mitochondria-Associated Endoplasmic Reticulum Membrane Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondria-Associated Endoplasmic Reticulum Membrane Dysfunction</div>
 
+
                 <div class="item-desc">Mitochondria-associated endoplasmic reticulum membranes (MAMs) are specialized inter-organellar contact sites that regulate calcium signaling, lipid metabolism, mitochondrial dynamics, autophagy, and oxidative stress responses. A 2026 review consolidating molecular and genetic evidence identifies MAMs as a critical hub in epilepsy and proposes that dysregulation of the processes they regulate may contribute to seizure initiation and progression, with particular relevance to drug-resistant epilepsy. The specific route from MAM dysfunction to a pro-epileptic state is proposed rather than established: the cited source does not report calcium-sequestration defects, ion-channel gating changes, or lipid-peroxidation measurements in epileptic tissue.
 </div>
 
@@ -5854,6 +5899,7 @@ This pathophysiological event involves dysregulated Oxidative Stress Response, a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-complement-system-mediated-microglial-neuroinflammation" data-dismech-node="Complement System-Mediated Microglial Neuroinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Complement System-Mediated Microglial Neuroinflammation</div>
 
+
                 <div class="item-desc">Complement cascade activation contributes to microglial-mediated neuroinflammation and synaptic remodeling in epilepsy. Accumulating preclinical evidence indicates that abnormal complement activation contributes to epileptogenesis as a potential driver rather than merely an epiphenomenon of neuroinflammation, promoting aberrant synaptic remodeling and progressive neuronal dysfunction underlying seizure susceptibility.
 </div>
 
@@ -6058,6 +6104,7 @@ This pathophysiological event involves increased Complement Activation (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-synaptic-reorganization" data-dismech-node="Synaptic Reorganization" data-dismech-type="pathophysiology">
                 <div class="item-name">Synaptic Reorganization</div>
 
+
                 <div class="item-desc">Aberrant sprouting, formation of new synaptic connections, and altered synaptic plasticity that promote recurrent excitatory circuits and seizure susceptibility.
 </div>
 
@@ -6118,6 +6165,7 @@ This pathophysiological event involves Synaptic Plasticity, annotated with regul
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mtor-pathway-hyperactivation" data-dismech-node="mTOR Pathway Hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">mTOR Pathway Hyperactivation</div>
+
 
                 <div class="item-desc">Constitutive activation of the mechanistic target of rapamycin (mTOR) signaling pathway, driving abnormal neuronal growth and development of dysmorphic neurons in focal cortical malformations.
 </div>
@@ -6255,6 +6303,7 @@ This pathophysiological event involves mTOR Signaling, annotated with TOR signal
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysmorphic-neuron-generation" data-dismech-node="Dysmorphic Neuron Generation" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysmorphic Neuron Generation</div>
 
+
                 <div class="item-desc">Formation of abnormally enlarged neurons with cytoskeletal disruption and cellular senescence markers, creating epileptogenic foci in cortical malformations.
 </div>
 
@@ -6341,6 +6390,7 @@ This pathophysiological event involves mTOR Signaling, annotated with TOR signal
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-syngap1-haploinsufficiency" data-dismech-node="SYNGAP1 Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">SYNGAP1 Haploinsufficiency</div>
+
 
                 <div class="item-desc">Heterozygous loss-of-function variants in SYNGAP1 cause haploinsufficiency of the postsynaptic Ras GTPase-activating protein SynGAP, the proximal molecular lesion in SYNGAP1-related disorder.
 </div>
@@ -6525,6 +6575,7 @@ This pathophysiological event involves Glutamate receptor signaling pathway (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ras-rap-erk-signaling-dysregulation" data-dismech-node="Ras/Rap-ERK Signaling Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Ras/Rap-ERK Signaling Dysregulation</div>
 
+
                 <div class="item-desc">SynGAP normally inactivates Ras and Rap at the postsynaptic density; its loss produces excessive Ras/Rap-ERK signaling that perturbs downstream synaptic structural and functional plasticity.
 </div>
 
@@ -6690,6 +6741,7 @@ This pathophysiological event involves increased Ras/Rap-ERK signaling, annotate
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accelerated-dendritic-spine-maturation" data-dismech-node="Accelerated Dendritic Spine Maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Accelerated Dendritic Spine Maturation</div>
 
+
                 <div class="item-desc">Loss of SynGAP-mediated regulation drives premature structural maturation of dendritic spines on cortical pyramidal neurons, locking spines into mature morphologies earlier than the normal developmental timetable.
 </div>
 
@@ -6839,6 +6891,7 @@ This pathophysiological event involves increased Dendritic spine maturation, ann
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ampa-receptor-trafficking-disruption" data-dismech-node="AMPA Receptor Trafficking Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">AMPA Receptor Trafficking Disruption</div>
 
+
                 <div class="item-desc">SynGAP loss alters the trafficking of AMPA-type glutamate receptors to and from the postsynaptic membrane, perturbing excitatory synaptic transmission strength and plasticity.
 </div>
 
@@ -6983,6 +7036,7 @@ This pathophysiological event involves AMPA receptor trafficking, annotated with
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-postsynaptic-density-destabilization" data-dismech-node="Postsynaptic Density Destabilization" data-dismech-type="pathophysiology">
                 <div class="item-name">Postsynaptic Density Destabilization</div>
+
 
                 <div class="item-desc">SynGAP is a major scaffold component of the postsynaptic density; its haploinsufficiency destabilizes postsynaptic density architecture and scaffolding integrity at excitatory synapses.
 </div>
@@ -7133,6 +7187,7 @@ This pathophysiological event involves decreased Postsynaptic density assembly (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-circuit-hard-wiring" data-dismech-node="Cortical Circuit Hard-Wiring" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Circuit Hard-Wiring</div>
 
+
                 <div class="item-desc">Premature spine maturation, altered AMPA receptor trafficking, and PSD destabilization converge to lock cortical circuits into early, rigid connectivity patterns, with abnormal oscillatory dynamics and impaired synaptic plasticity at the network level.
 </div>
 
@@ -7281,6 +7336,7 @@ This pathophysiological event involves decreased Regulation of synaptic plastici
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gabaergic-interneuron-dysfunction" data-dismech-node="GABAergic Interneuron Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">GABAergic Interneuron Dysfunction</div>
+
 
                 <div class="item-desc">SYNGAP1 is expressed in GABAergic inhibitory interneurons as well as glutamatergic pyramidal neurons. Haploinsufficiency in medial ganglionic eminence-derived parvalbumin and somatostatin interneurons impairs inhibitory circuit development and produces abnormal cortical oscillatory dynamics, reducing effective inhibitory tone and contributing to the excitatory/inhibitory imbalance that drives network hyperexcitability in SRD.
 </div>
@@ -7455,6 +7511,7 @@ This pathophysiological event involves decreased GABAergic synaptic transmission
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-complement-system-activation-and-dysregulation" data-dismech-node="Complement System Activation and Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Complement System Activation and Dysregulation</div>
+
 
                 <div class="item-desc">Aberrant activation of the complement cascade (C1q, C3, C5) leads to dysregulated complement-mediated signaling, driving both neuroinflammation and synaptic remodeling that directly contribute to seizure development and disease progression. Complement dysregulation is not merely an epiphenomenon of neuroinflammation but a potential driver of epileptogenesis.
 </div>
@@ -7672,6 +7729,7 @@ This pathophysiological event involves Regulation of Complement Activation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-post-traumatic-transcriptomic-dysregulation" data-dismech-node="Post-Traumatic Transcriptomic Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Post-Traumatic Transcriptomic Dysregulation</div>
+
 
                 <div class="item-desc">Traumatic brain injury (TBI) induces transcriptomic changes that create a pathological continuum toward post-traumatic epilepsy (PTE). Shared molecular signatures between TBI and PTE include dysregulation of immediate-early genes and MAPK signaling components, reflecting a common pathological trajectory from acute brain injury to chronic epileptogenesis. DUSP1 and EGR1 emerge as hub genes linking TBI and PTE, functioning at the intersection of neuroprotective and epileptogenic processes.
 </div>
@@ -7949,6 +8007,7 @@ This pathophysiological event involves MAPK Signaling, annotated with MAPK casca
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dusp1-mediated-mapk-negative-regulation" data-dismech-node="DUSP1-Mediated MAPK Negative Regulation" data-dismech-type="pathophysiology">
                 <div class="item-name">DUSP1-Mediated MAPK Negative Regulation</div>
 
+
                 <div class="item-desc">Dual-specificity phosphatase 1 (DUSP1) functions as a negative regulator of mitogen-activated protein kinase (MAPK) signaling through dephosphorylation of phosphorylated MAPK substrates. Following TBI, DUSP1 expression is significantly elevated, promoting neuroprotection by attenuating excessive MAPK pathway activation. DUSP1-mediated MAPK suppression reduces pro-inflammatory cytokine production, inhibits microglial and astrocytic activation, and mitigates secondary neuronal injury, thereby limiting the pathological cascade that contributes to post-traumatic epileptogenesis.
 </div>
 
@@ -8217,6 +8276,7 @@ This pathophysiological event involves decreased Inflammatory Response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-egr1-mediated-neuroplasticity-and-network-remodeling" data-dismech-node="EGR1-Mediated Neuroplasticity and Network Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">EGR1-Mediated Neuroplasticity and Network Remodeling</div>
+
 
                 <div class="item-desc">Early growth response 1 (EGR1) is an immediate-early transcription factor that plays dual roles in post-traumatic brain pathophysiology. Following TBI, EGR1 expression is rapidly induced and promotes neuroprotection by regulating neurotrophic factor expression supporting neuronal survival, repair, and circuit reconstruction. However, excessive or sustained EGR1 activation also contributes to maladaptive synaptic reorganization, promoting neuronal hyperexcitability and epileptogenic network remodeling. This dual role positions EGR1 at the critical juncture between post-traumatic recovery and epileptogenesis, where dysregulation can shift the balance toward pathological outcomes.
 </div>
@@ -10784,6 +10844,9 @@ This disease-associated gene is SCN1A (hgnc:10585). hgnc:10585 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -10904,6 +10967,9 @@ This disease-associated gene is SCN2A (hgnc:10588). hgnc:10588 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10995,6 +11061,9 @@ This disease-associated gene is KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -11092,6 +11161,9 @@ This disease-associated gene is KCNQ3 (hgnc:6297). hgnc:6297 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11181,6 +11253,9 @@ This disease-associated gene is EFHC1 (hgnc:16406). hgnc:16406 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -11278,6 +11353,9 @@ This disease-associated gene is SLC6A1 (hgnc:11042). hgnc:11042 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11344,6 +11422,9 @@ This disease-associated gene is SYNGAP1 (hgnc:11497). hgnc:11497 is a gene from 
 
 
                 </div>
+
+
+
 
 
 
@@ -11439,6 +11520,9 @@ This disease-associated gene is GABRA1 (hgnc:4075). hgnc:4075 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -11561,6 +11645,9 @@ This disease-associated gene is CDKL5 (hgnc:11411). hgnc:11411 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11627,6 +11714,9 @@ This disease-associated gene is DEPDC5 (hgnc:18423). hgnc:18423 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -11728,6 +11818,9 @@ This disease-associated gene is GABRD (hgnc:4084). hgnc:4084 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11796,6 +11889,9 @@ This disease-associated gene is GABRG2 (hgnc:4087). hgnc:4087 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -11872,6 +11968,9 @@ This disease-associated gene is KPNA7 (hgnc:21839). hgnc:21839 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11940,6 +12039,9 @@ This disease-associated gene is PRIMA1 (hgnc:18319). hgnc:18319 is a gene from t
 
 
                 </div>
+
+
+
 
 
 

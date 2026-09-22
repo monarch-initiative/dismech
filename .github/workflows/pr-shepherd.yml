@@ -297,6 +297,11 @@ jobs:
           fi
           uv run --no-project python scripts/pr_shepherd_policy.py "${args[@]}"
 
+      - name: Set up latest Claude Code
+        id: setup-claude-code
+        if: ${{ steps.pr-candidates.outputs.pr_numbers != '' }}
+        uses: ./.github/actions/setup-claude-code
+
       - name: Run PR Shepherd
         id: pr-shepherd
         if: ${{ steps.pr-candidates.outputs.pr_numbers != '' }}
@@ -312,6 +317,7 @@ jobs:
           LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
           LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
         with:
+          path_to_claude_code_executable: ${{ steps.setup-claude-code.outputs.executable }}
           # Auth: prefer ANTHROPIC_API_KEY (pay-per-use, no weekly subscription
           # cap); fall back to the OAuth token only when no API key is set. The
           # conditional keeps exactly one non-empty, so the action never has to
@@ -345,7 +351,7 @@ jobs:
             DRY_RUN: ${{ inputs.dry_run || false }}
 
             You are the automated PR Shepherd for the dismech repository. Your job is to tend
-            stuck bot-authored pull requests and move at most MAX_PRS of them forward in this run.
+            stuck unassigned pull requests by any author and move at most MAX_PRS forward in this run.
             You own recovery of eligible abandoned PRs, including Python, tests, scripts,
             schemas, workflows, documentation, and curation. A code change or an old comment
             calling it "outside curation scope" is not a reason to leave a PR abandoned.
@@ -368,16 +374,19 @@ jobs:
             If a reference cache entry is needed, regenerate it with `just fetch-reference <ID>`.
 
             Candidate PRs:
-            - The deterministic policy step has already normalized GitHub App login variants
-              (`app/<slug>`, `<slug>[bot]`, and `<slug>`), verified Bot identity where
-              applicable, excluded assigned/claimed PRs, and selected CANDIDATE_PRS.
+            - The deterministic policy step has selected open PRs targeting main with heads in
+              this repository (`isCrossRepository == false`), excluded assigned PRs and separately
+              managed automation branches, and selected CANDIDATE_PRS. Fork heads and missing or
+              unknown head-repository metadata are ineligible.
+              Author identity does not affect eligibility: human and bot authors are treated alike.
             - CANDIDATE_PRS is a bounded shortlist of at most 3 × MAX_PRS, ranked as:
               oldest changes requested, conflicts, approved red or blocked branches, then review
               gaps. Approved PRs are omitted when merge-state and check-rollup inspection shows
               the deterministic merge job owns them. That job does not require a branch to
               contain current main; approved clean PRs need no freshness-only update.
             - Inspect and act only on PR numbers in CANDIDATE_PRS. If SPECIFIC_PR was supplied,
-              it appears there only when it passed the same bot-author policy.
+              it appears there only when it passed the same assignment, head-repository, and
+              lifecycle guards.
             - Draft state is metadata, not an exclusion, priority, or hold signal. Treat a draft
               exactly like any other open PR while tending review feedback or branch state.
             - Separately managed automation PRs whose heads start with `auto/` have already
@@ -389,7 +398,8 @@ jobs:
 
             Gather enough context for each candidate before choosing:
             - PR metadata: author, draft state, base/head refs, head SHA, updated/created time,
-              reviewDecision, mergeStateStatus, statusCheckRollup, and labels.
+              isCrossRepository, assignees, reviewDecision, mergeStateStatus, statusCheckRollup,
+              and labels.
             - The current main SHA and PR head SHA. If a branch update is needed to resolve a
               blocker, determine freshness with GitHub's exact commit comparison
               (`repos/$REPO/compare/$MAIN_SHA...$HEAD_SHA`): the head contains main only when
@@ -397,7 +407,9 @@ jobs:
               metadata but is NOT an ancestry signal. Being behind alone is not a blocker.
             - Reviews and review comments, especially the latest review state per reviewer.
             - Recent workflow/check status, including cancelled Claude review runs.
-            - Existing discussion so you do not repeat an action already taken.
+            - Recent activity and existing discussion so you do not repeat an action already
+              taken or duplicate an ongoing repair. Inspect the actual activity; do not impose
+              a fixed PR-age cutoff or treat human authorship as evidence of active ownership.
 
             Classify each candidate into one of these states:
             - APPROVED + CLEAN: latest reviewDecision is APPROVED, the branch is mergeable, and
@@ -423,6 +435,9 @@ jobs:
             shortlist until the budget is used or every candidate has been investigated.
 
             Repair scope and validation:
+            - Before checking out a PR branch or executing its code, re-read its metadata and
+              require `isCrossRepository == false`. If it is true, missing, or unknown, skip
+              the PR; do not check out or execute its code.
             - Address review feedback and reproducible CI failures in the files the repair
               requires, including Python under src/, scripts/, and tests/. Keep the change
               tied to the PR's intended behavior and the diagnosed failure; inspect callers
@@ -435,9 +450,11 @@ jobs:
               the PR. Never use a blanket ours/theirs resolution for generated directories,
               drop either side's unique cache entries, or replace a whole cache from main.
               Regenerate reference and term caches only through their supported commands.
-              Never read, write, edit, or stage the frozen dataset-accession JSON cache.
+              Never read, recreate, or restore the retired dataset-accession JSON cache.
+              If an old PR carries it, keep its deletion without reading or merging its contents.
             - Before any push, verify the remote head and assignment again. If the head moved,
               stop that push and re-inspect; never overwrite another contributor's work.
+              Reconfirm `isCrossRepository == false`; stop if that cannot be established.
               Review the final diff against main for unrelated deletions or stale reversions.
               Bundle the review fixes, necessary conflict repair, and validation in one push.
 
@@ -494,10 +511,11 @@ jobs:
             - Never merge a PR, enable auto-merge, approve a review, or mark a draft ready.
               Those transitions belong to deterministic policy or a human maintainer.
             - Never force-push, rebase, reset, or rewrite PR history.
-            - Never modify human-authored PRs.
+            - Author identity never excludes a PR from repair. Human and bot-authored PRs follow
+              the same assignment, lifecycle, validation, and history-preservation rules.
             - Never modify a PR that is assigned when you inspect it; assignment is the
-              repository's explicit human-claim/hold signal even if it was unassigned when
-              the shortlist was built.
+              deterministic active-work hold even if it was unassigned when the shortlist was
+              built. For unassigned PRs, assess ongoing work from recent activity and discussion.
             - Never create duplicate scanner work or assign `dragon-ai-agent` just to trigger work.
             - If you are unsure about a biological, clinical, ontology, or evidence fix, ask for
               clarification on the PR instead of guessing.
@@ -511,8 +529,8 @@ jobs:
             - If you scan candidates but find nothing actionable, do NOT post comments.
               Instead, print your summary to stdout so it can be captured in GITHUB_STEP_SUMMARY.
             - For every skipped candidate, name the concrete unresolved blocker, investigation
-              performed, and next action needed. File type, old age, or "outside curation scope"
-              alone are never adequate reasons to skip.
+              performed, and next action needed. File type, author identity, old age, or
+              "outside curation scope" alone are never adequate reasons to skip.
 
             End by posting or logging a concise summary of candidates scanned, selected PRs, actions
             taken, validation run, and any blockers that remain.

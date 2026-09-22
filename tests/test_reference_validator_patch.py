@@ -11,6 +11,64 @@ from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
 from linkml_reference_validator.models import ReferenceValidationConfig
 
 
+def test_url_html_fetch_removes_page_configuration_but_keeps_evidence(monkeypatch):
+    from bs4 import BeautifulSoup
+    from linkml_reference_validator.etl.acquire import ContentAcquirer
+    from linkml_reference_validator.etl.sources.url import URLSource
+
+    from dismech.patch_reference_validator import apply_patch
+
+    apply_patch()
+    page = b"""<!doctype html><html><head><title>Clinical guideline</title>
+    <script>window.configuration = 'script-only-value';</script>
+    <style>.private { content: 'style-only-value'; }</style></head>
+    <body><!-- comment-only-value -->
+    <div data-page='{"token":"attribute-only-value"}'>
+    <p>For <abbr title="abbreviation-only-value">AVSD</abbr>, PVR &lt;5.</p>
+    <table><tr><th rowspan="2" scope="rowgroup">Outcome</th>
+    <td colspan="2">2 of 3</td></tr><tr><td>A</td><td>B</td></tr></table>
+    <a href="https://example.org/?token=link-only-value">Study source</a>
+    <template>template-only-value</template>
+    </div></body></html>"""
+    monkeypatch.setattr(
+        ContentAcquirer, "fetch_bytes", lambda *_: (page, "text/html; charset=utf-8")
+    )
+    result = URLSource().fetch(
+        "https://example.org/guideline", ReferenceValidationConfig()
+    )
+    assert result.title == "Clinical guideline"
+    assert result.reference_id == "url:https://example.org/guideline"
+    assert result.content_type == "url"
+    assert "only-value" not in result.content
+    soup = BeautifulSoup(result.content, "html.parser")
+    assert soup.p.get_text() == "For AVSD, PVR <5."
+    assert soup.th.get_text() == "Outcome"
+    assert soup.th.attrs == {"rowspan": "2", "scope": "rowgroup"}
+    assert soup.td.get_text() == "2 of 3"
+    assert soup.td.attrs == {"colspan": "2"}
+    assert soup.a.get_text() == "Study source"
+
+
+@pytest.mark.parametrize(
+    "content, content_type",
+    [
+        ("Plain text including <5 and >10", "url"),
+        ('<?xml version="1.0"?><body id="preserved">XML content</body>', "url"),
+        ('<article><body id="preserved"><p>JATS content</p></body></article>', "url"),
+        ("Extracted PDF text with <html> quoted literally", "full_text_pdf"),
+    ],
+)
+def test_url_page_code_removal_preserves_non_html_sources(content, content_type):
+    from types import SimpleNamespace
+
+    from dismech.patch_reference_validator import _wrap_url_fetch
+
+    reference = SimpleNamespace(content=content, content_type=content_type)
+    wrapped = _wrap_url_fetch(lambda *_: reference)
+    assert wrapped(None) is reference
+    assert reference.content == content
+
+
 def test_pmid_network_methods_are_actually_wrapped():
     """The network-resilience patch must find something to wrap.
 
